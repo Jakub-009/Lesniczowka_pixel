@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.3.0 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.5.0 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -18,15 +18,16 @@ Potem `http://localhost:8000/`. Nie otwieraj `index.html` dwuklikiem (`file://`)
 
 ## Na czym polega gra
 - **Gospodarka leśna:** wyznaczasz drzewa do wycinki (od 25 lat), wysyłasz ekipę. Pilarz ścina drzewo (upada w stronę lasu), tnie je na kłody, zostaje pniak i gałęzie.
-- **Transport drewna:** ciągnik zrywkowy sam przyjeżdża, wyciągarką ściąga kłody na przyczepę i wozi je na składnicę. Ciężarówka odbiera drewno ze składnicy i płaci (sama przyjeżdża przy 16 m³ albo na żądanie — K).
+- **Transport drewna:** ciągnik zrywkowy (albo forwarder) sam przyjeżdża, ściąga kłody i układa je w **stosach przy najbliższej drodze**. Ciągnik siodłowy z wózkiem do dłużycy i żurawiem HDS objeżdża stosy i płaci według ceny rynkowej (sam przyjeżdża przy 16 m³ albo na żądanie — K).
 - **Odnowienie:** sadzisz sadzonki (narzędzie 3 albo przycisk na karcie pniaka). Rosną widocznie z porami roku. Pniaki bez odnowienia obniżają stan lasu.
-- **Interwencje:** quady i crossy na drogach leśnych, śmieci po grzybiarzach, dym latem. Wysyłasz patrol — leśniczy wsiada do terenówki i jedzie sam.
+- **Interwencje:** quady i crossy, śmieci, dym latem i wypalanie traw wiosną, nocni intruzi (kłusownik, złodziej drewna ze stosu, zimą złodziej choinek), paśniki do uzupełnienia. Wysyłasz patrol — leśniczy (albo podleśniczy) wsiada do terenówki i jedzie sam.
+- **Leśniczówka (L):** kancelaria z petentami, kadry, szkółka, garaż z magazynem, sprzęt, koło łowieckie, paśniki.
 - **Trzy wskaźniki:** budżet, stan lasu (pokrycie koronami, odnowienie, śmieci, szkody), ochrona terenu (zgłoszenia obsłużone i zostawione).
-- **Plan na sezon** z nadleśnictwa: drewno na składnicę, sadzonki, zgłoszenia → premia.
+- **Plan na sezon** z nadleśnictwa: drewno zerwane do dróg, sadzonki, zgłoszenia → premia 2000 zł.
 
 ## Życie w lesie
-Sarny, jelenie (byk z łaniami), dziki z warchlakami, lisy, wataha wilków (płoszy sarny i jelenie), zające, ptaki.
-Grzybiarze (koniec lata i jesień) przyjeżdżają autem i chodzą z koszykami, spacerowicze z psami, rowerzyści, myśliwy wieczorem na ambonie, ruch na szosie.
+Sarny, jelenie (byk z łaniami), dziki z warchlakami, lisy, wataha wilków (płoszy sarny i jelenie), zające, ptaki. Na ekranie widać tylko część zwierzyny — jej liczba idzie za populacją w obwodzie.
+Zbieracze jagód (lato) i grzybiarze (jesień) przyjeżdżają autem i chodzą z wiaderkami i koszykami, spacerowicze z psami, rowerzyści, myśliwy wieczorem na ambonie, ruch na szosie.
 Leśniczy chodzi po podwórzu z jamnikiem. Zwierzęta uciekają przed ludźmi i pojazdami; auta hamują przed zwierzyną.
 Pory roku zmieniają las (jesienne kolory, bezlistne drzewa i śnieg zimą), jest dzień i noc z reflektorami.
 
@@ -39,6 +40,8 @@ Pory roku zmieniają las (jesienne kolory, bezlistne drzewa i śnieg zimą), jes
 | Przeciągnij lewym (w narzędziach 2–4) | zaznacz obszar: drzewa do wycinki, rzędy sadzonek, powierzchnię odnowieniową |
 | Prawy przycisk | przesuwanie mapy (w podglądzie także lewy) |
 | E | wyślij ekipę |
+| L | Leśniczówka: kadry, budynki, sprzęt, koło łowieckie, paśniki (także klik w dom) |
+| N | przewijanie nocy wł./wył. |
 | K | zamów wywóz drewna |
 | Q | patrol do najstarszego zgłoszenia |
 | F | kamera śledzi wybrany obiekt |
@@ -64,9 +67,11 @@ Gra zapisuje się sama co 30 s (localStorage).
 | `src/life/agents.js` | pojazdy, piesi ze scenariuszem, zwierzyna | z `life.js` + `tow.js` farmy |
 | `src/life/sprites.js` | wygląd pojazdów, ludzi, zwierząt | część z `life.js` farmy |
 | `src/life/populate.js` | zwierzęta w grupach, goście w lesie | nowe |
-| `src/jobs.js` | ekipa, zrywka (szlaki, forwarder), składnica, wywóz | nowe |
+| `src/jobs.js` | ekipy A i B, zrywka (szlaki, forwarder), stosy przy drogach, wywóz z HDS | nowe |
+| `src/base.js` | Leśniczówka: kancelaria i petenci, szkółka, garaż, kadry | nowe (0.5) |
+| `src/life/fauna.js` | populacje, rozród, wilki, plan łowiecki, paśniki, zgryzanie, rykowisko | nowe (0.5) |
 | `src/renew.js` | powierzchnie odnowieniowe, pług LPz, sadzenie w rzędach | nowe |
-| `src/incidents.js` | zgłoszenia, patrol, leśniczy | nowe |
+| `src/incidents.js` | zgłoszenia, jednostki patrolu (leśniczy, podleśniczy), intruzi | nowe |
 | `src/economy.js` | wskaźniki, plan na sezon | nowe |
 | `src/render.js` | kolejność warstw, noc, znaczniki | wzorzec z farmy |
 | `src/ui.js`, `src/input.js` | HUD, mysz i klawiatura | nowe |
@@ -81,16 +86,22 @@ Gra zapisuje się sama co 30 s (localStorage).
 ## Rozkład dnia
 | Kto | Kiedy |
 |---|---|
-| Grzybiarze | koniec lata i jesień, od świtu do południa (wracają do 15:00) |
+| Zbieracze jagód | lato, oddz. 101 i 104 |
+| Grzybiarze | jesień (i ostatni dzień lata), od świtu do południa (wracają do 15:00) |
+| Petenci w kancelarii | pon.–pt. 8–15 |
+| Odbiór opału | pon.–sob. 9–16, ciągnik z przyczepą pod stos |
 | Spacerowicze, rowerzyści | 9–18 / 9–19, w weekend częściej |
 | Ruch na szosie | szczyt rano i po południu, w nocy prawie pusto |
-| Myśliwy | wieczorem na ambonie do ok. 22:30, czasem strzał płoszy zwierzynę |
+| Myśliwy (koło łowieckie) | wieczorem na ambonie (bez wiosny); strzela według planu łowieckiego, zabiera zwierzynę |
+| Rykowisko | jesień, o zmierzchu i świcie |
 | Sarny, jelenie, lisy, zające | w dzień leżą w ostojach, o zmierzchu i nocą żerują (część saren także w dzień) |
 | Dziki, wilki | nocą |
 | Leśniczy | w dzień na podwórzu, nocą śpi — wstaje na pilne zgłoszenie |
 | Quad / cross | głównie weekendowe popołudnia |
-| Dym | suche letnie dni |
-| Kłusownik | nocą: samochód bez świateł, zakłada wnyki; niezłapany zostawia wnyki, które ktoś później znajdzie |
+| Dym | suche letnie dni; wiosną wypalanie traw przy szosie i polanie |
+| Kłusownik | nocą (bez zimy): samochód bez świateł, zakłada wnyki |
+| Złodziej drewna | nocą przy stosie przy drodze, ładuje przyczepkę |
+| Złodziej choinek | zimą o zmierzchu, wycina młode sosny i świerki |
 
 ## Zmiany w 0.3 „Zrąb i odnowienie”
 - **Jazda pojazdów:** pojazd goni punkt przed sobą na pasie ruchu i skręca jak prawdziwy (ograniczony skręt kół) — koniec przesuwania bokiem i obracania w miejscu; zakręty łukiem, zawracanie pętlą, zjazd na pobocze przy parkowaniu.
@@ -109,3 +120,17 @@ Gra zapisuje się sama co 30 s (localStorage).
 
 ## Dalej (pomysły)
 Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, grodzenie nowych upraw, zwierzyna zgryzająca sadzonki poza grodzeniem, więcej oddziałów i większa mapa, ambony do postawienia, edukacja leśna (ścieżka przyrodnicza).
+
+## Zmiany w 0.5 „Rok w lesie” (0.4 + 0.5 razem)
+- **Koleiny i bruzdy blakną:** ślady forwardera, ciągnika i pługa leżą na osobnej warstwie, która co dzień blednie o ok. 12% — po kilkunastu dniach znikają. Zapis pamięta ich wiek.
+- **Budżet naprawdę ogranicza:** codzienne koszty (utrzymanie 300 zł + pensje i sprzęt), droższa ścinka (110 zł/drzewo) i zrywka (40 zł/m³), zlecenia wymagają pieniędzy w kasie. Cena drewna zmienia się co porę roku (zimą drożej, latem taniej). Debet powyżej 8 000 zł — nadleśnictwo zwalnia dodatkowe osoby.
+- **Dwie ekipy:** ekipa B (260 zł/dzień, panel L). Zlecenie dzieli się na skupiska do 10 zadań i trafia do mniej obciążonej ekipy.
+- **Stosy przy drogach zamiast składnicy:** zrywka układa drewno na poboczu najbliższej drogi leśnej; ciągnik siodłowy z wózkiem do dłużycy i żurawiem HDS objeżdża stosy. Kliknij stos, żeby zobaczyć ilość i wartość. Dawna składnica to teraz baza maszyn.
+- **Pory roku:** grzybiarze tylko jesienią, latem zbieracze jagód, zimą paśniki i złodzieje choinek, jesienią rykowisko, wiosną okres lęgowy w oddz. 103 (wycinka czeka do lata) i wypalanie traw. Zimą ekipa nie sadzi (zadania czekają do wiosny).
+- **Zwierzyna:** mniej zwierząt na ekranie, populacje w obwodzie z rozrodem wiosną, wilkami (gatunek chroniony), stratami zimą zależnymi od dokarmiania.
+- **Koło łowieckie:** plan odstrzału na rok (od wiosny), myśliwy naprawdę strzela (nigdy do lochy z warchlakami) i zabiera zwierzynę; wniosek o odstrzał redukcyjny przy dużej presji.
+- **Zgryzanie i grodzenie:** sarny i jelenie zgryzają niegrodzone sadzonki z nasadzeń (część ginie). Powierzchnię można ogrodzić siatką (karta powierzchni, 7 zł/m).
+- **Ciężarówka** wygląda jak ciągnik siodłowy do dłużycy: kabina, żuraw HDS za kabiną, kłonice, długie kłody od ciągnika do wózka.
+- **Szersza rozstawa** sadzonek w rzędach (ok. 1,3 m), orka 3 zł/m.
+- **Leśniczówka jako baza (L lub klik w dom):** kancelaria (petenci kupują drewno opałowe ze stosów, zezwolenia, sadzonki, zgłaszają śmieci — ktoś musi być w domu), szkółka (5 000 zł, ok. 400 sadzonek na sezon, 1 zł/szt., lepiej się przyjmują), garaż z magazynem (4 500 zł: druga terenówka, tańsza karma), podleśniczy (220 zł/dzień: drugi patrol i dyżur w kancelarii), forwarder (18 000 zł), stan koła łowieckiego i paśników.
+- Zapis z 0.3 wczytuje się (składnica zamienia się w stos przy drodze B).
