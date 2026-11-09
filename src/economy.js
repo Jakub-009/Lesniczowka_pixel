@@ -21,8 +21,8 @@ export function planProgress(kind,n){const P=ECO.plan;if(!P)return;
  if(!P.rewarded&&P.doneCut>=P.cut&&P.donePlant>=P.plant&&P.doneHandle>=P.handle){P.rewarded=true;earn(P.reward,'premia za plan');toast('Plan na '+SEASONS[P.season]+' wykonany! Premia z nadleśnictwa: '+zl(P.reward)+'.')}}
 // Koniec pory roku: podsumowanie, skok wzrostu lasu, nowy plan.
 function endSeason(){
- const P=ECO.plan,S=ECO.st,grown=seasonGrow(YEARS_PER_SEASON);
- const rep={season:P.season,year:P.year,plan:P,st:S,grown,years:YEARS_PER_SEASON,health:state.health,protect:state.protect,money:state.money,unrenewed:ECO.unrenewed,next:cal.season()};
+ const P=ECO.plan,S=ECO.st,G=seasonGrow(YEARS_PER_SEASON),grown=G.grown;
+ const rep={season:P.season,year:P.year,plan:P,st:S,grown,years:YEARS_PER_SEASON,health:state.health,protect:state.protect,money:state.money,unrenewed:ECO.unrenewed,next:cal.season(),died:G.died,young:G.young};
  // ocena nadleśniczego
  const score=(P.rewarded?2:0)+(state.health>=S.health0-1?1:-1)+(state.protect>=S.protect0?1:-1)+(S.ignored===0?1:-1)+(ECO.unrenewed<6?1:-1);
  rep.verdict=score>=5?'Wzorowo prowadzone leśnictwo. Nadleśniczy jest zadowolony.':score>=3?'Dobra robota, choć jest jeszcze co poprawiać.':score>=1?'Poprawnie, ale nadleśnictwo oczekuje więcej.':'Nadleśniczy ma zastrzeżenia: las i teren wymagają więcej uwagi.';

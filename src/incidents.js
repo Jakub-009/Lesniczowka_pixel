@@ -64,7 +64,7 @@ const yardIdle=[
  r=>[{go:[540,300]},{wait:4+rand()*6,pose:'stand',face:[640,300]}]
 ];
 export function initPatrol(){
- P.car=new Vehicle('patrol',{from:'l1',to:'yd',s:CAR_EDGE.len-2});P.car.final=true;P.car.stopS=P.car.s;P.car.arrived=true;P.car.parked=true;P.car.laneX=0;P.car.label='terenówka (w leśniczówce)';
+ P.car=new Vehicle('patrol',{from:'l1',to:'yd',s:CAR_EDGE.len-2}).parkHere();P.car.label='terenówka (w leśniczówce)';
  P.ranger=new Ped({kind:'lesniczy',x:DOOR[0],y:DOOR[1]+12,speed:16,nav:'foot'});P.ranger.label='leśniczy (Ty)';P.ranger.onIdle=rangerIdle;
  P.dog=new Wild({kind:'dog',x:340,y:330,seed:4242,nav:'yard',group:new Group(340,330,3,{fixed:true}),follow:P.ranger,leash:70,col:'#3a2e26',col2:'#9a6a3a',flee:0,idleMin:1,idleVar:3});
  P.dog.name='Brzoza (jamnik leśniczego)';

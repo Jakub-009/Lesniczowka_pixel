@@ -63,13 +63,13 @@ export function generate(){
 // Wczytanie stanu lasu z zapisu (zamiast wygenerowanego).
 export function loadTrees(arr){
  trees.length=0;for(const b of buckets)b.length=0;
- for(const [x,y,sp,age,st,marked,stumpR,stumpAge,slash,burnt,uprawa,seed] of arr){
-  const t=addTree(x,y,sp,age,{st,marked:!!marked,stumpR,stumpAge,burnt:!!burnt,uprawa:!!uprawa});if(seed)t.seed=seed;
+ for(const [x,y,sp,age,st,marked,stumpR,stumpAge,slash,burnt,uprawa,seed,flags] of arr){
+  const t=addTree(x,y,sp,age,{st,marked:!!marked,stumpR,stumpAge,burnt:!!burnt,uprawa:!!uprawa,planted:!!(flags&1),prep:!!(flags&2)});if(seed)t.seed=seed;
   if(slash)t.slash={x:slash[0],y:slash[1],a:slash[2]};
  }
  dirtyAll();
 }
-export function serializeTrees(){return trees.map(t=>[+t.x.toFixed(1),+t.y.toFixed(1),t.sp,+t.age.toFixed(2),t.st===STUMP||t.lying?1:0,t.marked||t.assigned?1:0,t.stumpR||(t.lying?clamp(t.lying.r*.2,3,8):0),+(t.stumpAge||0).toFixed(1),t.slash?[Math.round(t.slash.x),Math.round(t.slash.y),+t.slash.a.toFixed(2)]:0,t.burnt?1:0,t.uprawa?1:0,t.seed])}
+export function serializeTrees(){return trees.map(t=>[+t.x.toFixed(1),+t.y.toFixed(1),t.sp,+t.age.toFixed(2),t.st===STUMP||t.lying?1:0,t.marked||t.assigned?1:0,t.stumpR||(t.lying?clamp(t.lying.r*.2,3,8):0),+(t.stumpAge||0).toFixed(1),t.slash?[Math.round(t.slash.x),Math.round(t.slash.y),+t.slash.a.toFixed(2)]:0,t.burnt?1:0,t.uprawa?1:0,t.seed,(t.planted?1:0)|(t.prep?2:0)])}
 // ── indeks przestrzenny (kubełki 128 px) ──
 const BK=128,BW=Math.ceil(WORLD.w/BK)+1,BH=Math.ceil(WORLD.h/BK)+1,buckets=Array.from({length:BW*BH},()=>[]);
 function bucketAdd(t){buckets[clamp(Math.floor(t.y/BK),0,BH-1)*BW+clamp(Math.floor(t.x/BK),0,BW-1)].push(t)}
@@ -233,13 +233,15 @@ function paintSlash(g,t){
 
 // ── wzrost i stan ──
 // Las rośnie skokowo, przy zmianie pory roku (czas lasu). Zwraca, ile sadzonek przeszło w młode drzewka.
+// Udatność: część świeżo posadzonych sadzonek nie przyjmuje się — bez przygotowania gleby dużo więcej (sucha ściółka, chwasty).
 export function seasonGrow(years){
- let grown=0;
- for(const t of trees){
+ let grown=0,died=0,young=0;
+ for(const t of trees.slice()){
   if(t.st===STUMP){t.stumpAge=(t.stumpAge||0)+years;continue}
+  if(t.planted&&t.age<4){young++;if(hash(t.seed,Math.floor(t.age*10),91)<(t.prep?.05:.25)){removeTree(t);died++;continue}}
   const was=t.age<SAPLING_AGE;t.age+=years;if(was&&t.age>=SAPLING_AGE)grown++;t.rI=Math.round(crownR(t));
  }
- dirtyAll();return grown;
+ dirtyAll();return{grown,died,young};
 }
 export function testGrow(years){for(const t of trees)if(t.st===STAND&&t.age<60){t.age+=years;t.rI=Math.round(crownR(t));dirtyTree(t)}}
 // Wycinka: start (korona znika z warstwy), upadek (rysowany dynamicznie), leżące drzewo, wyrzynka (pień + gałęzie).
@@ -249,7 +251,8 @@ export function finishTree(t){
  const L=t.lying;t.slash={x:t.x+Math.cos(L.dir)*L.L*.85,y:t.y+Math.sin(L.dir)*L.L*.85,a:L.dir};
  t.stumpR=clamp(L.r*.2,3,8);t.st=STUMP;t.stumpAge=0;t.lying=null;dirtyTree(t);
 }
-export function plantTree(x,y,sp){const t=addTree(x,y,sp,1);dirtyTree(t);return t}
+export function plantTree(x,y,sp,prep=false){const t=addTree(x,y,sp,1,{planted:true,prep});dirtyTree(t);return t}
+export function removeTree(t){const i=trees.indexOf(t);if(i>=0)trees.splice(i,1);for(const b of buckets){const k=b.indexOf(t);if(k>=0){b.splice(k,1);break}}dirtyTree(t)}
 export function speciesFor(x,y){const st=STANDS[oddzial(x,y)];let best=null,b=0;for(const k in st.mix)if(st.mix[k]>b){b=st.mix[k];best=k}return best}
 // Pokrycie (suma powierzchni koron) do wskaźnika „Stan lasu”.
 export function coverSum(){let s=0;for(const t of trees)if(t.st===STAND&&!t.falling&&!t.lying){const r=crownR(t);s+=r*r}return s}

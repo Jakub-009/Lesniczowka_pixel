@@ -2,7 +2,7 @@
 // Wzorzec: klasy Walker / Person / Wild z life.js farmy, uogólnione — bez pojazdu gracza.
 import {clamp,angDiff,hash,ctx,camera,VIEW,cal} from '../core.js';
 import {NODES} from '../map.js';
-import {neighbours,edgeOf,planRoute,offMap} from '../roads.js';
+import {neighbours,edgeOf,planRoute,offMap,nearestRoad} from '../roads.js';
 import {obb,collide} from '../geometry.js';
 import {E,NAV,nearestThreat} from '../ents.js';
 import * as S from './sprites.js';
@@ -12,7 +12,8 @@ let seedN=1;const rnd=()=>hash(seedN++,77,5);
 export const rand=rnd;
 
 // ───────── holowanie (model przyczepy jednoosiowej z tow.js farmy) ─────────
-const CARTS={forest:{hw:13,hh:30,tongue:14,axle:.4},log:{hw:13,hh:40,tongue:14,axle:.5}};
+// forest = przyczepa ciągnika, log = naczepa ciężarówki, plow = pług leśny LPz, bunk = tylna rama forwardera (przegub)
+const CARTS={forest:{hw:13,hh:30,tongue:14,axle:.4},log:{hw:13,hh:40,tongue:14,axle:.5},plow:{hw:13,hh:11,tongue:12,axle:.1},bunk:{hw:15,hh:26,tongue:5,axle:.25}};
 const fwd=a=>[Math.sin(a),-Math.cos(a)];
 function advanceCart(c,hx,hy,vehAngle){
  const d=CARTS[c.kind];if(c.hx==null){c.hx=hx;c.hy=hy;return}
@@ -22,57 +23,137 @@ function advanceCart(c,hx,hy,vehAngle){
  c.angle=a;const f=fwd(a),L=d.tongue+d.hh;c.x=hx-f[0]*L;c.y=hy-f[1]*L;
 }
 function alignCart(c,hx,hy,angle){const d=CARTS[c.kind],f=fwd(angle),L=d.tongue+d.hh;c.angle=angle;c.x=hx-f[0]*L;c.y=hy-f[1]*L;c.hx=hx;c.hy=hy}
+export const cartRear=c=>{const d=CARTS[c.kind],f=fwd(c.angle);return[c.x-f[0]*d.hh,c.y-f[1]*d.hh]};
+export const cartFront=c=>{const d=CARTS[c.kind],f=fwd(c.angle);return[c.x+f[0]*d.hh,c.y+f[1]*d.hh]};
 
 // ───────── pojazdy ─────────
-// prędkości w px/s (12 px = 1 m); forest = mnożnik na drodze leśnej (tłuczeń), acc = przyspieszenie
+// prędkości w px/s (12 px = 1 m); forest = mnożnik na drodze leśnej, off = prędkość w terenie, wb = rozstaw osi (promień skrętu)
 export const VSPEC={
- car:{speed:100,forest:.55,acc:38,hw:10,hh:23,name:'samochód osobowy'},
- patrol:{speed:104,forest:.62,acc:42,hw:11,hh:25,name:'terenówka leśniczego',allow:['main','forest','drive']},
- van:{speed:88,forest:.6,acc:32,hw:11,hh:27,name:'bus ekipy leśnej'},
- tractor:{speed:42,forest:.9,acc:14,hw:16,hh:30,hitch:31,cart:'forest',name:'ciągnik zrywkowy'},
- truck:{speed:82,forest:.55,acc:20,hw:14,hh:37,hitch:34,cart:'log',name:'ciężarówka do drewna'},
- quad:{speed:70,forest:1,acc:40,hw:7,hh:11,wild:true,name:'quad'},
- cross:{speed:80,forest:1,acc:45,hw:3,hh:11,wild:true,name:'motocykl crossowy'},
- bike:{speed:28,forest:.9,acc:14,hw:3,hh:9,rider:true,name:'rowerzysta'}
+ car:{speed:100,forest:.55,acc:38,hw:10,hh:23,wb:30,name:'samochód osobowy'},
+ patrol:{speed:104,forest:.62,acc:42,hw:11,hh:25,wb:32,name:'terenówka leśniczego',allow:['main','forest','drive']},
+ van:{speed:88,forest:.6,acc:32,hw:11,hh:27,wb:34,name:'bus ekipy leśnej'},
+ tractor:{speed:42,forest:.9,off:20,acc:14,hw:16,hh:30,wb:30,hitch:31,cart:'forest',name:'ciągnik z wyciągarką'},
+ forwarder:{speed:48,forest:.9,off:30,acc:16,hw:15,hh:19,wb:22,hitch:21,cart:'bunk',name:'forwarder (zrywka)'},
+ plower:{speed:40,forest:.9,off:16,acc:14,hw:16,hh:30,wb:30,hitch:31,cart:'plow',name:'ciągnik z pługiem LPz'},
+ truck:{speed:82,forest:.55,acc:20,hw:14,hh:37,wb:44,hitch:34,cart:'log',name:'ciężarówka do drewna'},
+ quad:{speed:70,forest:1,acc:40,hw:7,hh:11,wb:16,wild:true,name:'quad'},
+ cross:{speed:80,forest:1,acc:45,hw:3,hh:11,wb:16,wild:true,name:'motocykl crossowy'},
+ bike:{speed:28,forest:.9,acc:14,hw:3,hh:9,wb:14,rider:true,name:'rowerzysta'}
 };
-const TURN=3;
+// Jazda (0.3): pojazd goni „marchewkę” — punkt przesuwający się po pasie ruchu (albo po ścieżce w terenie) —
+// i skręta jak prawdziwy pojazd (model rowerowy, skręt kół ograniczony). Nie przesuwa się bokiem i nie obraca w miejscu.
+const MAXSTEER=.72;
 export class Vehicle{
  constructor(kind,o={}){
   this.kind=kind;this.spec=VSPEC[kind];this.allow=o.allow||this.spec.allow||['main','forest'];
   Object.assign(this,{color:o.color||'#8c9b95',v:0,laneX:0,travel:0,dwell:0,steer:0,route:null,final:false,stopS:null,park:false,parked:false,arrived:false,
-   leave:false,dead:false,roam:o.roam||null,despawn:o.despawn??true,blockT:0,ghost:false,load:0,cap:o.cap||8,label:o.label||null,speedMul:1,stopped:false,passengers:[]});
-  this.setEdge(o.from,o.to);this.s=o.s||0;this.heading=this.dirH;this.place();
-  if(this.spec.cart){this.cart={kind:this.spec.cart,x:0,y:0,angle:0};const H=this.hitch();alignCart(this.cart,H[0],H[1],this.heading)}
+   leave:false,dead:false,roam:o.roam||null,despawn:o.despawn??true,blockT:0,ghost:false,load:0,cap:o.cap||8,label:o.label||null,speedMul:1,stopped:false,off:null});
+  this.setEdge(o.from,o.to);this.s=o.s||0;
+  const [cx,cy]=this.carrot();this.pos=[cx,cy];this.heading=this.dirH;this.shape=obb(cx,cy,this.spec.hw,this.spec.hh,this.heading);
+  const ck=o.cart||this.spec.cart;if(ck){this.cart={kind:ck,x:0,y:0,angle:0};const H=this.hitch();alignCart(this.cart,H[0],H[1],this.heading)}
   E.vehicles.push(this);
  }
  get x(){return this.pos[0]}get y(){return this.pos[1]}
  setEdge(from,to){const e=edgeOf(from,to);this.from=from;this.to=to;this.edge=e;const A=NODES[from],B=NODES[to];this.len=e.len;this.dx=(B[0]-A[0])/e.len;this.dy=(B[1]-A[1])/e.len;this.dirH=Math.atan2(this.dx,-this.dy)}
  hitch(){const k=this.spec.hitch;return[this.pos[0]-Math.sin(this.heading)*k,this.pos[1]+Math.cos(this.heading)*k]}
+ // Punkt na pasie ruchu odcinka from→to w odległości s od from (prawy pas + zjazd na pobocze dla bieżącego odcinka).
+ lanePos(from,to,s,cur){
+  const e=edgeOf(from,to),A=NODES[from],B=NODES[to],dx=(B[0]-A[0])/e.len,dy=(B[1]-A[1])/e.len,h=Math.atan2(dx,-dy);
+  const lane=(this.spec.rider?Math.min(26,e.w/2-2):e.lane)+(cur?this.laneX:0);
+  return[A[0]+dx*s+Math.cos(h)*lane,A[1]+dy*s+Math.sin(h)*lane];
+ }
+ // Następny węzeł trasy (przy jeździe bez celu wybierany z wyprzedzeniem, żeby pojazd mógł ściąć zakręt).
+ peek(k){
+  if(this.route&&k<this.route.length)return this.route[k];
+  if(this.roam&&k===0&&(!this.route||!this.route.length)&&!(this.final&&this.stopS!=null)){const n=this.chooseNext();if(n){this.route=[n];return n}}
+  return null;
+ }
+ la(){return this.off?(this.off.work?14:20):Math.max(26,16+this.v*.35)}
+ // „Marchewka”: punkt na trasie o la() przed rzutem pojazdu na trasę — pojazd zawsze goni punkt przed sobą (pure pursuit).
+ carrot(){
+  const LA=this.la();
+  if(this.off){const P=this.off.pts;let i=this.off.i,t=this.off.t+LA;
+   while(i<P.length-1){const L=Math.hypot(P[i+1][0]-P[i][0],P[i+1][1]-P[i][1])||1;if(t<=L)return[P[i][0]+(P[i+1][0]-P[i][0])*t/L,P[i][1]+(P[i+1][1]-P[i][1])*t/L];t-=L;i++}
+   return P[P.length-1]}
+  let from=this.from,to=this.to,len=this.len,s=this.s+LA,k=0,cur=true;
+  const stopOn=kk=>this.stopS!=null&&(this.final?kk===0:this.route&&kk===this.route.length);
+  for(;;){
+   if(stopOn(k)&&s>this.stopS){s=this.stopS;break}
+   if(s<=len)break;
+   const nx=this.peek(k);if(!nx){s=len;break}
+   s-=len;from=to;to=nx;len=edgeOf(from,to).len;k++;cur=false;
+  }
+  return this.lanePos(from,to,s,cur);
+ }
+ // Postój na poboczu w bieżącym miejscu (start gry, zakup maszyny).
+ parkHere(){this.final=true;this.stopS=this.s;this.arrived=true;this.parked=true;this.park=true;this.laneX=this.edge.w/2+10-this.edge.lane;this.pos=this.carrot();this.v=0;
+  if(this.cart){const H=this.hitch();alignCart(this.cart,H[0],H[1],this.heading)}this.shape=obb(this.pos[0],this.pos[1],this.spec.hw,this.spec.hh,this.heading);return this}
  // Jedź do celu {edge,s}. park = zjedź na pobocze; leave = zniknij po dojechaniu.
  goTo(goal,o={}){
+  if(this.off)this.rejoin();
   const plan=planRoute(this.from,this.to,this.s,goal,this.allow);
   this.parked=false;this.arrived=false;this.stopped=false;this.park=!!o.park;this.leave=!!o.leave;this.onArrive=o.onArrive||null;this.roam=null;
   if(!plan){this.stopS=this.s;this.final=true;return}
-  if(plan.reverse){const s=this.len-this.s;this.setEdge(this.to,this.from);this.s=s;this.dwell=Math.max(this.dwell,.6)}
+  if(plan.reverse){const s=this.len-this.s;this.setEdge(this.to,this.from);this.s=s}
   this.route=plan.nodes.slice(1);this.final=plan.nodes.length===0;this.stopS=plan.stopS;
+ }
+ // Zjazd w teren: jazda po ścieżce pts (lista punktów), np. szlakiem zrywkowym albo bruzdami pługa.
+ driveOff(pts,o={}){
+  this.off={pts:[[this.pos[0],this.pos[1]],...pts],i:0,t:0,done:false,work:o.work||null};if(this.off.pts.length<2)this.off.pts.push([this.pos[0]+.1,this.pos[1]]);
+  this.offArrive=o.onArrive||null;this.arrived=false;this.parked=false;this.final=false;this.stopS=null;this.route=null;this.roam=null;this.stopped=false;this.laneX=0;
+ }
+ // Powrót na drogę w najbliższym punkcie (po jeździe w terenie): pas dobrany do kierunku jazdy.
+ rejoin(){
+  const rp=nearestRoad(this.pos[0],this.pos[1],this.allow,{margin:20});this.off=null;
+  const e=rp.edge,ab=Math.atan2((NODES[e.b][0]-NODES[e.a][0]),-(NODES[e.b][1]-NODES[e.a][1]));
+  if(Math.cos(angDiff(this.heading,ab))>=0){this.setEdge(e.a,e.b);this.s=rp.s}else{this.setEdge(e.b,e.a);this.s=e.len-rp.s}
+  this.final=true;this.stopS=this.s;this.arrived=true;this.laneX=0;
  }
  cruise(){
   if(this.stopped||this.parked||this.arrived)return 0;
-  // terenówka na sygnale jedzie po drodze leśnej prawie pełną prędkością
-  let sp=this.spec.speed*(this.edge.kind==='forest'?(this.beacon?.92:this.spec.forest):this.edge.kind==='drive'?.35:1)*this.speedMul;
-  if(Math.abs(angDiff(this.heading,this.dirH))>.5)sp=Math.min(sp,10);
-  if(this.final&&this.stopS!=null){const d=this.stopS-this.s;sp=Math.min(sp,Math.max(3,Math.sqrt(2*36*Math.max(0,d))))}
-  else if(this.len-this.s<50)sp=Math.min(sp,22);   // zwalnia przed skrzyżowaniem
+  let sp;
+  if(this.off){sp=this.spec.off||this.spec.speed*.4;if(this.off.work)sp=Math.min(sp,this.off.workSpeed||14)}
+  else sp=this.spec.speed*(this.edge.kind==='forest'?(this.beacon?.92:this.spec.forest):this.edge.kind==='drive'?.35:1)*this.speedMul;
+  const [cx,cy]=this.carrot(),want=Math.atan2(cx-this.pos[0],-(cy-this.pos[1])),err=Math.abs(angDiff(this.heading,want));
+  if(err>.6)sp=Math.min(sp,12);                       // ciasny zakręt albo zawracanie
+  let rem=null;
+  if(this.off)rem=this.offRemaining();
+  else if(this.final&&this.stopS!=null)rem=this.stopS-this.s;
+  else if(this.len-this.s<50&&this.route&&this.route.length)sp=Math.min(sp,24);   // zwalnia przed skrzyżowaniem
+  if(rem!=null)sp=Math.min(sp,Math.max(2.5,Math.sqrt(2*30*Math.max(0,rem-2))));
   return sp;
  }
+ offRemaining(){const O=this.off,P=O.pts;let r=0;for(let k=O.i;k<P.length-1;k++){const L=Math.hypot(P[k+1][0]-P[k][0],P[k+1][1]-P[k][1]);r+=k===O.i?Math.max(0,L-O.t):L}return r}
  probe(){const h=this.heading,sp=this.spec,reach=14+this.v*.55,d=sp.hh+reach/2;return obb(this.pos[0]+Math.sin(h)*d,this.pos[1]-Math.cos(h)*d,Math.max(3,sp.hw*.7),reach/2,h)}
+ // Rzut pojazdu na trasę: postęp s na odcinku (albo na ścieżce w terenie); przejście na kolejny odcinek przy ścinaniu zakrętu.
+ progress(){
+  const [x,y]=this.pos;
+  if(this.off){const O=this.off,P=O.pts;
+   for(let g=0;g<4;g++){const A=P[O.i],B=P[O.i+1];if(!B){O.done=true;break}
+    const L=Math.hypot(B[0]-A[0],B[1]-A[1])||1,t=((x-A[0])*(B[0]-A[0])+(y-A[1])*(B[1]-A[1]))/L;O.t=clamp(t,0,L);
+    if(t>=L-2&&O.i<P.length-2){O.i++;O.t=0;continue}
+    if(O.i>=P.length-2&&t>=L-2)O.done=true;break}
+   return}
+  const A=NODES[this.from];let sp=(x-A[0])*this.dx+(y-A[1])*this.dy;
+  if(this.final&&this.stopS!=null)sp=Math.min(sp,this.stopS);
+  this.s=Math.max(0,sp);
+  for(let g=0;g<3;g++){
+   if(this.final)break;
+   const nx=this.peek(0);if(!nx)break;
+   const N=NODES[this.to],B=NODES[nx],e=edgeOf(this.to,nx),ex=(B[0]-N[0])/e.len,ey=(B[1]-N[1])/e.len,sn=(x-N[0])*ex+(y-N[1])*ey;
+   if(this.s>=this.len-2||(sn>=1&&this.s>=this.len-this.la()-4)){this.arriveNode();if(this.dead)return;const A2=NODES[this.from];this.s=Math.max(0,(x-A2[0])*this.dx+(y-A2[1])*this.dy);continue}
+   break;
+  }
+  if(!this.final&&!this.peek(0)&&this.s>=this.len-1)this.arriveNode();
+ }
  update(dt){
-  if(this.dwell>0){this.dwell-=dt;this.v=Math.max(0,this.v-80*dt)}
+  let target=0;
+  if(this.dwell>0){this.dwell-=dt}
   else{
-   let target=this.cruise(),blocked=false;
-   if(target>0){
+   target=this.cruise();let blocked=false;
+   if(target>0&&!this.off){
     const pr=this.probe();
-    for(const w of E.vehicles)if(w!==this&&!w.parked&&!w.dead&&(w.kind!=='bike'||this.kind==='bike')&&Math.cos(w.heading-this.heading)>.3&&collide(pr,w.shape)){blocked=true;break}
+    for(const w of E.vehicles)if(w!==this&&!w.parked&&!w.dead&&!w.off&&(w.kind!=='bike'||this.kind==='bike')&&Math.cos(w.heading-this.heading)>.3&&collide(pr,w.shape)){blocked=true;break}
     if(!blocked)for(const a of E.animals)if(a.big&&collide(pr,{shape:'circle',x:a.x,y:a.y,r:6})){blocked=true;break}
     if(!blocked)for(const p of E.people)if(!p.hidden&&collide(pr,{shape:'circle',x:p.x,y:p.y,r:4})){blocked=true;break}
     this.blockT=blocked?this.blockT+dt:0;
@@ -80,47 +161,57 @@ export class Vehicle{
     if(this.ghost){this.ghostT+=dt;if(this.ghostT>3){this.ghost=false;this.blockT=0}}
     if(blocked&&!this.ghost)target=0;
    }
-   this.v+=clamp(target-this.v,-110*dt,this.spec.acc*dt);
   }
-  this.s+=this.v*dt;this.travel+=this.v*dt;
-  if(this.final&&this.stopS!=null&&!this.arrived&&this.s>=this.stopS-.3){
-   this.s=this.stopS;this.v=0;this.arrived=true;if(this.park)this.parked=true;
-   if(this.leave)this.dead=true;const cb=this.onArrive;this.onArrive=null;cb&&cb(this);
+  this.v+=clamp(target-this.v,-110*dt,this.spec.acc*dt);if(this.v<0)this.v=0;
+  // zjazd na pobocze przy parkowaniu: przesunięcie pasa narasta przed miejscem postoju
+  if(!this.off){const parkSoon=this.parked||(this.park&&this.final&&this.stopS!=null&&this.stopS-this.s<90);
+   const lx=parkSoon?this.edge.w/2+10-this.edge.lane:0;this.laneX+=clamp(lx-this.laneX,-22*dt,22*dt)}
+  // skręt (model rowerowy) i ruch do przodu
+  if(this.v>.05){
+   const [cx,cy]=this.carrot(),dd=Math.hypot(cx-this.pos[0],cy-this.pos[1]);
+   if(dd>1){const want=Math.atan2(cx-this.pos[0],-(cy-this.pos[1])),e=angDiff(this.heading,want),st=clamp(e*1.8,-MAXSTEER,MAXSTEER);
+    this.steer=st/MAXSTEER;this.heading+=this.v/this.spec.wb*Math.tan(st)*dt}
+   const step=this.v*dt;this.pos=[this.pos[0]+Math.sin(this.heading)*step,this.pos[1]-Math.cos(this.heading)*step];this.travel+=step;
+   if(this.off&&this.off.work)this.off.work(this,step);
+   this.progress();
   }
-  let guard=0;while(this.s>=this.len&&!this.dead&&!this.arrived&&guard++<4)this.arriveNode();
-  const dh=angDiff(this.heading,this.dirH),st=clamp(dh,-TURN*dt,TURN*dt);this.heading+=st;this.steer=clamp(st/(TURN*dt||1),-1,1);
-  const lx=this.parked?this.edge.w/2+10-this.edge.lane:0;this.laneX+=clamp(lx-this.laneX,-14*dt,14*dt);
-  this.place();
-  if(this.cart){const H=this.hitch(),c=this.cart;advanceCart(c,H[0],H[1],this.heading);
-   // stojąc: przyczepa powoli prostuje się za pojazdem (np. po zjeździe na pobocze)
-   if(Math.abs(this.v)<.5){c.angle+=clamp(angDiff(c.angle,this.heading),-dt*.9,dt*.9);const d=CARTS[c.kind],f=fwd(c.angle),L=d.tongue+d.hh;c.x=H[0]-f[0]*L;c.y=H[1]-f[1]*L}}
+  // dojazd do celu
+  if(!this.arrived&&!this.dead){
+   let ok=false;
+   if(this.off){const P=this.off.pts,L=P[P.length-1],dl=Math.hypot(this.pos[0]-L[0],this.pos[1]-L[1]);ok=dl<7||(this.v<3&&dl<14)||(this.off.done&&dl<24)}
+   else if(this.final&&this.stopS!=null){const [sx,sy]=this.lanePos(this.from,this.to,this.stopS,true),dl=Math.hypot(this.pos[0]-sx,this.pos[1]-sy);ok=dl<8||(this.s>=this.stopS-3&&this.v<4)}
+   if(ok){
+    this.v=0;this.arrived=true;
+    if(this.off){const cb=this.offArrive;this.offArrive=null;cb&&cb(this)}
+    else{if(this.park)this.parked=true;if(this.leave)this.dead=true;const cb=this.onArrive;this.onArrive=null;cb&&cb(this)}
+   }
+  }
+  this.shape=obb(this.pos[0],this.pos[1],this.spec.hw,this.spec.hh,this.heading);
+  if(this.cart){const H=this.hitch(),c=this.cart;advanceCart(c,H[0],H[1],this.heading)}
+ }
+ chooseNext(){
+  const node=this.to,prev=this.from;
+  if(offMap(node)&&this.despawn&&this.travel>200)return null;
+  const opts=neighbours(node).filter(n=>this.roam.includes(n.edge.kind)),fw=opts.filter(n=>n.to!==prev);
+  if(fw.length){const wt=fw.map(n=>this.spec.wild&&n.edge.kind==='forest'?3:1),tot=wt.reduce((a,b)=>a+b,0);let r=rnd()*tot,k=0;while(k<fw.length-1&&r>=wt[k]){r-=wt[k];k++}return fw[k].to}
+  return opts.length?prev:null;
  }
  arriveNode(){
-  const node=this.to,prev=this.from,over=this.s-this.len;let next=null;
-  if(this.route&&this.route.length){next=this.route.shift();this.final=this.route.length===0}
-  else if(this.roam){
-   if(offMap(node)&&this.despawn&&this.travel>200){this.dead=true;return}
-   const opts=neighbours(node).filter(n=>this.roam.includes(n.edge.kind)),fw=opts.filter(n=>n.to!==prev);
-   if(fw.length){const wt=fw.map(n=>this.spec.wild&&n.edge.kind==='forest'?3:1),tot=wt.reduce((a,b)=>a+b,0);let r=rnd()*tot,k=0;while(k<fw.length-1&&r>=wt[k]){r-=wt[k];k++}next=fw[k].to}
-   else{next=prev;this.dwell=1.4}
-  }
-  if(!next){this.s=this.len;this.v=0;this.arrived=true;return}
-  this.setEdge(node,next);this.s=Math.max(0,over);
- }
- place(){
-  const A=NODES[this.from],cx=A[0]+this.dx*this.s,cy=A[1]+this.dy*this.s,h=this.heading;
-  const lane=(this.spec.rider?Math.min(26,this.edge.w/2-2):this.edge.lane)+this.laneX;
-  this.pos=[cx+Math.cos(h)*lane,cy+Math.sin(h)*lane];
-  this.shape=obb(this.pos[0],this.pos[1],this.spec.hw,this.spec.hh,h);
+  const node=this.to;let next=null;
+  if(this.route&&this.route.length){next=this.route.shift();this.final=this.route.length===0&&!this.roam}
+  else if(this.roam){if(offMap(node)&&this.despawn&&this.travel>200){this.dead=true;return}next=this.chooseNext()}
+  if(!next){if(this.roam&&offMap(node)){this.dead=true;return}this.s=this.len;this.final=true;this.stopS=this.len;return}
+  this.setEdge(node,next);this.s=0;
  }
  draw(){
   const [x,y]=this.pos;if(!near(x,y,120))return;
-  if(this.cart){if(this.cart.kind==='forest')S.forestTrailer(ctx,this.cart,this.load,this.cap);else S.logTrailer(ctx,this.cart,this.load,this.cap)}
+  if(this.cart){const c=this.cart;if(c.kind==='forest')S.forestTrailer(ctx,c,this.load,this.cap);else if(c.kind==='log')S.logTrailer(ctx,c,this.load,this.cap);else if(c.kind==='plow')S.plowTop(ctx,c,this.plowing);else S.bunkTop(ctx,c,this.load,this.cap)}
   const k=this.kind,h=this.heading,t=this.travel;
   if(k==='car')S.carTop(ctx,x,y,h,this.color,t);
   else if(k==='patrol')S.patrolTop(ctx,x,y,h,t,this.beacon);
   else if(k==='van')S.vanTop(ctx,x,y,h,t);
-  else if(k==='tractor')S.tractorTop(ctx,x,y,h,t,this.steer);
+  else if(k==='tractor'||k==='plower')S.tractorTop(ctx,x,y,h,t,this.steer);
+  else if(k==='forwarder')S.forwarderTop(ctx,x,y,h,t,this.steer);
   else if(k==='truck')S.truckTop(ctx,x,y,h,t);
   else if(k==='quad')S.quadTop(ctx,x,y,h,t,this.color);
   else if(k==='cross')S.crossTop(ctx,x,y,h,t);

@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Leśniczówka 0.2.0</title>
+<title>Leśniczówka 0.3.0</title>
 <link rel="stylesheet" href="./style.css">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Cpath d=%22M8 1 2 11h4v4h4v-4h4z%22 fill=%22%233f744c%22/%3E%3C/svg%3E">
 </head>
@@ -24,6 +24,7 @@
    <button class="tool" data-tool="select"><b>1</b>Podgląd</button>
    <button class="tool" data-tool="mark"><b>2</b>Wycinka</button>
    <button class="tool" data-tool="plant"><b>3</b>Sadzenie</button>
+   <button class="tool" data-tool="plot"><b>4</b>Odnowienie</button>
    <div class="toolhint" id="toolhint"></div>
    <div class="sep"></div>
    <button id="crewbtn" class="act"><b>E</b>Wyślij ekipę <span id="crewn"></span></button>
@@ -33,6 +34,10 @@
    <div class="srow"><span>Ciągnik</span><i id="skidstate">czeka</i></div>
    <div class="srow"><span>Patrol</span><i id="patrolstate">w leśniczówce</i></div>
    <div class="srow"><span>Składnica</span><i id="stackinfo">0 m³</i></div>
+   <div class="srow"><span>Pług</span><i id="plowstate">—</i></div>
+   <div class="sep"></div><div class="kick">SPRZĘT</div>
+   <div class="srow"><span>Zrywka</span><i id="machname">ciągnik z wyciągarką</i></div>
+   <button id="buyfwd" class="act">Kup forwarder · 12 000 zł</button>
   </div>
   <div class="plate tasks"><div class="kick">PLAN NA SEZON</div><div id="tasks"></div></div>
  </div>
@@ -43,13 +48,14 @@
 <div id="overlay"><div class="card"><div class="kicker">Leśnictwo Zielony Gaj</div><h1>Leśniczówka</h1>
  <p>Prowadzisz niewielkie leśnictwo: wyznaczasz drzewa do wycinki, wysyłasz ekipę, sadzisz nowe pokolenie lasu i pilnujesz porządku. Ciągnik zrywkowy i ciężarówka jeżdżą same. W lesie żyją sarny, jelenie, dziki, lisy i wilki, a w sezonie przyjeżdżają grzybiarze.</p>
  <p>Uważaj na trzy wskaźniki: <b>budżet</b>, <b>stan lasu</b> i <b>ochronę terenu</b>. Wycinka daje pieniądze, ale bez odnowienia stan lasu spada. Zgłoszenia, które zostawisz, obniżają ochronę.</p>
- <div class="keys"><span><b>Mysz</b> przeciągnij mapę</span><span><b>Kółko</b> przybliżenie</span><span><b>1 2 3</b> podgląd · wycinka · sadzenie</span><span><b>Shift+przeciągnij</b> zaznacz obszar</span><span><b>E</b> wyślij ekipę</span><span><b>K</b> wywóz drewna</span><span><b>Q</b> wyślij patrol</span><span><b>F</b> śledź wybrany obiekt</span><span><b>WASD</b> przesuwanie widoku</span><span><b>T P M</b> czas · pauza · dźwięk</span><span><b>N</b> nie przewijaj nocy</span></div>
+ <div class="keys"><span><b>Mysz</b> przeciągnij mapę (prawy przycisk zawsze)</span><span><b>Kółko</b> przybliżenie</span><span><b>1 2 3 4</b> podgląd · wycinka · sadzenie · odnowienie</span><span><b>Przeciągnij</b> w narzędziu = obszar</span><span><b>E</b> wyślij ekipę</span><span><b>K</b> wywóz drewna</span><span><b>Q</b> wyślij patrol</span><span><b>F</b> śledź wybrany obiekt</span><span><b>WASD</b> przesuwanie widoku</span><span><b>T P M</b> czas · pauza · dźwięk</span><span><b>N</b> nie przewijaj nocy</span></div>
  <p class="hint2">Dzień płynie spokojnie (1 minuta gry = 1 sekunda), noc przewija się sama. Ekipa pracuje pon.–sob. 7–15, zwierzyna wychodzi o zmierzchu, a las rośnie przy zmianie pory roku.</p>
- <button id="continue" style="display:none">WCZYTAJ ZAPIS</button><button id="start">ZACZNIJ</button><div class="hint">wersja 0.2.0 · prototyp</div></div></div>
+ <button id="continue" style="display:none">WCZYTAJ ZAPIS</button><button id="start">ZACZNIJ</button><div class="hint">wersja 0.3.0 · prototyp</div></div></div>
 <div id="report" class="hidden panel"><div class="card" id="reportcard"></div></div>
 <div id="help" class="hidden panel"><div class="card"><div class="kicker">JAK GRAĆ</div>
- <div class="keys"><span><b>Mysz</b> przeciągnij mapę, kliknij obiekt</span><span><b>Kółko / Z</b> przybliżenie</span><span><b>1</b> podgląd</span><span><b>2</b> wycinka (klik = oznacz)</span><span><b>Shift+przeciągnij</b> oznacz obszar</span><span><b>3</b> sadzenie (klik = sadzonka)</span><span><b>E</b> wyślij ekipę</span><span><b>K</b> zamów wywóz</span><span><b>Q</b> patrol do zgłoszenia</span><span><b>F</b> kamera śledzi</span><span><b>WASD</b> widok</span><span><b>T</b> tempo ×1/×3/×10</span><span><b>P</b> pauza · <b>M</b> dźwięk</span><span><b>G</b> wzrost lasu (test)</span><span><b>F3</b> debug</span><span><b>Esc</b> anuluj</span></div>
+ <div class="keys"><span><b>Mysz</b> przeciągnij mapę, kliknij obiekt</span><span><b>Kółko / Z</b> przybliżenie</span><span><b>1</b> podgląd</span><span><b>2</b> wycinka: klik / przeciągnij</span><span><b>3</b> sadzenie: klik / przeciągnij = rzędy</span><span><b>4</b> odnowienie: przeciągnij = powierzchnia</span><span><b>Prawy przycisk</b> przesuwa mapę</span><span><b>E</b> wyślij ekipę</span><span><b>K</b> zamów wywóz</span><span><b>Q</b> patrol do zgłoszenia</span><span><b>F</b> kamera śledzi</span><span><b>WASD</b> widok</span><span><b>T</b> tempo ×1/×3/×10</span><span><b>P</b> pauza · <b>M</b> dźwięk</span><span><b>G</b> wzrost lasu (test)</span><span><b>F3</b> debug</span><span><b>Esc</b> anuluj</span></div>
  <p class="hint2">Gra zapisuje się sama co 30 s i przy zamknięciu karty.</p>
+ <p class="hint2">Odnowienie: narzędzie 4 → przeciągnij obszar zrębu → na karcie „Przygotuj glebę” (pług LPz orze bruzdy i zgarnia gałęzie) → „Sadź w rzędach”. Bez przygotowania gleby więcej sadzonek się nie przyjmie.</p>
  <p class="hint2">Cykl pracy: oznacz dojrzałe drzewa → E (ekipa ścina i tnie na kłody) → ciągnik sam zwozi kłody na składnicę → ciężarówka odbiera drewno i płaci. Pniaki odnawiaj sadzonkami (narzędzie 3 albo przycisk na karcie pniaka).</p>
  <button id="help-close">ZAMKNIJ</button><button id="newgame" class="sec">NOWA GRA (kasuje zapis)</button></div></div>
 <script type="module" src="./src/main.js"></script>

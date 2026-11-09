@@ -6,6 +6,7 @@ import {buildNavs,E,prune} from './ents.js';
 import {spawnWildlife,updateVisitors,groups} from './life/populate.js';
 import {initPatrol,updateIncidents,P,spawnRider,spawnSmoke,spawnPoacher,addTrash,dispatch} from './incidents.js';
 import {initJobs,updateJobs,J} from './jobs.js';
+import {updateRenew,R,createPlot,orderPrep,orderPlant} from './renew.js';
 import {initEconomy,updateEconomy,ECO} from './economy.js';
 import {drawWorld} from './render.js';
 import {hud,bindUI,centerOn} from './ui.js';
@@ -22,7 +23,7 @@ function sim(dt){
  for(const a of E.animals)a.update(dt);
  for(const p of E.people)p.update(dt);
  for(const v of E.vehicles)v.update(dt);
- updateVisitors(dt);updateIncidents(dt);updateJobs(dt);updateEconomy(dt);
+ updateVisitors(dt);updateIncidents(dt);updateJobs(dt);updateRenew(dt);updateEconomy(dt);
  for(let i=fx.length-1;i>=0;i--){const p=fx[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.life<=0)fx.splice(i,1)}
  prune();
 }
@@ -90,5 +91,5 @@ addEventListener('beforeunload',saveGame);
 document.addEventListener('visibilitychange',()=>{if(document.hidden){saveGame();if(state.playing&&!state.paused)$('#pausebtn').click()}});
 document.title='Leśniczówka '+VERSION;
 // Diagnostyka do testów
-window.__las={dirtyAll,seasonGrow,cal,spawnPoacher,saveGame,loadGame,state,E,J,P,ECO,trees,counts,camera,VIEW,centerOn,spawnRider,spawnSmoke,addTrash,dispatch,step:(s)=>{for(let i=0;i<Math.ceil(s*60);i++)sim(STEP)},zoom};
+window.__las={R,createPlot,orderPrep,orderPlant,dirtyAll,seasonGrow,cal,spawnPoacher,saveGame,loadGame,state,E,J,P,ECO,trees,counts,camera,VIEW,centerOn,spawnRider,spawnSmoke,addTrash,dispatch,step:(s)=>{for(let i=0;i<Math.ceil(s*60);i++)sim(STEP)},zoom};
 hud();requestAnimationFrame(run);

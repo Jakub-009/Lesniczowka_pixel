@@ -4,6 +4,7 @@ import {treeAt,STAND,STUMP,CUT_AGE,treesIn,testGrow} from './forest.js';
 import {STACK,inRect} from './map.js';
 import {E} from './ents.js';
 import {J,toggleMark,togglePlant,dispatchCrew,orderTruck} from './jobs.js';
+import {plotAt,createPlot,planAreaPlants} from './renew.js';
 import {setTool,hud} from './ui.js';
 import {toggleSound,resumeSound} from './sound.js';
 import {dispatch} from './incidents.js';
@@ -19,12 +20,13 @@ export function pick(x,y){
  for(const p of E.piles)if(!p.dead)test(p,p.x,p.y,14);
  if(best)return best;
  if(inRect(x,y,STACK,6))return{isStack:true,x:STACK.x+STACK.w/2,y:STACK.y+STACK.h/2};
- return treeAt(x,y);
+ return treeAt(x,y)||plotAt(x,y);
 }
 let down=null;
 export function bindInput(zoomFn){
  C.addEventListener('contextmenu',e=>e.preventDefault());
- C.addEventListener('pointerdown',e=>{C.focus();resumeSound();down={x:e.clientX,y:e.clientY,cx:camera.x,cy:camera.y,btn:e.button,drag:false,box:e.shiftKey&&state.tool==='mark'&&e.button===0,w:toWorld(e)};C.setPointerCapture(e.pointerId)});
+ // w narzędziach wycinki, sadzenia i odnowienia lewy przycisk zaznacza obszar; mapę przesuwa prawy (albo lewy w podglądzie)
+ C.addEventListener('pointerdown',e=>{C.focus();resumeSound();down={x:e.clientX,y:e.clientY,cx:camera.x,cy:camera.y,btn:e.button,drag:false,box:e.button===0&&state.tool!=='select',w:toWorld(e)};C.setPointerCapture(e.pointerId)});
  C.addEventListener('pointermove',e=>{
   if(down){const dx=e.clientX-down.x,dy=e.clientY-down.y;if(!down.drag&&Math.hypot(dx,dy)>5)down.drag=true;
    if(down.drag){if(down.box){state.box=[down.w,toWorld(e)]}else{const r=C.getBoundingClientRect();camera.x=down.cx-dx*VIEW.w/r.width;camera.y=down.cy-dy*VIEW.h/r.height;state.follow=null}}return}
@@ -35,15 +37,20 @@ export function bindInput(zoomFn){
  });
  C.addEventListener('pointerup',e=>{
   if(!down)return;const d=down;down=null;
-  if(d.box&&d.drag&&state.box){const [[x0,y0],[x1,y1]]=state.box;state.box=null;let n=0;
-   for(const t of treesIn(Math.min(x0,x1),Math.min(y0,y1),Math.max(x0,x1),Math.max(y0,y1)))if(t.st===STAND&&!t.falling&&!t.lying&&!t.assigned&&t.age>=CUT_AGE&&!t.marked){t.marked=true;n++}
-   toast(n?'Wyznaczono '+n+' drzew do wycinki. E — wyślij ekipę.':'W zaznaczeniu nie ma drzew do wycinki.');hud();return}
+  if(d.box&&d.drag&&state.box){const [[x0,y0],[x1,y1]]=state.box;state.box=null;
+   if(state.tool==='mark'){let n=0;
+    for(const t of treesIn(Math.min(x0,x1),Math.min(y0,y1),Math.max(x0,x1),Math.max(y0,y1)))if(t.st===STAND&&!t.falling&&!t.lying&&!t.assigned&&t.age>=CUT_AGE&&!t.marked){t.marked=true;n++}
+    toast(n?'Wyznaczono '+n+' drzew do wycinki. E — wyślij ekipę.':'W zaznaczeniu nie ma drzew do wycinki (od '+CUT_AGE+' lat).')}
+   else if(state.tool==='plant'){const n=planAreaPlants(x0,y0,x1,y1);toast(n?'Zaplanowano '+n+' sadzonek w rzędach. E — wyślij ekipę.':'Brak wolnych miejsc na sadzonki.')}
+   else if(state.tool==='plot'){const p=createPlot(x0,y0,x1,y1);if(p)state.selected=p}
+   hud();return}
   if(d.drag)return;
   if(d.btn===2){setTool('select');state.selected=null;return}
   if(!active())return;
   const [x,y]=toWorld(e);
   if(state.tool==='mark'){const t=treeAt(x,y,t=>t.st===STAND);if(t){toggleMark(t);state.selected=t}else toast('Kliknij koronę drzewa.')}
   else if(state.tool==='plant')togglePlant(x,y);
+  else if(state.tool==='plot'){const p=plotAt(x,y);if(p)state.selected=p;else toast('Przeciągnij, aby wyznaczyć powierzchnię odnowieniową.')}
   else{state.selected=pick(x,y);state.follow=null}
   hud();
  });
@@ -54,7 +61,7 @@ export function bindInput(zoomFn){
   if(!state.playing){if(k==='enter')$('#start').click();return}
   if(state.modal){if(k==='enter'||k===' '||k==='escape')$('#report-close')?.click();return}
   if(e.repeat&&!['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k))return;
-  if(k==='1')setTool('select');else if(k==='2')setTool('mark');else if(k==='3')setTool('plant');
+  if(k==='1')setTool('select');else if(k==='2')setTool('mark');else if(k==='3')setTool('plant');else if(k==='4')setTool('plot');
   else if(k==='e')dispatchCrew();else if(k==='k')orderTruck(true);
   else if(k==='q'){const q=E.incidents.find(x=>x.status==='new');if(q)dispatch(q);else toast('Brak nowych zgłoszeń.')}
   else if(k==='f'){const s=state.selected;state.follow=s&&(s.pos||s.look||s.phase!=null||s.kind)&&s.st===undefined?s:null;if(!state.follow)toast('Wybierz pojazd, osobę albo zwierzę.')}

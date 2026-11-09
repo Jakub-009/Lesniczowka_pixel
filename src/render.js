@@ -9,6 +9,7 @@ import {drawStack,drawGroundItems,drawRopes} from './jobs.js';
 import {birds} from './life/sprites.js';
 import {NODES,EDGES,YARD,HOUSE} from './map.js';
 import {P} from './incidents.js';
+import {drawPlots} from './renew.js';
 
 const vis=(x,y,r=60)=>x>camera.x-r&&x<camera.x+VIEW.w+r&&y>camera.y-r&&y<camera.y+VIEW.h+r;
 function blitGround(){
@@ -96,13 +97,13 @@ export function drawWorld(){
  drawTrash();drawStack(ctx);drawGroundItems(ctx);drawLying();
  for(const a of E.animals)if(!a.dead)a.draw();
  for(const p of E.people)if(!p.onStand)p.draw();
- drawRopes(ctx);
  for(const v of E.vehicles)if(!v.dead)v.draw();
+ drawRopes(ctx);
  drawAmbona(ctx);for(const p of E.people)if(p.onStand)p.draw();
  drawForest(ctx,camera,VIEW.w,VIEW.h,'high');
  // prześwit: zwierzęta i ludzie pod koronami widoczni jako półprzezroczyste sylwetki
- if(SETTINGS.ghosts){ctx.globalAlpha=.5;for(const a of E.animals)if(!a.dead)a.draw();for(const p of E.people)if(!p.onStand)p.draw();ctx.globalAlpha=1}
- drawFire();drawFalling();drawParticles();drawMarkers();
+ if(SETTINGS.ghosts){ctx.globalAlpha=.5;for(const a of E.animals)if(!a.dead)a.draw();for(const p of E.people)if(!p.onStand)p.draw();for(const v of E.vehicles)if(v.off&&!v.dead)v.draw();ctx.globalAlpha=1}
+ drawFire();drawFalling();drawParticles();drawPlots(ctx,state.selected);drawMarkers();
  birds(ctx,state.elapsed,camera,VIEW);
  if(DEBUG.on){ctx.strokeStyle='#40e0ff';for(const e of EDGES){const A=NODES[e.a],B=NODES[e.b];ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(B[0],B[1]);ctx.stroke()}}
  ctx.restore();

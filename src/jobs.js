@@ -3,15 +3,16 @@
 import {state,toast,particle,clamp,zl,displayNumber,ctx,cal} from './core.js';
 import {STACK,SKLAD,roadClearance,oddzial,inRect,YARD,UPRAWA,pointBlocked} from './map.js';
 import {nearestRoad,goalNode,edgeOf} from './roads.js';
-import {E} from './ents.js';
-import {Vehicle,Ped,rand} from './life/agents.js';
+import {paintRut} from './paint.js';
+import {E,NAV} from './ents.js';
+import {Vehicle,Ped,rand,cartRear,cartFront} from './life/agents.js';
 import {trees,STAND,STUMP,CUT_AGE,SP,startFall,finishTree,plantTree,volume,crownR,speciesFor,treesIn,SAPLING_AGE} from './forest.js';
 import {pay,earn,planProgress,stat} from './economy.js';
 import {sfx} from './sound.js';
 import {pileTop} from './life/sprites.js';
 
 export const COST={fell:85,plant:7,skid:28};
-export const J={plants:[],crew:{van:null,phase:'idle',tasks:[],cluster:[],workers:[]},skid:{trac:null,phase:'idle',cluster:[],cur:null,wait:0},
+export const J={plants:[],trails:[],crew:{van:null,phase:'idle',tasks:[],cluster:[],workers:[]},skid:{trac:null,phase:'idle',mach:'tractor',list:[],cur:null,wait:0,watch:0,owned:false},
  truck:{v:null,phase:'idle'},stack:0,stackValue:0,sold:0,auto:true};
 
 // ── polecenia gracza ──
@@ -45,6 +46,12 @@ export function dispatchCrew(){
   else toast('Zlecenie przyjęte ('+(fell.length+pl.length)+'). Ekipa przyjedzie '+cal.nextStart(7,15)+'.');
  }else toast('Ekipa dostała dodatkowe zadania ('+(fell.length+pl.length)+').');
 }
+// Zadania z powierzchni odnowieniowej (sadzenie w rzędach) trafiają do tej samej ekipy.
+export function addCrewTasks(tasks,msg){
+ const C=J.crew;C.tasks.push(...tasks);
+ if(C.phase==='idle'){if(cal.work(7,14.5)){startCrew();toast(msg+' Ekipa wyjeżdża.')}else toast(msg+' Ekipa przyjedzie '+cal.nextStart(7,15)+'.')}
+ else toast(msg+' Ekipa ma je na liście.');
+}
 // Ekipa pracuje pon.–sob. 7:00–15:00. Zlecenie poza godzinami czeka do rana.
 function startCrew(){const C=J.crew;C.van=new Vehicle('van',{from:'mE',to:'j2',s:0});C.van.label='ekipa leśna';nextCluster()}
 const shiftOn=()=>cal.work(7,15);
@@ -57,7 +64,8 @@ function nextCluster(){
   v.goTo(goalNode('mE'),{leave:true,onArrive:()=>{C.phase='idle';C.van=null}});return}
  const [vx,vy]=v.pos;C.tasks.sort((a,b)=>{const A=tpos(a),B=tpos(b);return Math.hypot(A[0]-vx,A[1]-vy)-Math.hypot(B[0]-vx,B[1]-vy)});
  const [fx,fy]=tpos(C.tasks[0]),rp=nearestRoad(fx,fy,['main','forest'],{margin:50});
- C.cluster=C.tasks.filter(k=>{const [x,y]=tpos(k);return Math.hypot(x-rp.x,y-rp.y)<330});
+ // skupisko wokół pierwszego zadania (nie wokół drogi) — zadania głęboko w lesie też trafią do ekipy
+ C.cluster=C.tasks.filter(k=>{const [x,y]=tpos(k);return Math.hypot(x-fx,y-fy)<260});
  C.tasks=C.tasks.filter(k=>!C.cluster.includes(k));
  C.phase='driving';C.odd=oddzial(fx,fy);v.label='ekipa jedzie do oddz. '+C.odd;
  v.goTo({edge:rp.edge,s:rp.s},{park:true,onArrive:startWork});
@@ -65,7 +73,7 @@ function nextCluster(){
 function startWork(v){
  const C=J.crew;C.phase='working';v.label='ekipa pracuje w oddz. '+C.odd;
  const h=v.heading,[cx,cy]=C.cluster.length?tpos(C.cluster[0]):v.pos,side=Math.sign(Math.cos(h)*(cx-v.pos[0])+Math.sin(h)*(cy-v.pos[1]))||1;
- const n=Math.min(C.cluster.length>=6?3:2,Math.max(1,C.cluster.length));
+ const plants=C.cluster.filter(k=>k.type==='plant').length,n=Math.min(plants>=10?4:C.cluster.length>=6?3:2,Math.max(1,C.cluster.length));
  for(let i=0;i<n;i++){
   const w=new Ped({kind:'worker',x:v.pos[0]+Math.cos(h)*16*side+Math.sin(h)*(i*10-5),y:v.pos[1]+Math.sin(h)*16*side-Math.cos(h)*(i*10-5),speed:15});
   w.label='pilarz';w.onIdle=assignNext;C.workers.push(w);
@@ -92,8 +100,9 @@ function assignNext(w){
    {call:()=>{makePile(t,dir);finishTree(t);t.assigned=false;pay(COST.fell,'ścinka i wyrzynka');stat('felled');w.label='pilarz'}}]);
  }else{
   const p=task.p;w.label='pilarz — sadzi '+SP[p.sp].name.split(' ')[0];
-  w.run([{go:[p.x-7,p.y],face:[p.x,p.y]},{wait:1.8,pose:'kneel',face:[p.x,p.y]},
-   {call:()=>{plantTree(p.x,p.y,p.sp);J.plants=J.plants.filter(q=>q!==p);pay(COST.plant,'sadzonka i sadzenie');planProgress('plant',1);w.label='pilarz'}}]);
+  w.prop='sapling';
+  w.run([{go:[p.x-7,p.y],face:[p.x,p.y]},{wait:p.plot?1:1.8,pose:'kneel',face:[p.x,p.y]},
+   {call:()=>{plantTree(p.x,p.y,p.sp,!!p.prep);J.plants=J.plants.filter(q=>q!==p);pay(COST.plant,'sadzonka i sadzenie');planProgress('plant',1);w.label='pilarz';w.prop=null;p.onDone&&p.onDone()}}]);
  }
 }
 const fallMid=t=>(t.falling?t.falling.L:t.lying?t.lying.L:60)*.45;
@@ -102,44 +111,121 @@ function makePile(t,dir){
  E.piles.push({x:t.x+Math.cos(dir)*L*.45,y:t.y+Math.sin(dir)*L*.45,a:dir,vol,sp:t.sp,logs:clamp(Math.round(vol*3)+1,1,6),bark:SP[t.sp].bark[1]==='#2e2c28'?'#e6e2d6':SP[t.sp].bark[1],state:'ground',dead:false});
 }
 
-// ── zrywka: ciągnik z przyczepą i wyciągarką ──
+// ── zrywka (0.3) ──
+// Maszyna jedzie drogą do punktu najbliżej kłód. Gdy kłody leżą dalej niż zasięg wyciągarki/żurawia, zjeżdża w las
+// szlakiem zrywkowym (ścieżka A*, zostają koleiny), ładuje wszystko w zasięgu, jedzie do kolejnych kłód i wraca na drogę.
+export const MACH={
+ tractor:{name:'ciągnik z wyciągarką',veh:'tractor',cap:6,reach:150,pull:36,rope:true},
+ forwarder:{name:'forwarder z żurawiem',veh:'forwarder',cap:12,reach:95,pull:80,crane:true,price:12000}
+};
 const HOME={edge:edgeOf('sk','b1'),s:180},TRUCK_AT={edge:edgeOf('sk','b1'),s:30};
-export function initJobs(){
- const S=J.skid;S.trac=new Vehicle('tractor',{from:'sk',to:'b1',s:HOME.s});S.trac.label='ciągnik zrywkowy (czeka na składnicy)';S.trac.final=true;S.trac.stopS=HOME.s;S.trac.arrived=true;S.trac.parked=true;
- J.stack=4.2;J.stackValue=4.2*260;   // trochę drewna z poprzedniego sezonu
+const homeLabel=()=>MACH[J.skid.mach].name+' (czeka na składnicy)';
+function spawnMachine(kind,atHome=true){
+ const S=J.skid,M=MACH[kind];S.mach=kind;
+ S.trac=atHome?new Vehicle(M.veh,{from:'sk',to:'b1',s:HOME.s}).parkHere():new Vehicle(M.veh,{from:'mE',to:'j2',s:0});
+ S.trac.cap=M.cap;S.trac.label=homeLabel();S.phase='idle';S.list=[];S.cur=null;S.watch=0;
+ if(!atHome){S.phase='arriving';S.trac.label=M.name+' jedzie na składnicę';S.trac.goTo(HOME,{park:true,onArrive:()=>{S.phase='idle';S.trac.label=homeLabel()}})}
 }
-function winchPoint(v){const c=v.cart;return[c.x-Math.sin(c.angle)*33,c.y+Math.cos(c.angle)*33]}
+export function initJobs(){spawnMachine('tractor');J.stack=4.2;J.stackValue=4.2*260}
+export function buyForwarder(){
+ const S=J.skid,M=MACH.forwarder;
+ if(S.owned){toast('Forwarder już pracuje w leśnictwie.');return}
+ if(state.money<M.price){toast('Za mało pieniędzy na forwarder ('+zl(M.price)+').');return}
+ if(S.phase!=='idle'){toast('Poczekaj, aż ciągnik skończy kurs i wróci na składnicę.');return}
+ pay(M.price,'zakup forwardera');S.owned=true;
+ const old=S.trac;old.label='ciągnik odjeżdża (zastąpiony forwarderem)';old.goTo(goalNode('mE'),{leave:true});
+ spawnMachine('forwarder',false);toast('Kupiono forwarder: 12 m³ ładunku, żuraw, szybciej w terenie.');
+}
+// punkt, z którego maszyna ładuje: tył przyczepy (wyciągarka) albo podstawa żurawia
+const anchor=v=>J.skid.mach==='forwarder'?cartFront(v.cart):cartRear(v.cart);
+function rutWork(v,step){v.rutAcc=(v.rutAcc||0)+step;if(v.rutAcc>2){v.rutAcc=0;paintRut(v.pos[0],v.pos[1],v.heading,v.spec.hw*.65);if(v.cart){const c=v.cart;paintRut(c.x,c.y,c.angle,12)}}}
+// Ścieżka w teren do miejsca, skąd kłoda jest w zasięgu (A* po siatce pieszych — omija budynki, płoty i grodzenia).
+function pathTo(v,tx,ty,stop){
+ let p=NAV.foot.findPath(v.pos[0],v.pos[1],tx,ty);if(!p||!p.length)p=[[tx,ty]];
+ const out=[];let px=v.pos[0],py=v.pos[1];
+ for(const q of p){
+  if(Math.hypot(q[0]-tx,q[1]-ty)<=stop){const L=Math.hypot(q[0]-px,q[1]-py)||1;let lo=0,hi=1;
+   for(let k=0;k<12;k++){const m=(lo+hi)/2,x=px+(q[0]-px)*m,y=py+(q[1]-py)*m;if(Math.hypot(x-tx,y-ty)<=stop)hi=m;else lo=m}
+   out.push([px+(q[0]-px)*hi,py+(q[1]-py)*hi]);break}
+  out.push(q);px=q[0];py=q[1];
+ }
+ return out;
+}
+const freePiles=()=>E.piles.filter(p=>p.state==='ground'&&!p.dead&&!(p.skipT>state.elapsed));
 function skidUpdate(dt){
- const S=J.skid,v=S.trac;if(!v)return;
+ const S=J.skid,v=S.trac,M=MACH[S.mach];if(!v)return;
+ if(S.phase!=='idle'&&S.phase!=='arriving')S.watch+=dt;
+ // zabezpieczenie: maszyna bez postępu przez 4 godziny gry — odholowanie na składnicę
+ if(S.watch>240){
+  for(const p of E.piles)if(p.state==='reserved'||p.state==='winch')p.state='ground';
+  if(S.target)S.target.skipT=state.elapsed+600;
+  const load=v.load;v.dead=true;spawnMachine(S.mach);S.trac.load=load;if(load>0){S.phase='unload'}
+  toast(M.name[0].toUpperCase()+M.name.slice(1)+' utknął — odholowano go na składnicę.');return;
+ }
  if(S.phase==='idle'){
-  if(!cal.work(7,17))return;   // zrywka w dzień, pon.–sob.
-  const free=E.piles.filter(p=>p.state==='ground'&&!p.dead);if(!free.length)return;
+  if(!cal.work(7,17))return;
+  const free=freePiles();if(!free.length)return;
   const [vx,vy]=v.pos;free.sort((a,b)=>Math.hypot(a.x-vx,a.y-vy)-Math.hypot(b.x-vx,b.y-vy));
-  const rp=nearestRoad(free[0].x,free[0].y,['main','forest'],{margin:60});
-  S.cluster=free.filter(p=>Math.hypot(p.x-rp.x,p.y-rp.y)<320);for(const p of S.cluster)p.state='reserved';
-  S.phase='driving';v.label='ciągnik jedzie po drewno do oddz. '+oddzial(rp.x,rp.y);
-  v.goTo({edge:rp.edge,s:rp.s},{park:true,onArrive:()=>{S.phase='winch';S.cur=null;S.wait=1;v.label='zrywka: wyciągarka ciągnie kłody'}});
- }else if(S.phase==='winch'){
+  const p=free[0],rp=nearestRoad(p.x,p.y,['main','forest'],{margin:60});
+  S.target=p;S.rp=rp;S.went=false;S.phase='driving';S.watch=0;
+  v.label=M.name+' jedzie po drewno do oddz. '+oddzial(p.x,p.y);
+  const near=Math.hypot(p.x-rp.x,p.y-rp.y)<=M.reach-12;
+  v.goTo({edge:rp.edge,s:rp.s},{park:near,onArrive:()=>{S.watch=0;if(near)startLoad();else goIn(p)}});
+ }else if(S.phase==='load'){
   if(S.wait>0){S.wait-=dt;return}
-  if(!S.cur){S.cur=S.cluster.shift()||null;if(S.cur)S.cur.state='winch';sfx('winch')}
   if(!S.cur){
-   const more=E.piles.some(p=>p.state==='ground'&&!p.dead);
-   if(more&&v.load<v.cap-1){S.phase='idle';return}
-   S.phase='home';v.label='ciągnik wiezie '+displayNumber(v.load,1)+' m³ na składnicę';
-   v.goTo(HOME,{park:true,onArrive:()=>{S.phase='unload';v.label='rozładunek na składnicy'}});return;
+   while(S.list.length&&(S.list[0].dead))S.list.shift();
+   S.cur=v.load<v.cap-.3?S.list.shift()||null:null;
+   if(S.cur){S.cur.state='winch';sfx('winch')}
   }
-  const p=S.cur,[wx,wy]=winchPoint(v),dx=wx-p.x,dy=wy-p.y,d=Math.hypot(dx,dy);
-  if(d<14){v.load+=p.vol;S.val=(S.val||0)+p.vol*SP[p.sp].price;p.dead=true;S.cur=null;S.wait=.8;sfx('clunk');return}
-  const st=Math.min(d,38*dt);p.x+=dx/d*st;p.y+=dy/d*st;p.a+=clamp(Math.atan2(dy,dx)-p.a,-dt,dt);
-  if(rand()<dt*10)particle('dust',p.x,p.y,{col:'#a88c62'});
+  if(!S.cur){
+   for(const p of S.list)if(p.state==='reserved')p.state='ground';S.list=[];
+   // kolejne kłody w pobliżu — jedziemy dalej w terenie
+   if(v.load<v.cap-.3){const [ax,ay]=v.pos,next=freePiles().filter(p=>Math.hypot(p.x-ax,p.y-ay)<420).sort((a,b)=>Math.hypot(a.x-ax,a.y-ay)-Math.hypot(b.x-ax,b.y-ay))[0];
+    if(next){S.target=next;
+     if(reachD(v,next)<=M.reach){startLoad();if(S.list.length)return}
+     else if((S.loops=(S.loops||0)+1)<=4){goIn(next);return}
+     next.skipT=state.elapsed+300}}
+   comeBack();return;
+  }
+  const p=S.cur,[wx,wy]=anchor(v),dx=wx-p.x,dy=wy-p.y,d=Math.hypot(dx,dy);
+  if(d<12){v.load+=p.vol;S.val=(S.val||0)+p.vol*SP[p.sp].price;p.dead=true;S.cur=null;S.wait=M.crane?.5:.8;S.watch=0;sfx(M.crane?'log':'clunk');return}
+  const st=Math.min(d,M.pull*dt);p.x+=dx/d*st;p.y+=dy/d*st;p.a+=clamp(Math.atan2(dy,dx)-p.a,-dt*2,dt*2);
+  if(M.rope&&rand()<dt*10)particle('dust',p.x,p.y,{col:'#a88c62'});
  }else if(S.phase==='unload'){
   const q=Math.min(v.load,dt*1.5),frac=v.load>0?q/v.load:1,vv=(S.val||0)*frac;
   v.load-=q;S.val=(S.val||0)-vv;J.stack+=q;J.stackValue+=vv;S.delivered=(S.delivered||0)+q;
   if(v.load<=.001){
-   const d=S.delivered;v.load=0;S.val=0;S.delivered=0;S.phase='idle';v.label='ciągnik zrywkowy (czeka na składnicy)';
-   pay(Math.round(d*COST.skid),'zrywka');planProgress('cut',d);toast('Na składnicę trafiło '+displayNumber(d,1)+' m³ drewna.');
+   const d=S.delivered||0;v.load=0;S.val=0;S.delivered=0;S.phase='idle';S.watch=0;v.label=homeLabel();
+   if(d>0){pay(Math.round(d*COST.skid),'zrywka');planProgress('cut',d);toast('Na składnicę trafiło '+displayNumber(d,1)+' m³ drewna.')}
   }
  }
+}
+const reachD=(v,p)=>{const [ax,ay]=anchor(v);return Math.min(Math.hypot(p.x-ax,p.y-ay),Math.hypot(p.x-v.pos[0],p.y-v.pos[1]))};
+function startLoad(){
+ const S=J.skid,v=S.trac,M=MACH[S.mach];
+ S.list=freePiles().filter(p=>reachD(v,p)<=M.reach).sort((a,b)=>reachD(v,a)-reachD(v,b));
+ if(S.list.length)S.loops=0;
+ for(const p of S.list)p.state='reserved';
+ S.phase='load';S.cur=null;S.wait=.8;v.label=M.crane?'forwarder ładuje kłody żurawiem':'zrywka: wyciągarka ciągnie kłody';
+}
+function goIn(p){
+ const S=J.skid,v=S.trac,M=MACH[S.mach];
+ const pts=pathTo(v,p.x,p.y,M.reach-40);S.went=true;S.phase='in';S.watch=0;
+ let L=0,px=v.pos[0],py=v.pos[1];for(const q of pts){L+=Math.hypot(q[0]-px,q[1]-py);px=q[0];py=q[1]}
+ if(L>30)J.trails.push([[Math.round(v.pos[0]),Math.round(v.pos[1])],...pts.map(q=>[Math.round(q[0]),Math.round(q[1])])]);
+ v.label=M.name+' jedzie szlakiem zrywkowym';
+ v.driveOff(pts,{work:rutWork,onArrive:()=>{S.watch=0;startLoad()}});
+}
+function comeBack(){
+ const S=J.skid,v=S.trac,M=MACH[S.mach];
+ const goHome=()=>{S.phase='home';S.watch=0;v.label=M.name+' wiezie '+displayNumber(v.load,1)+' m³ na składnicę';v.goTo(HOME,{park:true,onArrive:()=>{S.phase='unload';S.watch=0;v.label='rozładunek na składnicy'}})};
+ if(v.load<=.001&&!S.went){S.phase='idle';v.label=homeLabel();v.goTo(HOME,{park:true});return}
+ if(!S.went){goHome();return}
+ // z powrotem na drogę najkrótszą ścieżką
+ const rp=nearestRoad(v.pos[0],v.pos[1],['main','forest'],{margin:40});
+ const pts=pathTo(v,rp.x,rp.y,0);S.phase='out';S.went=false;v.label=M.name+' wraca szlakiem na drogę';
+ v.driveOff(pts,{work:rutWork,onArrive:()=>{v.rejoin();goHome()}});
 }
 // ── wywóz: ciężarówka ładuje stos i płaci ──
 export function orderTruck(manual=true){
@@ -186,6 +272,12 @@ export function drawGroundItems(g){
  for(const p of J.plants){g.strokeStyle=p.assigned?'#a6e07a':'#7ae07a';g.lineWidth=1;g.strokeRect(Math.round(p.x)-3.5,Math.round(p.y)-3.5,7,7);rect2(g,p.x-1,p.y-1,2,2,'#3f744c')}
 }
 export function drawRopes(g){
- const S=J.skid;if(S.phase!=='winch'||!S.cur||!S.trac)return;
- const [wx,wy]=winchPoint(S.trac);g.strokeStyle='#2a2a26';g.lineWidth=1;g.beginPath();g.moveTo(Math.round(wx)+.5,Math.round(wy)+.5);g.lineTo(Math.round(S.cur.x)+.5,Math.round(S.cur.y)+.5);g.stroke();
+ const S=J.skid,v=S.trac;if(S.phase!=='load'||!S.cur||!v)return;
+ const [wx,wy]=anchor(v),p=S.cur;
+ if(MACH[S.mach].crane){
+  // żuraw: dwa ramiona ze stawem uniesionym nad linią, chwytak nad kłodą
+  const mx=(wx+p.x)/2,my=(wy+p.y)/2-18;
+  for(const [w,c] of [[5,'#2a2a26'],[3,'#d8b23a']]){g.strokeStyle=c;g.lineWidth=w;g.lineCap='round';g.beginPath();g.moveTo(wx,wy);g.lineTo(mx,my);g.lineTo(p.x,p.y-4);g.stroke()}
+  g.lineCap='butt';rect2(g,p.x-4,p.y-7,8,5,'#3a3a36');rect2(g,p.x-3,p.y-6,6,3,'#8a8a80');
+ }else{g.strokeStyle='#2a2a26';g.lineWidth=1;g.beginPath();g.moveTo(Math.round(wx)+.5,Math.round(wy)+.5);g.lineTo(Math.round(p.x)+.5,Math.round(p.y)+.5);g.stroke()}
 }

@@ -2,7 +2,8 @@
 import {$,state,cal,SEASONS,DOW,displayNumber,zl,SETTINGS,camera,VIEW,clamp,toast} from './core.js';
 import {SP,STAND,STUMP,SAPLING_AGE,CUT_AGE,crownR,heightM,dbhCm,volume,counts,treesIn} from './forest.js';
 import {STANDS,oddzial} from './map.js';
-import {J,COST,pendingCount,toggleMark,dispatchCrew,orderTruck,togglePlant} from './jobs.js';
+import {J,COST,MACH,pendingCount,toggleMark,dispatchCrew,orderTruck,togglePlant,buyForwarder} from './jobs.js';
+import {R,plotStats,prepCost,areaHa,spotsIn,orderPrep,orderPlant,removePlot,rowsOf} from './renew.js';
 import {ECO} from './economy.js';
 import {E} from './ents.js';
 import {dispatch,openIncidents,P} from './incidents.js';
@@ -11,8 +12,8 @@ import {VSPEC,ASPEC} from './life/agents.js';
 export function lat(n){n=Math.round(n);const d=n%10,dd=n%100;return n+(n===1?' rok':(d>=2&&d<=4&&!(dd>=12&&dd<=14))?' lata':' lat')}
 const pct=v=>Math.round(v)+'%';
 function barCol(v){return v>=70?'#8ec86a':v>=50?'#d8b665':'#e0704f'}
-export function setTool(t){state.tool=t;for(const b of document.querySelectorAll('[data-tool]'))b.classList.toggle('on',b.dataset.tool===t);
- const msg={select:'Podgląd: kliknij drzewo, zwierzę, pojazd albo zgłoszenie.',mark:'Wycinka: klikaj drzewa (od '+CUT_AGE+' lat). Shift + przeciągnij = zaznacz obszar.',plant:'Sadzenie: klikaj miejsca na sadzonki (najlepiej przy pniakach).'}[t];
+export function setTool(t){state.tool=t;state.hover=null;state.box=null;for(const b of document.querySelectorAll('[data-tool]'))b.classList.toggle('on',b.dataset.tool===t);
+ const msg={select:'Podgląd: kliknij drzewo, zwierzę, pojazd, zgłoszenie albo powierzchnię.',mark:'Wycinka: klik = drzewo (od '+CUT_AGE+' lat), przeciągnij = obszar. Prawy przycisk przesuwa mapę.',plant:'Sadzenie: klik = sadzonka, przeciągnij = rzędy sadzonek (bez przygotowania gleby).',plot:'Odnowienie: przeciągnij obszar zrębu → pług LPz → sadzenie w rzędach.'}[t];
  $('#toolhint').textContent=msg;}
 let incSig='',infoSig='',taskSig='';
 export function hud(){
@@ -30,6 +31,8 @@ export function hud(){
  $('#crewstate').textContent=C.phase==='idle'&&nt?'czeka · '+cal.nextStart(7,15):({idle:'w bazie',driving:'w drodze',working:'pracuje',leaving:'wraca'}[C.phase]+(nt?' · zadań: '+nt:''));
  $('#skidstate').textContent=J.skid.phase==='idle'&&!cal.work(7,17)?'po pracy':{idle:'czeka',driving:'jedzie po drewno',winch:'zrywka',home:'wiezie drewno',unload:'rozładunek'}[J.skid.phase];
  if(J.truck.pending)$('#stackinfo').textContent+=' · wywóz zamówiony';
+ const PL=R.plow;$('#plowstate').textContent=PL.phase==='idle'?(PL.queue.length?'czeka · '+cal.nextStart(7,17):'—'):PL.phase==='plowing'?'orze P'+PL.cur.id:'w drodze';
+ $('#machname').textContent=MACH[J.skid.mach].name;$('#buyfwd').style.display=J.skid.owned?'none':'flex';
  $('#patrolstate').textContent=P.phase==='home'&&P.ranger.sleeping?'leśniczy śpi':{home:'w leśniczówce',boarding:'wyjeżdża',driving:'w drodze',onsite:'na miejscu',return:'wraca'}[P.phase];
  // plan na sezon
  const Pl=ECO.plan;if(Pl){const sig=[Pl.doneCut.toFixed(1),Pl.donePlant,Pl.doneHandle,Pl.rewarded,Pl.season].join();if(sig!==taskSig){taskSig=sig;
@@ -55,6 +58,18 @@ function treeInfo(t){
  if(t.assigned)lines.push('Ekipa ma je na liście.');
  return{title:sp.name[0].toUpperCase()+sp.name.slice(1),lines,btns:t.assigned?[]:t.age<CUT_AGE?[]:[['mark',t.marked?'Usuń oznaczenie':'Wyznacz do wycinki']]};
 }
+function plotInfo(p){
+ const st=plotStats(p),spots=p.state==='planting'||p.state==='planted'?0:spotsIn(p.x,p.y,p.w,p.h).length,stName={new:'nowa',queued:'czeka na pług',prepping:'trwa orka',prepared:'gleba przygotowana',planting:'trwa sadzenie',planted:'obsadzona'}[p.state];
+ const lines=['Oddział '+p.odd+' · '+displayNumber(areaHa(p),2)+' ha · '+rowsOf(p).length+' rzędów','Stan: '+stName+' · gatunek: '+SP[p.sp].name,
+  'Pniaki: '+st.stumps+(st.slash?' (gałęzie: '+st.slash+')':'')+' · drzewa: '+st.stand+' · sadzonki: '+st.young];
+ if(st.stand)lines.push('Stojące drzewa zostaną ominięte — możesz je najpierw wyciąć (narzędzie 2).');
+ if(p.state==='planting')lines.push('Posadzono '+p.planted+' z '+p.toPlant+'.');
+ const btns=[];
+ if(!p.prepared&&p.state==='new')btns.push(['prep','Przygotuj glebę (pług LPz) · '+zl(prepCost(p))]);
+ if(spots&&(p.state==='new'||p.state==='prepared'||p.state==='planted'))btns.push(['plantplot','Sadź w rzędach: '+spots+' szt. · '+zl(spots*COST.plant)+(p.prepared?'':' (bez orki)')]);
+ if(p.state!=='prepping'&&p.state!=='planting'&&p.state!=='queued')btns.push(['delplot','Usuń powierzchnię']);
+ return{title:'Powierzchnia odnowieniowa P'+p.id,lines,btns};
+}
 function info(){
  const s=state.selected,el=$('#info');
  if(!s||s.dead||(s.status&&(s.status==='done'||s.status==='gone'))){if(state.selected&&(s.dead||s.status))state.selected=null;el.style.display='none';infoSig='';return}
@@ -65,6 +80,7 @@ function info(){
  else if(s.kind&&ASPEC[s.kind])I={title:s.name||ASPEC[s.kind].name,lines:[{idle:'Odpoczywa / żeruje',walk:'Wędruje',run:'Ucieka!'}[s.state]||'',s.male&&s.kind==='deer'?'Byk z porożem':s.male&&s.kind==='roe'?'Rogacz':''].filter(Boolean),btns:[]};
  else if(s.look)I={title:s.label?s.label[0].toUpperCase()+s.label.slice(1):'Osoba',lines:[s.kind==='picker'?'Zbiera grzyby. Czasem zostawia śmieci…':s.kind==='worker'?'Pilarz z ekipy leśnej.':s.kind==='lesniczy'?'Prowadzi leśnictwo. Wyjeżdża na interwencje.':s.kind==='hunter'?'Poluje z ambony na skraju polany.':'Odpoczywa w lesie.'],btns:[]};
  else if(s.logs)I={title:'Kłody — '+SP[s.sp].name,lines:['Miąższość '+displayNumber(s.vol,2)+' m³',s.state==='ground'?'Czeka na zrywkę (ciągnik przyjedzie sam).':'Ciągnik już po nie jedzie.'],btns:[]};
+ else if(s.toPlant!==undefined)I=plotInfo(s);
  else if(s.isStack)I={title:'Składnica drewna',lines:['Na stosie: '+displayNumber(J.stack,1)+' m³','Wartość ok. '+zl(J.stackValue),'Sprzedano łącznie: '+displayNumber(J.sold,1)+' m³','Przy 16 m³ nadleśnictwo samo przyśle transport.'],btns:[['truck','Zamów wywóz teraz']]};
  if(!I){el.style.display='none';return}
  const sig=JSON.stringify(I);if(sig===infoSig)return;infoSig=sig;
@@ -84,7 +100,7 @@ export function showReport(r){
   ${row('Przychody / wydatki','+'+zl(S.earned)+' / −'+zl(S.spent))}
   ${row('Budżet',zl(r.money)+' ('+sgn(r.money-S.money0)+' zł)')}${row('Stan lasu',Math.round(r.health)+'% ('+sgn(r.health-S.health0)+')')}${row('Ochrona terenu',Math.round(r.protect)+'% ('+sgn(r.protect-S.protect0)+')')}
   ${row('Plan nadleśnictwa',P.rewarded?'wykonany (+'+zl(P.reward)+')':'niewykonany')}</div>
-  <p>Las urósł o ${r.years} lata.${r.grown?' '+r.grown+' sadzonek wyrosło na młode drzewka.':''}${r.unrenewed?' Pniaków bez odnowienia: '+r.unrenewed+'.':''}</p>
+  <p>Las urósł o ${r.years} lata.${r.grown?' '+r.grown+' sadzonek wyrosło na młode drzewka.':''}${r.young?' Udatność nowych upraw: '+Math.round((1-r.died/r.young)*100)+'% (nie przyjęło się: '+r.died+').':''}${r.unrenewed?' Pniaków bez odnowienia: '+r.unrenewed+'.':''}</p>
   <p><b>Teraz ${SEASONS[r.next]}.</b> Nowy plan: ${N.cut} m³ drewna, ${N.plant} sadzonek, ${N.handle} zgłoszenia — premia ${zl(N.reward)}.</p>
   <button id="report-close">DALEJ</button>`;
  $('#report').classList.remove('hidden');state.paused=true;state.modal=true;
@@ -92,7 +108,7 @@ export function showReport(r){
 }
 export function bindUI(){
  for(const b of document.querySelectorAll('[data-tool]'))b.addEventListener('click',()=>setTool(b.dataset.tool));
- $('#crewbtn').addEventListener('click',dispatchCrew);$('#sellbtn').addEventListener('click',()=>orderTruck(true));
+ $('#crewbtn').addEventListener('click',dispatchCrew);$('#buyfwd').addEventListener('click',()=>{buyForwarder();hud()});$('#sellbtn').addEventListener('click',()=>orderTruck(true));
  $('#incidents').addEventListener('click',e=>{
   const b=e.target.closest('[data-inc]');if(b){const q=E.incidents.find(x=>x.id==b.dataset.inc);dispatch(q);incSig='';hud();return}
   const g=e.target.closest('[data-go]');if(g){const q=E.incidents.find(x=>x.id==g.dataset.go);if(q){centerOn(q.x,q.y);state.selected=q;state.follow=null}}
@@ -102,6 +118,7 @@ export function bindUI(){
   if(k==='mark'){toggleMark(s)}
   else if(k==='patrol'){dispatch(s.text?s:s.inc)}
   else if(k==='truck')orderTruck(true);
+  else if(k==='prep')orderPrep(s);else if(k==='plantplot')orderPlant(s);else if(k==='delplot'){removePlot(s);if(!R.plots.includes(s))state.selected=null}
   else if(k==='plantnear'){for(let a=0;a<12;a++){const x=s.x+Math.cos(a)*12,y=s.y+Math.sin(a)*12;const n=J.plants.length;togglePlant(x,y);if(J.plants.length>n)break}}
   infoSig='';hud();
  });

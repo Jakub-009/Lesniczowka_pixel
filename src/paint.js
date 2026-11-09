@@ -171,3 +171,23 @@ export function buildGround(){
  for(const f of FENCES)fence(f);
  paintProps();
 }
+
+// ── ślady na podłożu malowane w trakcie gry (0.3): koleiny szlaków zrywkowych i bruzdy pługa ──
+// Malujemy bezpośrednio na warstwie podłoża; zapis gry przechowuje przebieg szlaków i powierzchnie, więc po wczytaniu malujemy je ponownie.
+export function paintRut(x,y,h,hw){
+ const c=Math.cos(h),s=Math.sin(h);
+ g.globalAlpha=.55;
+ for(const side of [-1,1]){const px=x+c*hw*side,py=y+s*hw*side;rect(g,px-1.5,py-1.5,3,3,'#5c4a34')}
+ g.globalAlpha=.25;rect(g,x-1,y-1,2,2,'#8a7a5a');g.globalAlpha=1;
+}
+export function paintTrail(pts,hw=9){
+ for(let i=0;i<pts.length-1;i++){const [ax,ay]=pts[i],[bx,by]=pts[i+1],L=Math.hypot(bx-ax,by-ay),h=Math.atan2(bx-ax,-(by-ay));
+  for(let u=0;u<L;u+=2)paintRut(ax+(bx-ax)*u/L,ay+(by-ay)*u/L,h,hw)}
+}
+// Bruzda pługa LPz: ciemny pas odsłoniętej gleby z jaśniejszymi skibami po bokach (rzędy co 18 px ≈ 1,5 m).
+export function paintFurrow(x,y,len=3){
+ const xx=Math.round(x);
+ rect(g,xx,y-5,len,2,'#a08460');rect(g,xx,y-3,len,6,'#5e4630');rect(g,xx,y-1,len,1,'#4e3a28');rect(g,xx,y+3,len,2,'#9a7e5a');
+ if(hash(xx,y,7)<.3)rect(g,xx,y-2,1,1,'#7a6040');
+}
+export function paintFurrowRow(y,x0,x1){for(let x=x0;x<x1;x+=3)paintFurrow(x,y,3)}

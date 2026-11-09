@@ -110,6 +110,40 @@ export function logTrailer(g,c,load,cap){
   logLoad(s,load/cap,20,76);
  });
 }
+// Pług leśny dwuodkładnicowy (LPz): rama z dwiema odkładnicami odkładającymi skiby na boki.
+export function plowTop(g,c,working){
+ orientedShadow(g,c.x,c.y,c.angle,[[13,11,0]],6);
+ drawRotated(g,c.x,c.y,c.angle,s=>{
+  for(let i=0;i<=10;i++){const x=Math.round(i/10*4);rect(s,-x-1,-23+i,2,2,'#3a3a36');rect(s,x,-23+i,2,2,'#3a3a36')}
+  rect(s,-3,-13,6,24,'#2e3a44');rect(s,-2,-12,4,22,'#4a6a82');
+  for(const sd of [-1,1]){rect(s,sd*4-(sd<0?8:0),-4,8,10,'#26303a');rect(s,sd*5-(sd<0?7:0),-3,7,8,'#8fa3b0');rect(s,sd*5-(sd<0?7:0),-3,7,2,'#c6d2d8')}
+  rect(s,-1,8,2,5,'#26303a');
+  if(working){rect(s,-12,9,24,3,'#5e4630');rect(s,-12,8,24,1,'#a08460')}
+ });
+}
+// Forwarder: przednia część (kabina, silnik, dwa wózki kół) i tylna rama z kłonicami i żurawiem.
+export function forwarderTop(g,x,y,h,travel=0,steer=0){
+ orientedShadow(g,x,y,h,[[15,19,0]],15);
+ drawRotated(g,x,y,h,s=>{
+  wheels(s,[-13,13],[-11,9],7,13,travel);
+  rect(s,-11,-20,22,36,'#2c3324');rect(s,-10,-19,20,34,'#7a8a3a');rect(s,-10,-19,20,2,'#a8b85a');
+  rect(s,-8,-17,16,12,'#e4dfc8');rect(s,-7,-16,14,8,'#5d8790');rect(s,-6,-15,12,3,'#a8c2c6');   // kabina
+  rect(s,-9,-2,18,14,'#5f6c2c');for(let k=0;k<4;k++)rect(s,-7,0+k*3,14,1,'#454f22');             // silnik
+  rect(s,-4,14,8,5,'#2a2a26');rect(s,-2,15,4,3,'#6a6a62');                                         // przegub
+  rect(s,-10,-21,3,2,'#ffd06a');rect(s,7,-21,3,2,'#ffd06a');
+ });
+}
+export function bunkTop(g,c,load,cap){
+ orientedShadow(g,c.x,c.y,c.angle,[[15,26,0]],12);
+ drawRotated(g,c.x,c.y,c.angle,s=>{
+  wheels(s,[-13,13],[-6,12],7,13,0);
+  rect(s,-11,-26,22,52,'#2c3324');rect(s,-10,-25,20,50,'#5f6c2c');
+  rect(s,-5,-27,10,8,'#3a3a36');rect(s,-3,-26,6,6,'#d8b23a');rect(s,-1,-24,2,2,'#2a2a26');      // podstawa żurawia
+  for(const yy of [-14,0,14,24]){rect(s,-13,yy-3,3,6,'#d8b23a');rect(s,10,yy-3,3,6,'#d8b23a')}
+  const n=Math.round(Math.min(1,load/cap)*8);
+  for(let k=0;k<n;k++){const x=-9+(k%4)*4.5,y0=-16,L=40;rect(s,x,y0,4,L,'#6b4a2e');rect(s,x+1,y0,2,L,k%2?'#a8743f':'#b8844a');rect(s,x+1,y0,2,2,'#e3c08a');rect(s,x+1,y0+L-2,2,2,'#e3c08a')}
+ });
+}
 function logLoad(s,f,w,len){
  const n=Math.round(Math.min(1,f)*7);
  for(let k=0;k<n;k++){const x=-w/2+1+(k%4)*5+(k>3?2:0),L=len-6;

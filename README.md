@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.2.0 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.3.0 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -35,8 +35,9 @@ Pory roku zmieniają las (jesienne kolory, bezlistne drzewa i śnieg zimą), jes
 |---|---|
 | Mysz | przeciągnij mapę, kliknij obiekt |
 | Kółko / Z / + − | przybliżenie (całkowite skale, ostre piksele) |
-| 1 / 2 / 3 | podgląd / wycinka / sadzenie |
-| Shift + przeciągnij | wyznacz obszar do wycinki |
+| 1 / 2 / 3 / 4 | podgląd / wycinka / sadzenie / odnowienie |
+| Przeciągnij lewym (w narzędziach 2–4) | zaznacz obszar: drzewa do wycinki, rzędy sadzonek, powierzchnię odnowieniową |
+| Prawy przycisk | przesuwanie mapy (w podglądzie także lewy) |
 | E | wyślij ekipę |
 | K | zamów wywóz drewna |
 | Q | patrol do najstarszego zgłoszenia |
@@ -63,7 +64,8 @@ Gra zapisuje się sama co 30 s (localStorage).
 | `src/life/agents.js` | pojazdy, piesi ze scenariuszem, zwierzyna | z `life.js` + `tow.js` farmy |
 | `src/life/sprites.js` | wygląd pojazdów, ludzi, zwierząt | część z `life.js` farmy |
 | `src/life/populate.js` | zwierzęta w grupach, goście w lesie | nowe |
-| `src/jobs.js` | ekipa, zrywka, składnica, wywóz | nowe |
+| `src/jobs.js` | ekipa, zrywka (szlaki, forwarder), składnica, wywóz | nowe |
+| `src/renew.js` | powierzchnie odnowieniowe, pług LPz, sadzenie w rzędach | nowe |
 | `src/incidents.js` | zgłoszenia, patrol, leśniczy | nowe |
 | `src/economy.js` | wskaźniki, plan na sezon | nowe |
 | `src/render.js` | kolejność warstw, noc, znaczniki | wzorzec z farmy |
@@ -89,6 +91,14 @@ Gra zapisuje się sama co 30 s (localStorage).
 | Quad / cross | głównie weekendowe popołudnia |
 | Dym | suche letnie dni |
 | Kłusownik | nocą: samochód bez świateł, zakłada wnyki; niezłapany zostawia wnyki, które ktoś później znajdzie |
+
+## Zmiany w 0.3 „Zrąb i odnowienie”
+- **Jazda pojazdów:** pojazd goni punkt przed sobą na pasie ruchu i skręca jak prawdziwy (ograniczony skręt kół) — koniec przesuwania bokiem i obracania w miejscu; zakręty łukiem, zawracanie pętlą, zjazd na pobocze przy parkowaniu.
+- **Zrywka w głąb lasu (naprawa zacięcia):** maszyna zjeżdża z drogi szlakiem zrywkowym (zostają koleiny), ładuje wszystko w zasięgu, jedzie do kolejnych kłód i wraca. Zabezpieczenie: maszyna bez postępu przez 4 godziny gry jest odholowana na składnicę.
+- **Forwarder** (panel Sprzęt, 12 000 zł): 12 m³ ładunku, żuraw, szybszy w terenie. Na start ciągnik z wyciągarką (6 m³, lina 150 px).
+- **Zaznaczanie obszarem** w wycince, sadzeniu i odnowieniu (bez Shift).
+- **Powierzchnia odnowieniowa (narzędzie 4):** pług leśny LPz orze bruzdy co ok. 1,5 m i zgarnia gałęzie → ekipa sadzi w rzędach (do 4 osób). Bez przygotowania gleby nie przyjmuje się ok. 25% sadzonek, z przygotowaniem ok. 5% — wynik w raporcie z sezonu.
+- Naprawa: zadania ekipy głęboko w lesie (daleko od drogi) nie blokują już ekipy.
 
 ## Zmiany w 0.2 „Rytm lasu”
 - Nowy model czasu (patrz wyżej), raport z sezonu, dni tygodnia.
