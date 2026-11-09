@@ -1,12 +1,12 @@
 // Prace leśne: wyznaczanie drzew, ekipa pilarzy (ścinka, wyrzynka, sadzenie), ciągnik zrywkowy (wyciągarka → składnica),
 // ciężarówka (wywóz i sprzedaż). Wszystko jeździ samo po drogach — gracz tylko wydaje polecenia.
-import {state,toast,particle,clamp,zl,displayNumber,ctx} from './core.js';
+import {state,toast,particle,clamp,zl,displayNumber,ctx,cal} from './core.js';
 import {STACK,SKLAD,roadClearance,oddzial,inRect,YARD,UPRAWA,pointBlocked} from './map.js';
 import {nearestRoad,goalNode,edgeOf} from './roads.js';
 import {E} from './ents.js';
 import {Vehicle,Ped,rand} from './life/agents.js';
 import {trees,STAND,STUMP,CUT_AGE,SP,startFall,finishTree,plantTree,volume,crownR,speciesFor,treesIn,SAPLING_AGE} from './forest.js';
-import {pay,earn,planProgress} from './economy.js';
+import {pay,earn,planProgress,stat} from './economy.js';
 import {sfx} from './sound.js';
 import {pileTop} from './life/sprites.js';
 
@@ -41,14 +41,20 @@ export function dispatchCrew(){
  for(const t of fell){t.assigned=true;C.tasks.push({type:'fell',t})}
  for(const p of pl){p.assigned=true;C.tasks.push({type:'plant',p})}
  if(C.phase==='idle'){
-  C.van=new Vehicle('van',{from:'mE',to:'j2',s:0});C.van.label='ekipa leśna';
-  toast('Ekipa wyjeżdża: '+fell.length+' do wycinki, '+pl.length+' do posadzenia.');nextCluster();
+  if(cal.work(7,14.5)){startCrew();toast('Ekipa wyjeżdża: '+fell.length+' do wycinki, '+pl.length+' do posadzenia.')}
+  else toast('Zlecenie przyjęte ('+(fell.length+pl.length)+'). Ekipa przyjedzie '+cal.nextStart(7,15)+'.');
  }else toast('Ekipa dostała dodatkowe zadania ('+(fell.length+pl.length)+').');
 }
+// Ekipa pracuje pon.–sob. 7:00–15:00. Zlecenie poza godzinami czeka do rana.
+function startCrew(){const C=J.crew;C.van=new Vehicle('van',{from:'mE',to:'j2',s:0});C.van.label='ekipa leśna';nextCluster()}
+const shiftOn=()=>cal.work(7,15);
 const tpos=k=>k.type==='fell'?[k.t.x,k.t.y]:[k.p.x,k.p.y];
 function nextCluster(){
  const C=J.crew,v=C.van;
- if(!C.tasks.length){C.phase='leaving';v.label='ekipa wraca do bazy';v.goTo(goalNode('mE'),{leave:true,onArrive:()=>{C.phase='idle';C.van=null}});return}
+ if(!C.tasks.length||!shiftOn()){
+  const left=C.tasks.length;C.phase='leaving';v.label=left?'koniec dniówki — ekipa wraca jutro':'ekipa wraca do bazy';
+  if(left)toast('Koniec dniówki. Ekipa wróci '+cal.nextStart(7,15)+' (zostało zadań: '+left+').');
+  v.goTo(goalNode('mE'),{leave:true,onArrive:()=>{C.phase='idle';C.van=null}});return}
  const [vx,vy]=v.pos;C.tasks.sort((a,b)=>{const A=tpos(a),B=tpos(b);return Math.hypot(A[0]-vx,A[1]-vy)-Math.hypot(B[0]-vx,B[1]-vy)});
  const [fx,fy]=tpos(C.tasks[0]),rp=nearestRoad(fx,fy,['main','forest'],{margin:50});
  C.cluster=C.tasks.filter(k=>{const [x,y]=tpos(k);return Math.hypot(x-rp.x,y-rp.y)<330});
@@ -67,7 +73,8 @@ function startWork(v){
 }
 const vanDoor=()=>{const v=J.crew.van,h=v.heading;return[v.pos[0]+Math.cos(h)*16,v.pos[1]+Math.sin(h)*16]};
 function assignNext(w){
- const C=J.crew,task=C.cluster.shift();
+ const C=J.crew;let task=C.cluster.shift();
+ if(task&&!shiftOn()){C.tasks.push(task,...C.cluster);C.cluster=[];task=null}   // 15:00 — koniec pracy, reszta jutro
  if(!task){w.onIdle=null;w.run([{go:vanDoor()},{call:q=>{q.hidden=true;q.dead=true;C.workers=C.workers.filter(x=>x!==q);if(!C.workers.length)nextCluster()}}]);return}
  if(task.type==='fell'){
   const t=task.t;if(t.st!==STAND){assignNext(w);return}
@@ -82,7 +89,7 @@ function assignNext(w){
    {wait:2.1,pose:'stand',face:[t.x,t.y]},
    {go:[t.x+Math.cos(dir)*fallMid(t)+Math.cos(dir+1.57)*8,t.y+Math.sin(dir)*fallMid(t)+Math.sin(dir+1.57)*8]},
    {wait:2.6,pose:'saw',face:[t.x+Math.cos(dir)*fallMid(t),t.y+Math.sin(dir)*fallMid(t)],tick:(q,dt)=>{if(rand()<dt*14)particle('dust',q.x+Math.cos(q.heading)*10,q.y+Math.sin(q.heading)*10,{col:'#e3c08a'})}},
-   {call:()=>{makePile(t,dir);finishTree(t);t.assigned=false;pay(COST.fell,'ścinka i wyrzynka');w.label='pilarz'}}]);
+   {call:()=>{makePile(t,dir);finishTree(t);t.assigned=false;pay(COST.fell,'ścinka i wyrzynka');stat('felled');w.label='pilarz'}}]);
  }else{
   const p=task.p;w.label='pilarz — sadzi '+SP[p.sp].name.split(' ')[0];
   w.run([{go:[p.x-7,p.y],face:[p.x,p.y]},{wait:1.8,pose:'kneel',face:[p.x,p.y]},
@@ -105,6 +112,7 @@ function winchPoint(v){const c=v.cart;return[c.x-Math.sin(c.angle)*33,c.y+Math.c
 function skidUpdate(dt){
  const S=J.skid,v=S.trac;if(!v)return;
  if(S.phase==='idle'){
+  if(!cal.work(7,17))return;   // zrywka w dzień, pon.–sob.
   const free=E.piles.filter(p=>p.state==='ground'&&!p.dead);if(!free.length)return;
   const [vx,vy]=v.pos;free.sort((a,b)=>Math.hypot(a.x-vx,a.y-vy)-Math.hypot(b.x-vx,b.y-vy));
   const rp=nearestRoad(free[0].x,free[0].y,['main','forest'],{margin:60});
@@ -138,26 +146,29 @@ export function orderTruck(manual=true){
  const T=J.truck;
  if(T.v){if(manual)toast('Ciężarówka już jest w drodze.');return}
  if(J.stack<1){if(manual)toast('Na składnicy prawie nie ma drewna ('+displayNumber(J.stack,1)+' m³).');return}
- T.v=new Vehicle('truck',{from:'mE',to:'j2',s:0});T.v.cap=30;T.v.label='ciężarówka po drewno';T.phase='coming';
- toast(manual?'Zamówiono wywóz drewna ze składnicy.':'Nadleśnictwo wysłało ciężarówkę po drewno ze składnicy.');
+ if(!cal.work(8,15)){T.pending=true;if(manual)toast('Wywóz zamówiony — ciężarówka przyjedzie '+cal.nextStart(8,16)+'.');return}
+ T.pending=false;T.v=new Vehicle('truck',{from:'mE',to:'j2',s:0});T.v.cap=30;T.v.label='ciężarówka po drewno';T.phase='coming';
+ toast(manual?'Ciężarówka jedzie po drewno ze składnicy.':'Nadleśnictwo wysłało ciężarówkę po drewno ze składnicy.');
  T.v.goTo(TRUCK_AT,{park:true,onArrive:()=>{T.phase='load';T.v.label='załadunek drewna'}});
 }
 function truckUpdate(dt){
  const T=J.truck,v=T.v;
- if(!v){if(J.auto&&J.stack>=16)orderTruck(false);return}
+ if(!v){if((T.pending||(J.auto&&J.stack>=16))&&cal.work(8,15))orderTruck(T.pending);return}
  if(v.dead){T.v=null;T.phase='idle';return}
  if(T.phase==='load'){
   const q=Math.min(J.stack,dt*1.6,v.cap-v.load);
   const val=J.stack>0?J.stackValue*(q/J.stack):0;J.stack-=q;J.stackValue-=val;v.load+=q;T.val=(T.val||0)+val;
   if(rand()<dt*6)sfx('log');
   if(J.stack<=.01||v.load>=v.cap-.01){
-   const pay_=Math.round(T.val||0);T.val=0;earn(pay_,'sprzedaż drewna');J.sold+=v.load;
+   const pay_=Math.round(T.val||0);T.val=0;earn(pay_,'sprzedaż drewna');J.sold+=v.load;stat('sold',v.load);
    toast('Sprzedano '+displayNumber(v.load,1)+' m³ drewna za '+zl(pay_)+'.');
    T.phase='leaving';v.label='ciężarówka odjeżdża z drewnem';v.goTo(goalNode('mW'),{leave:true});
   }
  }
 }
-export function updateJobs(dt){skidUpdate(dt);truckUpdate(dt)}
+export function updateJobs(dt){
+ const C=J.crew;if(C.phase==='idle'&&C.tasks.length&&cal.work(7,14.5))startCrew();
+ skidUpdate(dt);truckUpdate(dt)}
 
 // ── rysowanie: stos na składnicy, kłody, liny wyciągarki ──
 export function drawStack(g){

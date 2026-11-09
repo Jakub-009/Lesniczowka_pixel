@@ -1,6 +1,6 @@
 // Zapis gry w localStorage (jak w farmie: wszystko w try/catch). Zapisujemy las, wskaźniki, kalendarz, składnicę,
 // kłody w lesie i zaplanowane sadzonki. Zwierzęta i goście pojawiają się na nowo po wczytaniu.
-import {state} from './core.js';
+import {state,SEASON_DAYS} from './core.js';
 import {serializeTrees,loadTrees} from './forest.js';
 import {J} from './jobs.js';
 import {ECO} from './economy.js';
@@ -26,7 +26,7 @@ export function loadGame(){
   J.stack=o.stack;J.stackValue=o.stackValue;J.sold=o.sold||0;
   J.plants=(o.plants||[]).map(([x,y,sp])=>({x,y,sp,assigned:false}));
   E.piles=(o.piles||[]).map(([x,y,a,vol,sp,logs,bark])=>({x,y,a,vol,sp,logs,bark,state:'ground',dead:false}));
-  ECO.cover0=o.eco.cover0;ECO.damage=o.eco.damage;ECO.plan=o.eco.plan;ECO.lastDay=Math.floor(o.days);ECO.lastSeason=Math.floor(o.days/10)%4;
+  ECO.cover0=o.eco.cover0;ECO.damage=o.eco.damage;ECO.plan=o.eco.plan;ECO.lastDay=Math.floor(o.days);ECO.lastSeason=Math.floor(o.days/SEASON_DAYS)%4;
   E.burns=o.burns||[];
   return true;
  }catch(e){return false}

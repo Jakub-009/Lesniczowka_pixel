@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.1.0 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.2.0 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -71,8 +71,31 @@ Gra zapisuje się sama co 30 s (localStorage).
 | `src/sound.js` | WebAudio (wiatr, ptaki, dzięcioł, piła, silniki) | wzorzec z farmy |
 | `src/save.js` | zapis gry | wzorzec z farmy |
 
-## Czas w grze
-Doba = 3 minuty przy ×1, pora roku = 10 dni, drzewa rosną 1 rok na dzień gry (czas lasu jest skompresowany, inaczej sadzonki nigdy by nie urosły).
+## Czas w grze (0.2)
+- **Czas dnia:** 1 minuta gry = 1 sekunda przy ×1 (dzień 6:00–21:30 to ok. 15 minut). Noc przewija się sama ×8 — chyba że trwa interwencja, pali się las albo kręci się kłusownik. Klawisz **N** wyłącza przewijanie nocy.
+- **Tydzień:** pon.–sob. pracują ekipa (7–15), ciągnik (7–17) i transport (8–15). Zlecenie poza godzinami czeka („ekipa przyjedzie jutro o 7:00”). W weekend więcej spacerowiczów, rowerzystów i quadów.
+- **Czas lasu:** pora roku trwa 3 dni. Przy jej zmianie pojawia się **raport z sezonu** (drewno, sadzenie, zgłoszenia, finanse, plan, ocena nadleśniczego), a las rośnie skokowo o 3 lata.
+
+## Rozkład dnia
+| Kto | Kiedy |
+|---|---|
+| Grzybiarze | koniec lata i jesień, od świtu do południa (wracają do 15:00) |
+| Spacerowicze, rowerzyści | 9–18 / 9–19, w weekend częściej |
+| Ruch na szosie | szczyt rano i po południu, w nocy prawie pusto |
+| Myśliwy | wieczorem na ambonie do ok. 22:30, czasem strzał płoszy zwierzynę |
+| Sarny, jelenie, lisy, zające | w dzień leżą w ostojach, o zmierzchu i nocą żerują (część saren także w dzień) |
+| Dziki, wilki | nocą |
+| Leśniczy | w dzień na podwórzu, nocą śpi — wstaje na pilne zgłoszenie |
+| Quad / cross | głównie weekendowe popołudnia |
+| Dym | suche letnie dni |
+| Kłusownik | nocą: samochód bez świateł, zakłada wnyki; niezłapany zostawia wnyki, które ktoś później znajdzie |
+
+## Zmiany w 0.2 „Rytm lasu”
+- Nowy model czasu (patrz wyżej), raport z sezonu, dni tygodnia.
+- Prędkości pojazdów 2× większe; terenówka na sygnale jedzie po drodze leśnej prawie pełną prędkością.
+- Dużo mniej ruchu: goście jako wydarzenia, nie korek.
+- Zwierzyna z rytmem dobowym (ostoje w dzień, żerowanie o zmierzchu).
+- Nowe zgłoszenie: kłusownik i wnyki. Leśniczy śpi w nocy.
 
 ## Dalej (pomysły)
 Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, grodzenie nowych upraw, zwierzyna zgryzająca sadzonki poza grodzeniem, więcej oddziałów i większa mapa, ambony do postawienia, edukacja leśna (ścieżka przyrodnicza).

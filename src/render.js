@@ -19,6 +19,7 @@ function drawTrash(){
  for(const t of E.trash){if(t.dead||t.fire||!vis(t.x,t.y))continue;const x=Math.round(t.x),y=Math.round(t.y);
   if(t.kind==='bag'){rect(ctx,x-4,y-3,9,7,'#20262a');rect(ctx,x-3,y-3,7,6,'#3a4248');rect(ctx,x-1,y-5,3,2,'#3a4248');rect(ctx,x-2,y-2,2,1,'#6a747a')}
   else if(t.kind==='tire'){ctx.fillStyle='#1e1e1e';ctx.beginPath();ctx.arc(x,y,6,0,6.28);ctx.fill();ctx.fillStyle='#55594f';ctx.beginPath();ctx.arc(x,y,3,0,6.28);ctx.fill()}
+  else if(t.kind==='snare'){ctx.strokeStyle='#a8b0ae';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x+.5,y+.5,4,0,6.28);ctx.stroke();rect(ctx,x+4,y-1,4,2,'#6b563d');rect(ctx,x-1,y-1,2,2,'#cfd6d4')}
   else{for(let k=0;k<4;k++){rect(ctx,x-6+k*4,y-2+(k%2)*3,2,4,k%2?'#4a8a5a':'#c8d8d0');rect(ctx,x-6+k*4,y-3+(k%2)*3,2,1,'#e8e4dc')}rect(ctx,x+5,y+2,5,3,'#d8d0b8')}
  }
  for(const b of (E.burns||[])){if(!vis(b.x,b.y,90))continue;ctx.globalAlpha=.55;ctx.fillStyle='#1c1a16';ctx.beginPath();ctx.ellipse(b.x,b.y,b.r,b.r*.8,.3,0,6.28);ctx.fill();ctx.globalAlpha=1}
@@ -75,7 +76,7 @@ function nightLayer(){
  // światła: okna leśniczówki, reflektory pojazdów
  ctx.save();ctx.globalCompositeOperation='lighter';ctx.translate(-Math.floor(camera.x),-Math.floor(camera.y));
  ctx.fillStyle=`rgba(255,200,110,${dark*.35})`;ctx.beginPath();ctx.arc(HOUSE.x+40,HOUSE.y+HOUSE.h+8,22,0,6.28);ctx.arc(HOUSE.x+120,HOUSE.y+HOUSE.h+6,18,0,6.28);ctx.fill();
- for(const v of E.vehicles){if(v.kind==='bike'||(v.parked&&!v.beacon)||!vis(v.pos[0],v.pos[1],140))continue;const [x,y]=v.pos,hd=v.heading,fx=Math.sin(hd),fy=-Math.cos(hd),L=v.spec.hh,R=95;
+ for(const v of E.vehicles){if(v.kind==='bike'||v.dark||(v.parked&&!v.beacon)||!vis(v.pos[0],v.pos[1],140))continue;const [x,y]=v.pos,hd=v.heading,fx=Math.sin(hd),fy=-Math.cos(hd),L=v.spec.hh,R=95;
   const g=ctx.createRadialGradient(x+fx*L,y+fy*L,4,x+fx*(L+R*.5),y+fy*(L+R*.5),R*.7);g.addColorStop(0,`rgba(255,240,190,${dark*.38})`);g.addColorStop(1,'rgba(255,240,190,0)');
   ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(x+fx*L,y+fy*L);ctx.lineTo(x+fx*(L+R)-fy*30,y+fy*(L+R)+fx*30);ctx.lineTo(x+fx*(L+R)+fy*30,y+fy*(L+R)-fx*30);ctx.closePath();ctx.fill();
   if(v.beacon){ctx.fillStyle=`rgba(255,170,40,${dark*.4})`;ctx.beginPath();ctx.arc(x,y,16,0,6.28);ctx.fill()}}

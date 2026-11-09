@@ -1,5 +1,5 @@
 // Wspólne jednostki, stan gry, kalendarz i małe funkcje rysowania (wzorzec z „Polskiej wsi”).
-export const VERSION='0.1.0';
+export const VERSION='0.2.0';
 export const C=document.querySelector('#game');
 export const ctx=C.getContext('2d',{alpha:false});
 export const VIEW={w:640,h:360,scale:2,zoom:1,maxZoom:2};
@@ -18,23 +18,31 @@ export function shadow(g,x,y,w,h,height=45){const dx=LIGHT.x*height,dy=LIGHT.y*h
 export const WORLD={w:2400,h:1800};
 export const PX_PER_M=12;
 
-// ── Kalendarz ──
-// Doba trwa DAY_S sekund przy tempie ×1. Pora roku = SEASON_DAYS dni.
-// Czas lasu jest skompresowany: każdy dzień gry to YEARS_PER_DAY lat wzrostu drzew (inaczej sadzonka nigdy by nie urosła).
-export const DAY_S=180,SEASON_DAYS=10,YEARS_PER_DAY=1;
+// ── Kalendarz (0.2) ──
+// Dwa zegary: „czas dnia” płynie spokojnie (1 minuta gry = 1 sekunda przy ×1, noc gra przewija sama),
+// „czas lasu” skacze przy zmianie pory roku (las rośnie o YEARS_PER_SEASON lat — pokazuje to raport z sezonu).
+export const DAY_S=1440,SEASON_DAYS=3,YEARS_PER_SEASON=3;
 export const SEASONS=['wiosna','lato','jesień','zima'];
+export const DOW=['poniedziałek','wtorek','środa','czwartek','piątek','sobota','niedziela'];
 export const cal={
  hour:()=>(state.days%1)*24,
  season:()=>Math.floor(state.days/SEASON_DAYS)%4,
  year:()=>Math.floor(state.days/(4*SEASON_DAYS))+1,
  dayOf:()=>Math.floor(state.days%SEASON_DAYS)+1,
- night:()=>{const h=(state.days%1)*24;return h<5||h>21}
+ dow:(d=state.days)=>Math.floor(d)%7,
+ weekend:()=>Math.floor(state.days)%7>=5,
+ night:()=>{const h=(state.days%1)*24;return h<5.5||h>21.5},
+ // dni robocze (pon.–sob.) i godziny pracy
+ work:(from,to)=>{const h=(state.days%1)*24;return Math.floor(state.days)%7<6&&h>=from&&h<to},
+ // „dziś o 7:00” / „jutro o 7:00” / „w poniedziałek o 7:00”
+ nextStart:(from,to)=>{const h=(state.days%1)*24,today=Math.floor(state.days);let d=today;if(h>=to||Math.floor(d)%7===6)d++;while(d%7===6)d++;
+  const at=' o '+from+':00';return d===today?'dziś'+at:d===today+1?'jutro'+at:'w '+DOW[d%7].replace('środa','środę').replace('sobota','sobotę').replace('niedziela','niedzielę')+at}
 };
 
 export const keys=new Set();
 export const camera={x:0,y:0};
-// Start: lato, 6. dzień, 7:00 — za kilka dni zaczyna się jesień i sezon grzybowy.
-export const START_DAYS=SEASON_DAYS+5+7/24;
+// Start: piątek, 2. dzień lata, 6:30 — za chwilę weekend i koniec lata (grzybiarze), potem jesień.
+export const START_DAYS=SEASON_DAYS+1+6.5/24;
 export const state={playing:false,paused:false,mute:true,rate:1,elapsed:0,days:START_DAYS,
  money:24500,health:82,protect:64,tool:'select',selected:null,hover:null,follow:null};
 export const SETTINGS={volume:.8,hints:true,zoom:1,ghosts:true};

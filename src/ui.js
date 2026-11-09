@@ -1,5 +1,5 @@
 // HUD w HTML (styl farmy): trzy wskaźniki, zegar i kalendarz, narzędzia, plan na sezon, zgłoszenia, karta wybranego obiektu.
-import {$,state,cal,SEASONS,displayNumber,zl,SETTINGS,camera,VIEW,clamp,toast} from './core.js';
+import {$,state,cal,SEASONS,DOW,displayNumber,zl,SETTINGS,camera,VIEW,clamp,toast} from './core.js';
 import {SP,STAND,STUMP,SAPLING_AGE,CUT_AGE,crownR,heightM,dbhCm,volume,counts,treesIn} from './forest.js';
 import {STANDS,oddzial} from './map.js';
 import {J,COST,pendingCount,toggleMark,dispatchCrew,orderTruck,togglePlant} from './jobs.js';
@@ -19,14 +19,18 @@ export function hud(){
  const h=cal.hour(),hh=Math.floor(h),mm=Math.floor((h-hh)*60);
  $('#time').textContent=String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
  $('#date').textContent='Rok '+cal.year()+' · '+SEASONS[cal.season()]+' · dzień '+cal.dayOf();
+ $('#dow').textContent=DOW[cal.dow()]+(cal.weekend()?' (weekend)':'');
+ $('#ff').style.display=state.ff>1?'block':'none';
  $('#money').textContent=Math.round(state.money).toLocaleString('pl-PL');$('#money').style.color=state.money<0?'#ff8a6a':'';
  $('#health').textContent=pct(state.health);$('#healthbar').style.width=clamp(state.health,0,100)+'%';$('#healthbar').style.background=barCol(state.health);
  $('#protect').textContent=pct(state.protect);$('#protectbar').style.width=clamp(state.protect,0,100)+'%';$('#protectbar').style.background=barCol(state.protect);
  const n=pendingCount();$('#crewn').textContent=n?'('+n+')':'';$('#crewbtn').classList.toggle('hot',n>0);
  $('#stackinfo').textContent=displayNumber(J.stack,1)+' m³';
- $('#crewstate').textContent={idle:'w bazie',driving:'w drodze',working:'pracuje',leaving:'wraca'}[J.crew.phase]+(J.crew.tasks.length+J.crew.cluster.length?' · zadań: '+(J.crew.tasks.length+J.crew.cluster.length):'');
- $('#skidstate').textContent={idle:'czeka',driving:'jedzie po drewno',winch:'zrywka',home:'wiezie drewno',unload:'rozładunek'}[J.skid.phase];
- $('#patrolstate').textContent={home:'w leśniczówce',boarding:'wyjeżdża',driving:'w drodze',onsite:'na miejscu',return:'wraca'}[P.phase];
+ const C=J.crew,nt=C.tasks.length+C.cluster.length;
+ $('#crewstate').textContent=C.phase==='idle'&&nt?'czeka · '+cal.nextStart(7,15):({idle:'w bazie',driving:'w drodze',working:'pracuje',leaving:'wraca'}[C.phase]+(nt?' · zadań: '+nt:''));
+ $('#skidstate').textContent=J.skid.phase==='idle'&&!cal.work(7,17)?'po pracy':{idle:'czeka',driving:'jedzie po drewno',winch:'zrywka',home:'wiezie drewno',unload:'rozładunek'}[J.skid.phase];
+ if(J.truck.pending)$('#stackinfo').textContent+=' · wywóz zamówiony';
+ $('#patrolstate').textContent=P.phase==='home'&&P.ranger.sleeping?'leśniczy śpi':{home:'w leśniczówce',boarding:'wyjeżdża',driving:'w drodze',onsite:'na miejscu',return:'wraca'}[P.phase];
  // plan na sezon
  const Pl=ECO.plan;if(Pl){const sig=[Pl.doneCut.toFixed(1),Pl.donePlant,Pl.doneHandle,Pl.rewarded,Pl.season].join();if(sig!==taskSig){taskSig=sig;
   const row=(ok,txt,a,b)=>`<div class="trow ${ok?'ok':''}"><span>${ok?'✔':'·'} ${txt}</span><b>${a} / ${b}</b></div>`;
@@ -68,6 +72,24 @@ function info(){
  el.style.display='block';
 }
 export function centerOn(x,y){camera.x=x-VIEW.w/2;camera.y=y-VIEW.h/2}
+// Raport z sezonu (0.2): podsumowanie pory roku, skok wzrostu lasu, nowy plan. Gra stoi, dopóki gracz nie kliknie „Dalej”.
+const sgn=(n,d=0)=>(n>=0?'+':'−')+displayNumber(Math.abs(n),d);
+export function showReport(r){
+ const S=r.st,P=r.plan,N=ECO.plan;
+ const row=(a,b)=>`<div class="rrow"><span>${a}</span><b>${b}</b></div>`;
+ $('#reportcard').innerHTML=`<div class="kicker">Raport z sezonu · rok ${r.year}</div><h1>${SEASONS[r.season][0].toUpperCase()+SEASONS[r.season].slice(1)} — podsumowanie</h1>
+  <p class="verdict">${r.verdict}</p><div class="rep">
+  ${row('Drewno dostarczone na składnicę',displayNumber(S.delivered,1)+' m³')}${row('Drewno sprzedane',displayNumber(S.sold,1)+' m³')}
+  ${row('Ścięte drzewa / posadzone sadzonki',S.felled+' / '+S.planted)}${row('Zgłoszenia obsłużone / zignorowane',S.handled+' / '+S.ignored)}
+  ${row('Przychody / wydatki','+'+zl(S.earned)+' / −'+zl(S.spent))}
+  ${row('Budżet',zl(r.money)+' ('+sgn(r.money-S.money0)+' zł)')}${row('Stan lasu',Math.round(r.health)+'% ('+sgn(r.health-S.health0)+')')}${row('Ochrona terenu',Math.round(r.protect)+'% ('+sgn(r.protect-S.protect0)+')')}
+  ${row('Plan nadleśnictwa',P.rewarded?'wykonany (+'+zl(P.reward)+')':'niewykonany')}</div>
+  <p>Las urósł o ${r.years} lata.${r.grown?' '+r.grown+' sadzonek wyrosło na młode drzewka.':''}${r.unrenewed?' Pniaków bez odnowienia: '+r.unrenewed+'.':''}</p>
+  <p><b>Teraz ${SEASONS[r.next]}.</b> Nowy plan: ${N.cut} m³ drewna, ${N.plant} sadzonek, ${N.handle} zgłoszenia — premia ${zl(N.reward)}.</p>
+  <button id="report-close">DALEJ</button>`;
+ $('#report').classList.remove('hidden');state.paused=true;state.modal=true;
+ $('#report-close').onclick=()=>{$('#report').classList.add('hidden');state.paused=false;state.modal=false;taskSig='';hud()};
+}
 export function bindUI(){
  for(const b of document.querySelectorAll('[data-tool]'))b.addEventListener('click',()=>setTool(b.dataset.tool));
  $('#crewbtn').addEventListener('click',dispatchCrew);$('#sellbtn').addEventListener('click',()=>orderTruck(true));
@@ -84,4 +106,5 @@ export function bindUI(){
   infoSig='';hud();
  });
  setTool('select');
+ ECO.onSeason=showReport;
 }

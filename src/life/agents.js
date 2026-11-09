@@ -24,17 +24,18 @@ function advanceCart(c,hx,hy,vehAngle){
 function alignCart(c,hx,hy,angle){const d=CARTS[c.kind],f=fwd(angle),L=d.tongue+d.hh;c.angle=angle;c.x=hx-f[0]*L;c.y=hy-f[1]*L;c.hx=hx;c.hy=hy}
 
 // ───────── pojazdy ─────────
+// prędkości w px/s (12 px = 1 m); forest = mnożnik na drodze leśnej (tłuczeń), acc = przyspieszenie
 export const VSPEC={
- car:{speed:46,hw:10,hh:23,name:'samochód osobowy'},
- patrol:{speed:50,hw:11,hh:25,name:'terenówka leśniczego',allow:['main','forest','drive']},
- van:{speed:44,hw:11,hh:27,name:'bus ekipy leśnej'},
- tractor:{speed:24,hw:16,hh:30,hitch:31,cart:'forest',name:'ciągnik zrywkowy'},
- truck:{speed:42,hw:14,hh:37,hitch:34,cart:'log',name:'ciężarówka do drewna'},
- quad:{speed:44,hw:7,hh:11,wild:true,name:'quad'},
- cross:{speed:52,hw:3,hh:11,wild:true,name:'motocykl crossowy'},
- bike:{speed:15,hw:3,hh:9,rider:true,name:'rowerzysta'}
+ car:{speed:100,forest:.55,acc:38,hw:10,hh:23,name:'samochód osobowy'},
+ patrol:{speed:104,forest:.62,acc:42,hw:11,hh:25,name:'terenówka leśniczego',allow:['main','forest','drive']},
+ van:{speed:88,forest:.6,acc:32,hw:11,hh:27,name:'bus ekipy leśnej'},
+ tractor:{speed:42,forest:.9,acc:14,hw:16,hh:30,hitch:31,cart:'forest',name:'ciągnik zrywkowy'},
+ truck:{speed:82,forest:.55,acc:20,hw:14,hh:37,hitch:34,cart:'log',name:'ciężarówka do drewna'},
+ quad:{speed:70,forest:1,acc:40,hw:7,hh:11,wild:true,name:'quad'},
+ cross:{speed:80,forest:1,acc:45,hw:3,hh:11,wild:true,name:'motocykl crossowy'},
+ bike:{speed:28,forest:.9,acc:14,hw:3,hh:9,rider:true,name:'rowerzysta'}
 };
-const TURN=2.4;
+const TURN=3;
 export class Vehicle{
  constructor(kind,o={}){
   this.kind=kind;this.spec=VSPEC[kind];this.allow=o.allow||this.spec.allow||['main','forest'];
@@ -57,10 +58,11 @@ export class Vehicle{
  }
  cruise(){
   if(this.stopped||this.parked||this.arrived)return 0;
-  let sp=this.spec.speed*(this.edge.kind==='forest'&&!this.spec.wild?.62:this.edge.kind==='drive'?.4:1)*this.speedMul;
-  if(Math.abs(angDiff(this.heading,this.dirH))>.5)sp=Math.min(sp,8);
+  // terenówka na sygnale jedzie po drodze leśnej prawie pełną prędkością
+  let sp=this.spec.speed*(this.edge.kind==='forest'?(this.beacon?.92:this.spec.forest):this.edge.kind==='drive'?.35:1)*this.speedMul;
+  if(Math.abs(angDiff(this.heading,this.dirH))>.5)sp=Math.min(sp,10);
   if(this.final&&this.stopS!=null){const d=this.stopS-this.s;sp=Math.min(sp,Math.max(3,Math.sqrt(2*36*Math.max(0,d))))}
-  else if(this.len-this.s<36)sp=Math.min(sp,16);   // zwalnia przed skrzyżowaniem
+  else if(this.len-this.s<50)sp=Math.min(sp,22);   // zwalnia przed skrzyżowaniem
   return sp;
  }
  probe(){const h=this.heading,sp=this.spec,reach=14+this.v*.55,d=sp.hh+reach/2;return obb(this.pos[0]+Math.sin(h)*d,this.pos[1]-Math.cos(h)*d,Math.max(3,sp.hw*.7),reach/2,h)}
@@ -78,7 +80,7 @@ export class Vehicle{
     if(this.ghost){this.ghostT+=dt;if(this.ghostT>3){this.ghost=false;this.blockT=0}}
     if(blocked&&!this.ghost)target=0;
    }
-   this.v+=clamp(target-this.v,-80*dt,(this.spec.wild?30:20)*dt);
+   this.v+=clamp(target-this.v,-110*dt,this.spec.acc*dt);
   }
   this.s+=this.v*dt;this.travel+=this.v*dt;
   if(this.final&&this.stopS!=null&&!this.arrived&&this.s>=this.stopS-.3){
@@ -152,11 +154,11 @@ export class Ped{
   if(!this.cur){this.cur=this.script.shift()||null;this.path=null;this.t=0;this.sub=null;if(!this.cur){this.pose=null;this.onIdle&&this.onIdle(this);return}}
   const c=this.cur;this.t+=dt;
   if(c.go){if(!this.path)this.plan(c.go[0],c.go[1]);this.pose=null;if(this.walk(dt,c.speed||this.speed)){this.cur=null;if(c.face)this.heading=Math.atan2(c.face[1]-this.y,c.face[0]-this.x)}}
-  else if(c.wait!=null){this.pose=c.pose||'stand';if(c.face)this.heading=Math.atan2(c.face[1]-this.y,c.face[0]-this.x);c.tick&&c.tick(this,dt);if(this.t>=c.wait){this.pose=null;this.cur=null}}
+  else if(c.wait!=null){this.pose=c.pose||'stand';if(c.face)this.heading=Math.atan2(c.face[1]-this.y,c.face[0]-this.x);c.tick&&c.tick(this,dt);if(this.t>=c.wait||(c.until&&c.until(this))){this.pose=null;this.cur=null}}
   else if(c.call){this.cur=null;c.call(this)}
   else if(c.wander){
    const W=c.wander;
-   if(this.t>W.t&&!this.sub){this.cur=null;return}
+   if((this.t>W.t||(W.until&&W.until()))&&!this.sub){this.cur=null;return}
    if(!this.sub){for(let k=0;k<12;k++){const a=rnd()*6.283,d=20+rnd()*W.r,x=W.x+Math.cos(a)*d,y=W.y+Math.sin(a)*d;if(this.nav_().walkable(x,y)&&(!W.ok||W.ok(x,y))){this.sub={x,y,pause:rnd()<(W.pickP??.6)?2+rnd()*3:0};this.plan(x,y);break}}if(!this.sub){this.sub={pause:1}}}
    if(this.sub.pause!=null&&this.pi>=(this.path?.length||0)){this.pose=W.pose||'pick';this.sub.pause-=dt;if(this.sub.pause<=0){this.sub=null;this.pose=null;W.onPick&&W.onPick(this)}}
    else{this.pose=null;if(this.walk(dt,this.speed*.8)){if(!this.sub.pause){this.sub=null}}}
@@ -176,13 +178,25 @@ export const ASPEC={
  hare:{name:'zając',speed:18,run:80,flee:70,leash:160,idle:[3,9]},
  dog:{name:'pies',speed:22,run:50,flee:0,leash:200,idle:[5,12]}
 };
+// Aktywność dobowa: zwierzyna w dzień leży w ostojach (gęstwina), o zmierzchu i nocą wychodzi żerować.
+export function activeNow(kind,seed=0){
+ const h=cal.hour(),dusk=h<7.5||h>18.5;
+ if(kind==='dog')return true;
+ if(kind==='boar'||kind==='piglet'||kind==='wolf')return h<6.5||h>19.5;
+ if(kind==='roe')return dusk||seed%3===0;          // część saren żeruje też w dzień
+ return dusk;                                      // jelenie, lisy, zające
+}
 export class Group{
- constructor(hx,hy,seed,o={}){Object.assign(this,{hx,hy,seed,n:0,t:20+hash(seed,3)*40,range:[220,520],fixed:false},o)}
+ constructor(hx,hy,seed,o={}){Object.assign(this,{hx,hy,ox:hx,oy:hy,seed,n:0,t:20+hash(seed,3)*40,range:[220,520],fixed:false,kind:'roe',act:null},o)}
  rnd(){return hash(this.seed,50+this.n++)}
  update(dt){
-  if(this.fixed)return;this.t-=dt;if(this.t>0)return;this.t=40+this.rnd()*80;
-  const h=cal.hour(),dusk=h<7||h>18;
-  if(this.likes&&dusk&&this.rnd()<.6){const [x,y]=this.likes[Math.floor(this.rnd()*this.likes.length)];this.hx=x;this.hy=y;return}
+  if(this.fixed)return;
+  const act=activeNow(this.kind,this.seed);
+  if(act!==this.act){this.act=act;this.t=60+this.rnd()*80;
+   if(!act){this.hx=this.ox;this.hy=this.oy;return}                     // powrót do ostoi
+   if(this.likes&&this.rnd()<.75){const [x,y]=this.likes[Math.floor(this.rnd()*this.likes.length)];this.hx=x;this.hy=y;return}}
+  if(!act)return;
+  this.t-=dt;if(this.t>0)return;this.t=60+this.rnd()*120;
   for(let k=0;k<20;k++){const a=this.rnd()*6.283,d=this.range[0]+this.rnd()*(this.range[1]-this.range[0]),x=this.hx+Math.cos(a)*d,y=this.hy+Math.sin(a)*d;
    if(NAV.wild.walkable(x,y)){this.hx=x;this.hy=y;return}}
  }
@@ -199,8 +213,9 @@ export class Wild{
  rand(){this.rng=(Math.imul(this.rng,1664525)+1013904223)|0;return((this.rng>>>0)%100000)/100000}
  plan(tx,ty){const p=this.N().findPath(this.x,this.y,tx,ty);if(!p||!p.length)return false;this.path=p;this.pi=0;return true}
  wander(){
-  const G=this.group;
-  for(let k=0;k<14;k++){const a=this.rand()*6.283,d=20+this.rand()*this.leash*(this.follow?.25:1),bx=this.follow?this.follow.x:G.hx,by=this.follow?this.follow.y:G.hy,x=bx+Math.cos(a)*d,y=by+Math.sin(a)*d;
+  const G=this.group,rest=!activeNow(this.kind,this.seed);
+  if(rest&&!this.follow&&Math.hypot(this.x-G.hx,this.y-G.hy)<70){this.state='idle';this.t=20+this.rand()*40;return}   // leży w ostoi
+  for(let k=0;k<14;k++){const a=this.rand()*6.283,d=20+this.rand()*(rest?40:this.leash)*(this.follow?.25:1),bx=this.follow?this.follow.x:G.hx,by=this.follow?this.follow.y:G.hy,x=bx+Math.cos(a)*d,y=by+Math.sin(a)*d;
    if(this.N().walkable(x,y)&&this.plan(x,y)){this.state='walk';return}}
   this.state='idle';this.t=3+this.rand()*4;
  }

@@ -1,10 +1,10 @@
 // Punkt wejścia: budowa świata, stały krok symulacji (60 Hz, przy przyspieszeniu kilka kroków na klatkę), kamera, zoom, pętla.
-import {C,ctx,VIEW,WORLD,$,clamp,keys,state,camera,RT,fx,DEBUG,DAY_S,SETTINGS,toast,active,VERSION} from './core.js';
+import {C,ctx,VIEW,WORLD,$,clamp,keys,state,camera,RT,fx,DEBUG,DAY_S,SETTINGS,toast,active,VERSION,cal} from './core.js';
 import {buildGround} from './paint.js';
-import {generate,growForest,updateFalls,trees,counts,dirtyAll} from './forest.js';
+import {generate,updateFalls,trees,counts,dirtyAll,seasonGrow} from './forest.js';
 import {buildNavs,E,prune} from './ents.js';
 import {spawnWildlife,updateVisitors,groups} from './life/populate.js';
-import {initPatrol,updateIncidents,P,spawnRider,spawnSmoke,addTrash,dispatch} from './incidents.js';
+import {initPatrol,updateIncidents,P,spawnRider,spawnSmoke,spawnPoacher,addTrash,dispatch} from './incidents.js';
 import {initJobs,updateJobs,J} from './jobs.js';
 import {initEconomy,updateEconomy,ECO} from './economy.js';
 import {drawWorld} from './render.js';
@@ -13,13 +13,11 @@ import {bindInput} from './input.js';
 import {updateSound,toggleSound,resumeSound} from './sound.js';
 import {hasSave,clearSave,saveGame,loadGame} from './save.js';
 
-const STEP=1/60,RATES=[1,3,10];
-let lastSeason=-1;
+const STEP=1/60,RATES=[1,3,10],NIGHT_FF=8;
 const falling=()=>trees.filter(t=>t.falling);
 function sim(dt){
  state.elapsed+=dt;state.days+=dt/DAY_S;
- growForest(dt/DAY_S);updateFalls(dt,falling());
- const se=Math.floor(state.days/10)%4;if(se!==lastSeason){if(lastSeason>=0)dirtyAll();lastSeason=se}
+ updateFalls(dt,falling());
  for(const g of groups)g.update(dt);
  for(const a of E.animals)a.update(dt);
  for(const p of E.people)p.update(dt);
@@ -30,7 +28,10 @@ function sim(dt){
 }
 function step(dt){
  if(!active())return;
- for(let i=0;i<state.rate;i++)sim(dt);
+ // noc przewija się sama (×8), chyba że trwa interwencja albo w lesie pali się / kręci kłusownik
+ const busy=P.phase!=='home'||E.incidents.some(q=>q.status==='assigned'||(q.status==='new'&&(q.type==='fire'||q.type==='poacher')));
+ state.ff=cal.night()&&!busy&&!state.noFF?NIGHT_FF:1;
+ const n=Math.min(30,state.rate*state.ff);for(let i=0;i<n;i++)sim(dt);
  // kamera: WASD / strzałki albo śledzenie wybranego obiektu
  const sp=520*dt/Math.max(1,VIEW.scale)*2;
  const kx=(keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0),ky=(keys.has('s')||keys.has('arrowdown')?1:0)-(keys.has('w')||keys.has('arrowup')?1:0);
@@ -76,7 +77,7 @@ buildGround();generate();buildNavs();spawnWildlife();initPatrol();initJobs();ini
 bindUI();bindInput(zoom);
 VIEW.zoom=1;size();centerOn(720,520);clampCamera();
 $('#speedbtn').addEventListener('click',()=>{const i=(RATES.indexOf(state.rate)+1)%RATES.length;state.rate=RATES[i];$('#speedbtn').textContent='Czas ×'+state.rate;toast('Czas płynie ×'+state.rate+'.')});
-$('#pausebtn').addEventListener('click',()=>{if(!state.playing)return;state.paused=!state.paused;$('#pausebtn').textContent=state.paused?'▶':'❚❚';toast(state.paused?'Pauza (P).':'Gra wznowiona.')});
+$('#pausebtn').addEventListener('click',()=>{if(!state.playing||state.modal)return;state.paused=!state.paused;$('#pausebtn').textContent=state.paused?'▶':'❚❚';toast(state.paused?'Pauza (P).':'Gra wznowiona.')});
 $('#soundbtn').addEventListener('click',toggleSound);
 $('#helpbtn').addEventListener('click',()=>$('#help').classList.toggle('hidden'));
 $('#help-close').addEventListener('click',()=>$('#help').classList.add('hidden'));
@@ -89,5 +90,5 @@ addEventListener('beforeunload',saveGame);
 document.addEventListener('visibilitychange',()=>{if(document.hidden){saveGame();if(state.playing&&!state.paused)$('#pausebtn').click()}});
 document.title='Leśniczówka '+VERSION;
 // Diagnostyka do testów
-window.__las={dirtyAll,saveGame,loadGame,state,E,J,P,ECO,trees,counts,camera,VIEW,centerOn,spawnRider,spawnSmoke,addTrash,dispatch,step:(s)=>{for(let i=0;i<Math.ceil(s*60);i++)sim(STEP)},zoom};
+window.__las={dirtyAll,seasonGrow,cal,spawnPoacher,saveGame,loadGame,state,E,J,P,ECO,trees,counts,camera,VIEW,centerOn,spawnRider,spawnSmoke,addTrash,dispatch,step:(s)=>{for(let i=0;i<Math.ceil(s*60);i++)sim(STEP)},zoom};
 hud();requestAnimationFrame(run);

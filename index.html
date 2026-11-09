@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Leśniczówka 0.1.0</title>
+<title>Leśniczówka 0.2.0</title>
 <link rel="stylesheet" href="./style.css">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Cpath d=%22M8 1 2 11h4v4h4v-4h4z%22 fill=%22%233f744c%22/%3E%3C/svg%3E">
 </head>
@@ -16,7 +16,7 @@
    <div class="gauge"><div class="lbl">Stan lasu <strong id="health">82%</strong></div><div class="bar"><div id="healthbar"></div></div></div>
    <div class="gauge"><div class="lbl">Ochrona terenu <strong id="protect">64%</strong></div><div class="bar"><div id="protectbar"></div></div></div>
   </div>
-  <div class="plate topright"><div class="clock" id="time">07:00</div><div class="sub" id="date">Rok 1 · lato · dzień 6</div>
+  <div class="plate topright"><div class="clock" id="time">07:00</div><div class="sub" id="date">Rok 1 · lato · dzień 2</div><div class="sub" id="dow">piątek</div><div class="ff" id="ff" style="display:none">NOC · czas ×8</div>
    <div class="btns"><button id="pausebtn" class="topbtn" title="Pauza (P)">❚❚</button><button id="speedbtn" class="topbtn" title="Tempo (T)">Czas ×1</button><button id="soundbtn" class="topbtn" title="Dźwięk (M)">Dźwięk: wył.</button><button id="helpbtn" class="topbtn" title="Pomoc (H)">?</button></div></div>
  </div>
  <div class="left">
@@ -43,8 +43,10 @@
 <div id="overlay"><div class="card"><div class="kicker">Leśnictwo Zielony Gaj</div><h1>Leśniczówka</h1>
  <p>Prowadzisz niewielkie leśnictwo: wyznaczasz drzewa do wycinki, wysyłasz ekipę, sadzisz nowe pokolenie lasu i pilnujesz porządku. Ciągnik zrywkowy i ciężarówka jeżdżą same. W lesie żyją sarny, jelenie, dziki, lisy i wilki, a w sezonie przyjeżdżają grzybiarze.</p>
  <p>Uważaj na trzy wskaźniki: <b>budżet</b>, <b>stan lasu</b> i <b>ochronę terenu</b>. Wycinka daje pieniądze, ale bez odnowienia stan lasu spada. Zgłoszenia, które zostawisz, obniżają ochronę.</p>
- <div class="keys"><span><b>Mysz</b> przeciągnij mapę</span><span><b>Kółko</b> przybliżenie</span><span><b>1 2 3</b> podgląd · wycinka · sadzenie</span><span><b>Shift+przeciągnij</b> zaznacz obszar</span><span><b>E</b> wyślij ekipę</span><span><b>K</b> wywóz drewna</span><span><b>Q</b> wyślij patrol</span><span><b>F</b> śledź wybrany obiekt</span><span><b>WASD</b> przesuwanie widoku</span><span><b>T P M</b> czas · pauza · dźwięk</span></div>
- <button id="continue" style="display:none">WCZYTAJ ZAPIS</button><button id="start">ZACZNIJ</button><div class="hint">wersja 0.1.0 · prototyp</div></div></div>
+ <div class="keys"><span><b>Mysz</b> przeciągnij mapę</span><span><b>Kółko</b> przybliżenie</span><span><b>1 2 3</b> podgląd · wycinka · sadzenie</span><span><b>Shift+przeciągnij</b> zaznacz obszar</span><span><b>E</b> wyślij ekipę</span><span><b>K</b> wywóz drewna</span><span><b>Q</b> wyślij patrol</span><span><b>F</b> śledź wybrany obiekt</span><span><b>WASD</b> przesuwanie widoku</span><span><b>T P M</b> czas · pauza · dźwięk</span><span><b>N</b> nie przewijaj nocy</span></div>
+ <p class="hint2">Dzień płynie spokojnie (1 minuta gry = 1 sekunda), noc przewija się sama. Ekipa pracuje pon.–sob. 7–15, zwierzyna wychodzi o zmierzchu, a las rośnie przy zmianie pory roku.</p>
+ <button id="continue" style="display:none">WCZYTAJ ZAPIS</button><button id="start">ZACZNIJ</button><div class="hint">wersja 0.2.0 · prototyp</div></div></div>
+<div id="report" class="hidden panel"><div class="card" id="reportcard"></div></div>
 <div id="help" class="hidden panel"><div class="card"><div class="kicker">JAK GRAĆ</div>
  <div class="keys"><span><b>Mysz</b> przeciągnij mapę, kliknij obiekt</span><span><b>Kółko / Z</b> przybliżenie</span><span><b>1</b> podgląd</span><span><b>2</b> wycinka (klik = oznacz)</span><span><b>Shift+przeciągnij</b> oznacz obszar</span><span><b>3</b> sadzenie (klik = sadzonka)</span><span><b>E</b> wyślij ekipę</span><span><b>K</b> zamów wywóz</span><span><b>Q</b> patrol do zgłoszenia</span><span><b>F</b> kamera śledzi</span><span><b>WASD</b> widok</span><span><b>T</b> tempo ×1/×3/×10</span><span><b>P</b> pauza · <b>M</b> dźwięk</span><span><b>G</b> wzrost lasu (test)</span><span><b>F3</b> debug</span><span><b>Esc</b> anuluj</span></div>
  <p class="hint2">Gra zapisuje się sama co 30 s i przy zamknięciu karty.</p>

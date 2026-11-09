@@ -1,6 +1,6 @@
 // Las jako dane: każde drzewo ma gatunek, wiek i stan. Malowanie w kawałkach 256×256 px —
 // zmiana jednego drzewa (wycinka, wzrost, posadzenie, pora roku) przemalowuje tylko kawałki, które obejmuje.
-import {WORLD,hash,rect,poly,clamp,LIGHT,cal,YEARS_PER_DAY,PX_PER_M,state} from './core.js';
+import {WORLD,hash,rect,poly,clamp,LIGHT,cal,PX_PER_M,state} from './core.js';
 import {mk,outlinedDraw,crispAlpha} from './sprite.js';
 import {roadClearance,oddzial,STANDS,YARD,SKLAD,POLANA,UPRAWA,inRect,inPolana,inWorld,EDGES,NODES} from './map.js';
 
@@ -232,14 +232,14 @@ function paintSlash(g,t){
 }
 
 // ── wzrost i stan ──
-let growAcc=0;
-export function growForest(dDays){
- growAcc+=dDays;if(growAcc<.05)return;const yrs=growAcc*YEARS_PER_DAY;growAcc=0;
+// Las rośnie skokowo, przy zmianie pory roku (czas lasu). Zwraca, ile sadzonek przeszło w młode drzewka.
+export function seasonGrow(years){
+ let grown=0;
  for(const t of trees){
-  if(t.st===STUMP){t.stumpAge=(t.stumpAge||0)+yrs;continue}
-  const was=t.age<SAPLING_AGE;t.age+=yrs;
-  const rI=Math.round(crownR(t));if(rI!==t.rI||was!==(t.age<SAPLING_AGE)){t.rI=rI;dirtyTree(t)}
+  if(t.st===STUMP){t.stumpAge=(t.stumpAge||0)+years;continue}
+  const was=t.age<SAPLING_AGE;t.age+=years;if(was&&t.age>=SAPLING_AGE)grown++;t.rI=Math.round(crownR(t));
  }
+ dirtyAll();return grown;
 }
 export function testGrow(years){for(const t of trees)if(t.st===STAND&&t.age<60){t.age+=years;t.rI=Math.round(crownR(t));dirtyTree(t)}}
 // Wycinka: start (korona znika z warstwy), upadek (rysowany dynamicznie), leżące drzewo, wyrzynka (pień + gałęzie).

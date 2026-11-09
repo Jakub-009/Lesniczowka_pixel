@@ -52,6 +52,7 @@ export function bindInput(zoomFn){
   const k=e.key.toLowerCase();
   if(['arrowup','arrowdown','arrowleft','arrowright',' ','f1','f3'].includes(k))e.preventDefault();
   if(!state.playing){if(k==='enter')$('#start').click();return}
+  if(state.modal){if(k==='enter'||k===' '||k==='escape')$('#report-close')?.click();return}
   if(e.repeat&&!['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k))return;
   if(k==='1')setTool('select');else if(k==='2')setTool('mark');else if(k==='3')setTool('plant');
   else if(k==='e')dispatchCrew();else if(k==='k')orderTruck(true);
@@ -59,6 +60,7 @@ export function bindInput(zoomFn){
   else if(k==='f'){const s=state.selected;state.follow=s&&(s.pos||s.look||s.phase!=null||s.kind)&&s.st===undefined?s:null;if(!state.follow)toast('Wybierz pojazd, osobę albo zwierzę.')}
   else if(k==='t')$('#speedbtn').click();else if(k==='p')$('#pausebtn').click();else if(k==='m')toggleSound();
   else if(k==='g'){testGrow(10);toast('Las urósł o 10 lat (test).')}
+  else if(k==='n'){state.noFF=!state.noFF;toast(state.noFF?'Noc płynie normalnie (N).':'Noc przewija się sama (N).')}
   else if(k==='f3')DEBUG.on=!DEBUG.on;
   else if(k==='f1'||k==='h')$('#help').classList.toggle('hidden');
   else if(k==='escape'){setTool('select');state.selected=null;state.follow=null;$('#help').classList.add('hidden')}
