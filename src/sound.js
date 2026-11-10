@@ -5,7 +5,9 @@ let A=null;
 function init(){
  try{
   const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
-  const ac=new AC(),master=ac.createGain();master.gain.value=0;master.connect(ac.destination);
+  const ac=new AC(),master=ac.createGain();master.gain.value=0;
+  // ogranicznik na wyjściu: głośniejsze efekty (strzał, upadek drzewa) nie przesterują
+  const lim=ac.createDynamicsCompressor();lim.threshold.value=-12;lim.knee.value=6;lim.ratio.value=8;lim.attack.value=.003;lim.release.value=.2;master.connect(lim);lim.connect(ac.destination);
   const buf=ac.createBuffer(1,ac.sampleRate*1.2,ac.sampleRate),d=buf.getChannelData(0);let s=1999;for(let i=0;i<d.length;i++){s=(Math.imul(s,1664525)+1013904223)|0;d[i]=(s/2147483648)*.5}
   const noise=ac.createBufferSource();noise.buffer=buf;noise.loop=true;noise.start();
   const chain=(nodes)=>{for(let i=0;i<nodes.length-1;i++)nodes[i].connect(nodes[i+1]);return nodes[nodes.length-1]};
@@ -34,15 +36,15 @@ export function resumeSound(){A?.ac.resume()}
 const inView=(x,y)=>{const cx=camera.x+VIEW.w/2,cy=camera.y+VIEW.h/2,R=Math.max(VIEW.w,VIEW.h)*.75;return Math.max(0,1-Math.hypot(x-cx,y-cy)/R)};
 export function updateSound(dt){
  if(!A)return;const {ac,master}=A,t=ac.currentTime,on=active()&&!state.mute;
- master.gain.setTargetAtTime(on?.32*SETTINGS.volume:0,t,.1);if(!on)return;
+ master.gain.setTargetAtTime(on?.9*SETTINGS.volume:0,t,.1);if(!on)return;
  const h=cal.hour(),night=cal.night(),se=cal.season();
- A.windG.gain.setTargetAtTime(.016+.012*Math.sin(state.elapsed*.21)**2,t,.4);
- A.leafG.gain.setTargetAtTime(se===3?.001:.003+.003*Math.sin(state.elapsed*.33)**2,t,.4);
+ A.windG.gain.setTargetAtTime(.22+.2*Math.sin(state.elapsed*.21)**2,t,.4);
+ A.leafG.gain.setTargetAtTime(se===3?.01:.025+.03*Math.sin(state.elapsed*.33)**2,t,.4);
  let saw=0;for(const p of E.people)if(p.pose==='saw'&&!p.hidden&&p.kind==='worker')saw=Math.max(saw,inView(p.x,p.y));
- A.sawG.gain.setTargetAtTime(saw*.05,t,.05);A.sawNG.gain.setTargetAtTime(saw*.03,t,.05);
+ A.sawG.gain.setTargetAtTime(saw*.5,t,.05);A.sawNG.gain.setTargetAtTime(saw*.3,t,.05);
  A.sawO.frequency.setTargetAtTime(140+Math.sin(state.elapsed*7)*14+saw*20,t,.05);
  let eng=0,quad=0;for(const v of E.vehicles){const k=inView(v.pos[0],v.pos[1])*Math.min(1,Math.abs(v.v)/20+.15*(v.parked?0:1));if(v.kind==='quad'||v.kind==='cross')quad=Math.max(quad,k);else if(v.kind!=='bike')eng=Math.max(eng,k)}
- A.engG.gain.setTargetAtTime(eng*.07,t,.15);A.quadG.gain.setTargetAtTime(quad*.035,t,.1);A.quadO.frequency.setTargetAtTime(88+quad*40+Math.sin(state.elapsed*5)*6,t,.08);
+ A.engG.gain.setTargetAtTime(eng*.12,t,.15);A.quadG.gain.setTargetAtTime(quad*.3,t,.1);A.quadO.frequency.setTargetAtTime(88+quad*40+Math.sin(state.elapsed*5)*6,t,.08);
  A.bird-=dt;A.wood-=dt;A.owl-=dt;
  if(!night&&se!==3&&A.bird<=0){A.bird=2+Math.random()*5;chirp()}
  if(!night&&A.wood<=0){A.wood=14+Math.random()*20;drum()}
@@ -54,32 +56,34 @@ function tone(type,f0,f1,a,d,at=0){const {ac,master}=A,t=ac.currentTime+at,o=ac.
 function burst(f,q,a,d,at=0){
  const {ac,master,noise}=A,now=ac.currentTime,t=now+at,b=ac.createBiquadFilter(),g=ac.createGain();
  b.type='bandpass';b.frequency.value=f;b.Q.value=q;
- g.gain.value=0;g.gain.setValueAtTime(0,now);g.gain.setValueAtTime(.00001,t);g.gain.linearRampToValueAtTime(a,t+.01);g.gain.exponentialRampToValueAtTime(.00001,t+d);g.gain.setValueAtTime(0,t+d+.01);
+ // wąskie pasmo przepuszcza mało szumu — wyrównujemy, żeby `a` oznaczało podobną głośność dla każdego pasma
+ const k=Math.min(40,1/(.29*Math.sqrt(Math.min(1,f/q/(ac.sampleRate/2)))));
+ g.gain.value=0;g.gain.setValueAtTime(0,now);g.gain.setValueAtTime(.00001,t);g.gain.linearRampToValueAtTime(a*k,t+.01);g.gain.exponentialRampToValueAtTime(.00001,t+d);g.gain.setValueAtTime(0,t+d+.01);
  noise.connect(b);b.connect(g);g.connect(master);A.live=(A.live||0)+1;
  setTimeout(()=>{try{noise.disconnect(b)}catch(e){}try{b.disconnect()}catch(e){}try{g.disconnect()}catch(e){}A.live--},(d+at)*1000+300);
 }
-function chirp(){const f=1800+Math.random()*1400,n=2+Math.floor(Math.random()*4);for(let i=0;i<n;i++)tone('sine',f,f*(1.2+Math.random()*.3),.01,.09,i*.13)}
-function drum(){for(let i=0;i<14;i++)burst(900,4,.05*(1-i/16),.03,i*.055)}
-function owl(){tone('sine',380,340,.02,.35);tone('sine',390,330,.018,.6,.55)}
+function chirp(){const f=1800+Math.random()*1400,n=2+Math.floor(Math.random()*4);for(let i=0;i<n;i++)tone('sine',f,f*(1.2+Math.random()*.3),.08+Math.random()*.05,.09,i*.13)}
+function drum(){for(let i=0;i<14;i++)burst(900,4,.07*(1-i/16),.03,i*.055)}
+function owl(){tone('sine',380,340,.09,.35);tone('sine',390,330,.08,.6,.55)}
 export function sfx(k){
  if(!A||state.mute)return;
- if(k==='crash'){burst(180,.7,.22,1.1);burst(600,.9,.12,.6,.05);tone('triangle',70,40,.18,.5)}
- else if(k==='creak')tone('sawtooth',220,90,.03,1.1);
- else if(k==='coin'){tone('sine',880,880,.06,.14);tone('sine',1320,1320,.06,.2,.1)}
- else if(k==='ping'){tone('triangle',660,660,.05,.15);tone('triangle',990,990,.05,.22,.12)}
- else if(k==='mark')tone('square',520,700,.025,.06);
- else if(k==='unmark')tone('square',600,380,.02,.06);
- else if(k==='clunk'){tone('square',130,48,.12,.14);tone('triangle',70,40,.15,.2)}
- else if(k==='winch')tone('sawtooth',90,140,.03,.9);
+ if(k==='crash'){burst(180,.7,.22,1.1);burst(600,.9,.12,.6,.05);tone('triangle',70,40,.3,.5)}
+ else if(k==='creak')tone('sawtooth',220,90,.07,1.1);
+ else if(k==='coin'){tone('sine',880,880,.12,.14);tone('sine',1320,1320,.12,.2,.1)}
+ else if(k==='ping'){tone('triangle',660,660,.13,.15);tone('triangle',990,990,.13,.22,.12)}
+ else if(k==='mark')tone('square',520,700,.05,.06);
+ else if(k==='unmark')tone('square',600,380,.045,.06);
+ else if(k==='clunk'){tone('square',130,48,.15,.14);tone('triangle',70,40,.25,.2)}
+ else if(k==='winch')tone('sawtooth',90,140,.07,.9);
  else if(k==='log')burst(260,1.2,.08,.18);
  else if(k==='shot'){burst(900,.5,.25,.35);burst(200,.6,.15,.9,.05)}
  else if(k==='roar'){roar()}
- else if(k==='door'){tone('triangle',300,240,.04,.12);tone('triangle',240,200,.03,.12,.12)}
+ else if(k==='door'){tone('triangle',300,240,.1,.12);tone('triangle',240,200,.08,.12,.12)}
 }
 // Ryk byka na rykowisku: niski, chrapliwy, opadający ton z szumem.
 function roar(){
  const {ac,master}=A,t=ac.currentTime;
- for(const [f0,f1,a,d,at] of [[120,180,.05,.9,0],[180,95,.06,1.6,.85]]){
+ for(const [f0,f1,a,d,at] of [[120,180,.22,.9,0],[180,95,.28,1.6,.85]]){
   const o=ac.createOscillator(),g=ac.createGain(),b=ac.createBiquadFilter();o.type='sawtooth';b.type='lowpass';b.frequency.value=520;
   o.frequency.setValueAtTime(f0,t+at);o.frequency.linearRampToValueAtTime(f1,t+at+d);g.gain.setValueAtTime(.00001,t+at);g.gain.linearRampToValueAtTime(a,t+at+.15);g.gain.exponentialRampToValueAtTime(.00001,t+at+d);
   o.connect(b).connect(g).connect(master);o.start(t+at);o.stop(t+at+d+.05)}
