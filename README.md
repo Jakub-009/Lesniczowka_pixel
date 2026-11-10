@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.6.4 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.7.0 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -173,3 +173,12 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
 - Leśniczówka, plac i szkółka przy szosie na zachodzie; polany nieregularne; strumień łączący trzy mokradła (mostki/przepusty).
 - Cztery stałe miejsca paśników; zarezerwowane miejsca na parking leśny, ścieżkę przyrodniczą i drogi pożarowe (kolejne wersje).
 - **Zapis z wcześniejszych wersji nie działa (nowa gra) — to ostatnie złamanie zapisu.**
+
+## Zmiany w 0.7.0 „Zdrowie lasu”
+- **Szkółka leśna** stoi od początku w ogrodzonym placu w oddz. 101 (dawna „Uprawa”); kupno uruchamia produkcję sadzonek.
+- **Pogoda i susza:** słonecznie / deszcz / śnieg / wichura; susza ściółki rośnie latem, deszcz ją zmniejsza; mokradła i strumień wysychają. **Zagrożenie pożarowe** (niskie / umiarkowane / wysokie) widać pod zegarem — wpływa na liczbę i szybkość pożarów.
+- **Kornik drukarz:** zasiedla świerki po cichu (korony rudzieją po kilku dniach), rozprzestrzenia się szybciej w suszy. Patrol po zgłoszeniu oznacza drzewa do **cięcia sanitarnego** (drewno sanitarne jest tańsze). **Pułapki feromonowe** (1800 zł/rok) wykrywają nalot wcześniej i hamują rozprzestrzenianie.
+- **Wichury:** powalają i łamią drzewa (wiatrołomy), mogą zatarasować drogi leśne — patrol je udrażnia, pojazdy omijają zatarasowane odcinki, jeśli jest objazd.
+- **Wieża przeciwpożarowa** (6000 zł): pożary rozwijają się wolniej. **Zakaz wstępu do lasu:** brak grzybiarzy, spacerowiczów i rowerzystów, mniejsze ryzyko pożaru; zdejmowany automatycznie, gdy zagrożenie spada.
+- Panel leśniczówki (L) ma nową sekcję „Zdrowie lasu”; zamierające drzewa widać na mapie leśnej (Tab) jako pomarańczowe punkty.
+- Zapis z 0.6.4 działa (nowe pola są opcjonalne).

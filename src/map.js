@@ -95,8 +95,6 @@ export const KENNEL={x:424,y:372+LDY,w:22,h:18};
 export const WELL={x:500,y:404+LDY};
 export const DOOR=[300,296+LDY];            // drzwi leśniczówki (od podwórza)
 export const PARK_YARD=[478,300+LDY];
-// Szkółka leśna (budowana w 0.5) — tuż za płotem podwórza, od południa.
-export const NURSERY={x:186,y:470+LDY,w:214,h:78};
 // ── Plac manewrowy przy leśniczówce (0.6): tu nocują maszyny zrywkowe i stoi kupiony forwarder ──
 export const PLAC={x:604,y:330+LDY,w:196,h:92};
 export const PLAC_SPOTS=[{x:660,y:378+LDY,h:Math.PI/2},{x:748,y:378+LDY,h:Math.PI/2}];   // h: kierunek jazdy (na wschód)
@@ -105,7 +103,9 @@ export const PLAC_SPOTS=[{x:660,y:378+LDY,h:Math.PI/2},{x:748,y:378+LDY,h:Math.P
 export const POLANA={x:2100,y:1060,r:150};
 export const polR=a=>POLANA.r*(1+.17*Math.sin(2*a+1)+.1*Math.sin(3*a+.5)+.06*Math.sin(5*a+2));
 export const AMBONA={x:1958,y:1030};
+// Szkółka leśna: ogrodzony plac w oddz. 101 od początku gry (pusty); kupno uruchamia produkcję sadzonek (0.7)
 export const UPRAWA={x:960,y:680,w:400,h:250,gate:[780,828]};   // furtka w zachodnim płocie (od dukty)
+export const NURSERY=UPRAWA;
 
 // ── Mokradła i strumień (łańcuch: zachód → środek → południowy wschód) ──
 export const WETLANDS=[{x:470,y:1010,rx:120,ry:62},{x:1850,y:1430,rx:130,ry:70},{x:3440,y:2590,rx:115,ry:60}];

@@ -1,5 +1,6 @@
 // Kto mieszka w lesie i kto do niego przyjeżdża: zwierzyna w grupach, ruch na drodze, grzybiarze, spacerowicze, rowerzyści, myśliwy.
 import {cal,hash,state,clamp,SEASON_DAYS,toast} from '../core.js';
+import {banned} from '../health.js';
 import {EDGES,NODES,POLANA,UPRAWA,AMBONA,roadClearance,oddzial} from '../map.js';
 import {goalNode,pointOn,nearestRoad,ENTRY,exitNode} from '../roads.js';
 import {E,NAV} from '../ents.js';
@@ -150,15 +151,16 @@ function updateDrive(){
 function shot(q){sfx('shot');for(const a of E.animals)if(a.kind!=='dog'&&!a.dead&&Math.hypot(a.x-q.x,a.y-q.y)<420)a.escape&&a.escape(q.x,q.y)}
 // Rozkład dnia (0.2): goście przyjeżdżają w swoich godzinach, w weekend więcej, w nocy las jest pusty.
 export function updateVisitors(dt){
+ const ban=banned();
  const h=cal.hour(),se=cal.season(),we=cal.weekend(),night=cal.night(),winter=se===3;
  for(const k of ['car','pick','walk','bike'])T[k]-=dt;
  const cars=E.vehicles.filter(v=>v.kind==='car'&&v.roam).length,rush=(h>6&&h<9)||(h>15&&h<18);
  if(T.car<=0){T.car=(night?240:rush?30:70)+rand()*60;if(cars<(rush?2:1))new Vehicle('car',{...ENTRY(rand()<.5),roam:['main'],color:pick(CAR_COLS)})}
  // grzyby jesienią (i ostatniego dnia lata), jagody latem
  const mushrooms=(se===1&&cal.dayOf()>=SEASON_DAYS)||se===2,berries=se===1&&!mushrooms;
- if(T.pick<=0){T.pick=(we?70:140)+rand()*90;if(h>5.5&&h<12.5&&(mushrooms||berries)&&E.people.filter(p=>p.kind==='picker').length<4)spawnPickers(berries)}
- if(T.walk<=0){T.walk=((we?80:170)+rand()*100)*(winter?1.8:1);if(h>9&&h<18)spawnWalker()}
- if(T.bike<=0){T.bike=(we?110:240)+rand()*140;if(h>9&&h<19&&!winter){const b=spawnFrom('bike',{roam:['main','forest'],color:pick(['#4f6a8a','#c0473a','#3a7a5a','#d8b23a'])});b.label='rowerzysta';b.life=80+rand()*100}}
+ if(T.pick<=0){T.pick=(we?70:140)+rand()*90;if(!ban&&h>5.5&&h<12.5&&(mushrooms||berries)&&E.people.filter(p=>p.kind==='picker').length<4)spawnPickers(berries)}
+ if(T.walk<=0){T.walk=((we?80:170)+rand()*100)*(winter?1.8:1);if(!ban&&h>9&&h<18)spawnWalker()}
+ if(T.bike<=0){T.bike=(we?110:240)+rand()*140;if(!ban&&h>9&&h<19&&!winter){const b=spawnFrom('bike',{roam:['main','forest'],color:pick(['#4f6a8a','#c0473a','#3a7a5a','#d8b23a'])});b.label='rowerzysta';b.life=80+rand()*100}}
  // 0.6.3: rowerzyści jeżdżą za dnia — po przejażdżce albo o zmierzchu zjeżdżają z lasu
  for(const v of E.vehicles){if(v.kind!=='bike'||v.leaving||v.dead)continue;v.life=(v.life??120)-dt;if(v.life<=0||h>20||h<6){v.leaving=true;v.roam=null;v.label='rowerzysta wraca do domu';leaveMap(v)}}
  // 0.6.3: niektórzy odwiedzający sami zbierają śmieci po drodze

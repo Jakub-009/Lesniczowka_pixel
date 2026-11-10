@@ -49,6 +49,7 @@ function draw(){
  for(const C of J.crews)if(C.van&&!C.van.dead){g.fillStyle='#f0a030';g.fillRect(C.van.pos[0]/K-2,C.van.pos[1]/K-2,4,4)}
  if(J.skid.trac&&!J.skid.trac.dead){const v=J.skid.trac;g.fillStyle='#e0d030';g.fillRect(v.pos[0]/K-2,v.pos[1]/K-2,4,4)}
  for(const u of U){const v=u.car;g.fillStyle='#3a80e0';g.fillRect(v.pos[0]/K-2,v.pos[1]/K-2,4,4)}
+ for(const t of trees)if(t.kb>=2&&t.st===STAND){g.fillStyle='#d06a1a';g.fillRect(t.x/K-1,t.y/K-1,3,3)}
  for(const t of trees)if(t.marked&&t.st===STAND){g.strokeStyle='#e04030';g.strokeRect(t.x/K-1.5,t.y/K-1.5,3,3)}
  g.font='bold 13px ui-monospace,monospace';g.textAlign='center';g.textBaseline='middle';
  for(const [o,x,y] of centers){g.fillStyle='#ffffffb0';g.fillText(o,x/K+1,y/K+1);g.fillStyle='#1d2b22';g.fillText(o,x/K,y/K)}

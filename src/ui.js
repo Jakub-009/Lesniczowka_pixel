@@ -1,5 +1,6 @@
 // HUD w HTML (styl farmy): trzy wskaźniki, zegar i kalendarz, narzędzia, plan na sezon, zgłoszenia, karta wybranego obiektu.
 import {$,state,cal,SEASONS,DOW,displayNumber,zl,SETTINGS,camera,VIEW,clamp,toast,SEASON_DAYS,YEARS_PER_SEASON} from './core.js';
+import {HL,WX,LVLN,fireLvl,trapsOn,sick,buyTraps,buildTower,toggleBan,COSTS as HC} from './health.js';
 import {SP,STAND,STUMP,SAPLING_AGE,CUT_AGE,THIN_AGE,crownR,heightM,dbhCm,volume,counts,treesIn,QUAL,SORTS,sortSplit,treeValue} from './forest.js';
 import {STANDS,oddzial} from './map.js';
 import {J,COST,PRICE,MACH,pendingCount,toggleMark,dispatchCrew,orderTruck,togglePlant,buyForwarder,stackTotal,stackValue,hireCrewB,fireCrewB,truckTotal,pileSorts} from './jobs.js';
@@ -22,6 +23,7 @@ export function hud(){
  const h=cal.hour(),hh=Math.floor(h),mm=Math.floor((h-hh)*60);
  $('#time').textContent=String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
  $('#date').textContent='Rok '+cal.year()+' · '+SEASONS[cal.season()]+' · dzień '+cal.dayOf();
+ {const lv=fireLvl(),w=$('#wx');w.textContent=WX[HL.wx]+(lv?' · pożary: '+LVLN[lv]:'');w.style.color=lv===3?'#ff9a7a':lv===2?'#f0d070':''}
  $('#dow').textContent=DOW[cal.dow()]+(cal.weekend()?' (weekend)':'');
  $('#ff').style.display=state.ff>1?'block':'none';
  $('#money').textContent=Math.round(state.money).toLocaleString('pl-PL');$('#money').style.color=state.money<0?'#ff8a6a':'';
@@ -64,6 +66,7 @@ function treeInfo(t){
   t.qk?'Jakość: '+QUAL[t.q].name:'Jakość: nieoceniona — zleć ocenę drzewostanu',
   t.qk?'Sortymenty: '+['tart','pap','opal'].filter(k=>f[k]>0).map(k=>SORTS[k].short+' '+Math.round(f[k]*100)+'%').join(', ')+' · wartość ok. '+zl(treeValue(t)):'Wartość drewna zależy od jakości (tartaczne / papierówka / opał).',
   'Koszt ścinki '+zl(COST.fell)];
+ if(t.kb===4)lines.push('Wiatrołom — połamane przez wichurę; zasiedla je kornik, uprzątnij.');else if(t.kb>=2)lines.push(t.kb===2?'Zamiera: zasiedlone przez kornika. Tnij sanitarnie, zanim zarazi sąsiadów.':'Martwe, zasiedlone przez kornika — drewno sanitarne.');
  if(t.assigned)lines.push('Ekipa ma je na liście.');
  const btns=t.assigned||t.age<THIN_AGE?[]:[['mark',t.marked?'Usuń oznaczenie':t.age<CUT_AGE||t.q===2&&t.qk?'Wyznacz do trzebieży':'Wyznacz do wycinki']];
  const last=ASSESS.filter(q=>Math.hypot(q.x-t.x,q.y-t.y)<250).sort((a,b)=>b.day-a.day)[0],ago=last?(state.days-last.day)/SEASON_DAYS*YEARS_PER_SEASON:null;
@@ -144,6 +147,13 @@ export function renderBase(){
   ${row('Drewno przy drogach',displayNumber(stackTotal(),1)+' m³ · ok. '+zl(Math.round(stackValue()*ECO.market)))}${row('w tym opał dla ludności',displayNumber(stackTotal(q=>q.sort==='opal'),1)+' m³')}${row('Cena rynkowa','×'+displayNumber(ECO.market,2))}
   ${J.truck.v?'':btn('truck','Zamów wywóz drewna')}
   ${row('Koszty dzienne razem',zl(dailyCost()))}</div>
+ <div class="bsec"><h3>ZDROWIE LASU</h3>
+  ${row('Pogoda',WX[HL.wx])}${row('Susza ściółki',Math.round(HL.dry*100)+'%')}${meter(HL.dry)}${row('Zagrożenie pożarowe',LVLN[fireLvl()])}
+  ${row('Zamierające drzewa (widoczne)',sick())}${row('Zatarasowane drogi',HL.blocks.length)}${row('Cięte sanitarnie',HL.stats.cutSan)}
+  ${btn('traps',trapsOn()?'Pułapki feromonowe wyłożone':'Pułapki feromonowe na kornika · '+zl(HC.traps)+'/rok',trapsOn())}
+  ${btn('tower',HL.tower?'Wieża przeciwpożarowa działa':'Zbuduj wieżę przeciwpożarową · '+zl(HC.tower),HL.tower)}
+  ${btn('ban',HL.ban?'Zniesienie zakazu wstępu do lasu':'Zakaz wstępu do lasu · '+zl(40)+'/dzień',false,HL.ban)}
+  <p class="hint2">Kornik zasiedla świerki po cichu: rude korony widać dopiero po kilku dniach. Zgłoszenie obejrzy patrol i oznaczy drzewa do cięcia sanitarnego (E). Susza i wiatrołomy mu sprzyjają, pułapki hamują. Zakaz wstępu zmniejsza ryzyko pożaru, ale znika się po spadku zagrożenia.</p></div>
  <div class="bsec"><h3>KOŁO ŁOWIECKIE</h3>
   ${['roe','deer','boar','wolf','fox','hare'].map(k=>row(NAMES[k][0].toUpperCase()+NAMES[k].slice(1),FA.pop[k]+(FA.plan[k]!=null?' · plan '+FA.culled[k]+'/'+FA.plan[k]:k==='wolf'?' · chronione':''))).join('')}
   ${row('Presja na uprawy',Math.round(pr*100)+'%')}${meter(pr/2)}
@@ -205,7 +215,7 @@ export function bindUI(){
  });
  $('#basebtn').addEventListener('click',()=>toggleBase(true));
  $('#basecard').addEventListener('click',e=>{const b=e.target.closest('[data-b]');if(!b)return;const k=b.dataset.b;
-  ({nplan:cycleNursery,hireB:hireCrewB,fireB:fireCrewB,hirePod:hireDeputy,firePod:fireDeputy,nursery:buildNursery,garage:buildGarage,fwd:buyForwarder,truck:()=>orderTruck(true),reduce:requestReduction})[k]?.();
+  ({nplan:cycleNursery,hireB:hireCrewB,fireB:fireCrewB,hirePod:hireDeputy,firePod:fireDeputy,nursery:buildNursery,garage:buildGarage,fwd:buyForwarder,truck:()=>orderTruck(true),reduce:requestReduction,traps:buyTraps,tower:buildTower,ban:toggleBan})[k]?.();
   baseSig='';renderBase();hud()});
  setTool('select');
  ECO.onSeason=showReport;

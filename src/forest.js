@@ -29,7 +29,7 @@ export function sortSplit(t){
  return [{tart:.75,pap:.1,opal:.15},{tart:.5,pap:.25,opal:.25},{tart:.1,pap:.3,opal:.6}][t.q||0];
 }
 export const SORTS={tart:{name:'drewno tartaczne',short:'tartaczne',k:1.35},pap:{name:'papierówka',short:'papierówka',k:.72},opal:{name:'drewno opałowe',short:'opał',k:.5}};
-export const treeValue=t=>{const v=volume(t),f=sortSplit(t);let s=0;for(const k in f)s+=v*f[k]*SP[t.sp].price*SORTS[k].k;return s};
+export const treeValue=t=>{const v=volume(t),f=sortSplit(t);let s=0;for(const k in f)s+=v*f[k]*SP[t.sp].price*SORTS[k].k;return s*(t.kb===3?.35:t.kb===4?.55:t.kb?.6:1)};   // drewno sanitarne i wiatrołomy tańsze
 export const crownR=t=>SP[t.sp].maxR*(.1+.9*frac(t)**.75);
 export const heightM=t=>SP[t.sp].h*frac(t)**.8;
 export const dbhCm=t=>Math.max(1,SP[t.sp].d*frac(t));
@@ -82,12 +82,7 @@ export function generate(){
    addTree(x,y,hash(k,9,3)<.6?'brzoza':'sosna',9+hash(k,9,4)*9);
   }
  }
- // uprawa: rzędy sadzonek sosny w grodzeniu
- const U=UPRAWA;
- for(let y=U.y+16;y<U.y+U.h-10;y+=22)for(let x=U.x+14;x<U.x+U.w-10;x+=17){
-  if(hash(x,y,11)<.06)continue;
-  addTree(x+(hash(x,y,12)-.5)*4,y+(hash(x,y,13)-.5)*4,hash(x,y,14)<.85?'sosna':'brzoza',3+hash(x,y,15)*5,{uprawa:true});
- }
+ // szkółka (dawna uprawa) jest pusta — rzędy sadzonek rysuje drawBase po zakupie
 }
 
 // Wczytanie stanu lasu z zapisu (zamiast wygenerowanego).
@@ -95,12 +90,12 @@ export function loadTrees(arr){
  trees.length=0;for(const b of buckets)b.length=0;
  for(const [x,y,sp,age,st,marked,stumpR,stumpAge,slash,burnt,uprawa,seed,flags,gb] of arr){
   const t=addTree(x,y,sp,age,{st,marked:!!marked,stumpR,stumpAge,burnt:!!burnt,uprawa:!!uprawa,planted:!!(flags&1),prep:!!(flags&2),gb:gb||0});if(seed)t.seed=seed;
-  if(flags&32){t.q=(flags>>3)&3;t.qk=!!(flags&4)}
+  if(flags&32){t.q=(flags>>3)&3;t.qk=!!(flags&4);t.kb=(flags>>6)&7}
   if(slash)t.slash={x:slash[0],y:slash[1],a:slash[2]};
  }
  dirtyAll();
 }
-export function serializeTrees(){return trees.map(t=>[+t.x.toFixed(1),+t.y.toFixed(1),t.sp,+t.age.toFixed(2),t.st===STUMP||t.lying?1:0,t.marked||t.assigned?1:0,t.stumpR||(t.lying?clamp(t.lying.r*.2,3,8):0),+(t.stumpAge||0).toFixed(1),t.slash?[Math.round(t.slash.x),Math.round(t.slash.y),+t.slash.a.toFixed(2)]:0,t.burnt?1:0,t.uprawa?1:0,t.seed,(t.planted?1:0)|(t.prep?2:0)|(t.qk?4:0)|((t.q||0)<<3)|32,+(t.gb||0).toFixed(2)])}
+export function serializeTrees(){return trees.map(t=>[+t.x.toFixed(1),+t.y.toFixed(1),t.sp,+t.age.toFixed(2),t.st===STUMP||t.lying?1:0,t.marked||t.assigned?1:0,t.stumpR||(t.lying?clamp(t.lying.r*.2,3,8):0),+(t.stumpAge||0).toFixed(1),t.slash?[Math.round(t.slash.x),Math.round(t.slash.y),+t.slash.a.toFixed(2)]:0,t.burnt?1:0,t.uprawa?1:0,t.seed,(t.planted?1:0)|(t.prep?2:0)|(t.qk?4:0)|((t.q||0)<<3)|((t.kb||0)<<6)|32,+(t.gb||0).toFixed(2)])}
 // ── indeks przestrzenny (kubełki 128 px) ──
 const BK=128,BW=Math.ceil(WORLD.w/BK)+1,BH=Math.ceil(WORLD.h/BK)+1,buckets=Array.from({length:BW*BH},()=>[]);
 function bucketAdd(t){buckets[clamp(Math.floor(t.y/BK),0,BH-1)*BW+clamp(Math.floor(t.x/BK),0,BW-1)].push(t)}
@@ -149,7 +144,7 @@ function paintChunk(c,i,j){
   if(t.st===STUMP){paintStump(lg,t);continue}
   if(t.falling||t.lying)continue;
   if(t.age<SAPLING_AGE)paintSapling(lg,t,season);
-  else outlinedDraw(hg,t.x,t.y,G=>paintCrown(G,t,season),'#1a2a20');
+  else outlinedDraw(hg,t.x,t.y,G=>{paintCrown(G,t,season);if(t.kb>=2)crownTint(G,t)},'#1a2a20');
  }
  // korony malujemy na wspólnym płótnie roboczym (odczyt pikseli), a do kawałka kopiujemy gotowy obraz —
  // kawałki zostają w pamięci karty graficznej i przesuwanie mapy nie przycina
@@ -201,6 +196,10 @@ function crownPatch(G,cx,cy,rad,base,lit,seed,dens=2){
   rect(G,cx+dx,cy+dy,2+(k%3),1+(k%2),lit[k%lit.length]);
  }
 }
+// 0.7: chore drzewa — rude (zamierające), szare (martwe), połamane (wiatrołom)
+function crownTint(G,t){const r=crownR(t)*.82,s=t.seed;
+ const c=t.kb===2?['#a8672e',['#c98a44','#8a4e22','#dba45c']]:t.kb===3?['#6a6458',['#8a8478','#4e493f','#9c968a']]:['#7a5a3a',['#a0784a','#5e4228','#c09a68']];
+ crownPatch(G,0,0,r,c[0],c[1],s+31,1.6)}
 const DECID={
  dab:[['#79a24f',['#a3c46f','#5f8a42','#bcd487']],['#4e7a3c',['#6f9a4f','#3d6633','#8aab60']],['#94713a',['#c09045','#74562c','#d8ad5c']]],
  buk:[['#86b452',['#acd172','#679a40','#c6e08a']],['#4a8642',['#69a255','#3a6c37','#86b866']],['#ad5e2a',['#d27c36','#87461f','#e6a050']]],

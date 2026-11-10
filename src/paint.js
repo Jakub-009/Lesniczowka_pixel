@@ -193,12 +193,11 @@ export function drawAmbona(c){
   rect(G,-6,-2,12,3,'#2f2a24');
  },DARK);
 }
-function paintUprawa(){
+function paintUprawa(){   // szkółka leśna: ogrodzony, pusty plac (po zakupie rysuje go drawBase)
  const U=UPRAWA;
  rect(g,U.x,U.y,U.w,U.h,'#7f8a55');
- for(let y=U.y+16;y<U.y+U.h-10;y+=22){rect(g,U.x+6,y-3,U.w-12,6,'#6e5a3e');rect(g,U.x+6,y-3,U.w-12,1,'#8a7452')}
  for(let i=0;i<5000;i++)rect(g,U.x+hash(i,91)*(U.w-2)|0,U.y+hash(i,92)*(U.h-2)|0,1,1+(i%2),['#97a46a','#6b7a46','#a8a87a','#8a7a52'][i%4]);
- outlinedDraw(g,U.x-12,U.gate[0]-12,G=>{rect(G,-1,-4,2,10,'#6b563d');rect(G,-16,-14,32,10,'#e9e2c6');text3(G,'UPRAWA',-12,-12,'#2a3b2d')},DARK);
+ outlinedDraw(g,U.x-12,U.gate[0]-12,G=>{rect(G,-1,-4,2,10,'#6b563d');rect(G,-16,-14,32,10,'#e9e2c6');text3(G,'SZKÓŁKA',-14,-12,'#2a3b2d')},DARK);
 }
 function paintProps(){
  for(const p of POSTS){shadow(g,p.x-3,p.y-3,6,6,12);rect(g,p.x-4,p.y-4,8,8,'#55524a');rect(g,p.x-3,p.y-3,6,6,'#e8e6dc');rect(g,p.x-3,p.y-3,6,1,'#ffffff');

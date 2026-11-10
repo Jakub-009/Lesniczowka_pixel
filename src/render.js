@@ -7,6 +7,7 @@ import {outlinedDraw} from './sprite.js';
 import {E} from './ents.js';
 import {drawGroundItems,drawRopes,J} from './jobs.js';
 import {drawBase} from './base.js';
+import {drawHealth,drawWeather} from './health.js';
 import {drawFeeders} from './life/fauna.js';
 import {birds} from './life/sprites.js';
 import {NODES,EDGES,YARD,HOUSE} from './map.js';
@@ -102,7 +103,7 @@ export function drawWorld(){
  blitGround();blitMarks();
  if(cal.season()===3){ctx.fillStyle='rgba(234,240,246,.5)';ctx.fillRect(Math.floor(camera.x),Math.floor(camera.y),VIEW.w+1,VIEW.h+1)}
  drawForest(ctx,camera,VIEW.w,VIEW.h,'low');
- drawBase(ctx);drawTrash();drawFeeders(ctx);drawFences(ctx);drawGroundItems(ctx);drawLying();
+ drawBase(ctx);drawHealth(ctx);drawTrash();drawFeeders(ctx);drawFences(ctx);drawGroundItems(ctx);drawLying();
  for(const a of E.animals)if(!a.dead)a.draw();
  for(const p of E.people)if(!p.onStand)p.draw();
  for(const v of E.vehicles)if(!v.dead)v.draw();
@@ -120,6 +121,7 @@ export function drawWorld(){
  else if(se===2){ctx.fillStyle='rgba(240,180,90,.035)';ctx.fillRect(0,0,VIEW.w,VIEW.h)}
  const h=cal.hour(),warm=h>17&&h<20?clamp(1-Math.abs(h-18.6)/1.4,0,1):0;
  if(warm>0){ctx.fillStyle=`rgba(248,150,70,${warm*.09})`;ctx.fillRect(0,0,VIEW.w,VIEW.h)}
+ drawWeather(ctx);
  nightLayer();
  if(DEBUG.on){ctx.fillStyle='#000a';ctx.fillRect(2,2,190,22);ctx.fillStyle='#fff';ctx.font='8px monospace';ctx.fillText(`FPS ${DEBUG.fps}  skala ${VIEW.scale}x  ${E.vehicles.length} poj. ${E.people.length} os. ${E.animals.length} zw.`,5,14)}
 }

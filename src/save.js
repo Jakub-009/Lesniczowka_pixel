@@ -16,6 +16,7 @@ import {FA} from './life/fauna.js';
 import {spawnWildlife} from './life/populate.js';
 import {BASE} from './base.js';
 import {hirePod,ASSESS} from './incidents.js';
+import {saveHealth,loadHealth} from './health.js';
 const KEY='lesniczowka-save-3';   // 0.6.4: nowy układ map — zapisy sprzed 0.6.4 nie pasują (ostatnie złamanie zapisu)
 const FADE=.88;   // koleiny i bruzdy blakną o 12% dziennie
 export function hasSave(){try{return !!localStorage.getItem(KEY)}catch(e){return false}}
@@ -23,14 +24,14 @@ export function clearSave(){try{localStorage.removeItem(KEY)}catch(e){}}
 export function saveGame(){
  if(!state.playing)return;
  try{
-  const o={v:3,ver:'0.6.4',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
+  const o={v:3,ver:'0.7.0',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
    stacks:J.stacks.filter(s=>s.vol>.05).map(s=>[s.edge.id,Math.round(s.s),+s.vol.toFixed(2),Math.round(s.value),s.sort||'tart',s.truck!==false]),sold:J.sold,
    plants:J.plants.map(p=>[Math.round(p.x),Math.round(p.y),p.sp]),
    piles:E.piles.filter(p=>!p.dead).map(p=>[Math.round(p.x),Math.round(p.y),+p.a.toFixed(2),+p.vol.toFixed(3),p.sp,p.logs,p.bark,p.sorts||null,p.vals||null]),
    eco:{cover0:ECO.cover0,damage:ECO.damage,plan:ECO.plan,market:ECO.market,pod:ECO.staff.pod,nursery:ECO.nursery,feedCost:ECO.feedCost},burns:E.burns||[],
    plots:R.plots.map(p=>({...p})),nextPlot:R.nextId,trails:J.trails.slice(-160),forwarder:J.skid.owned,crewB:J.crews.length>1,
    base:{nursery:BASE.nursery,garage:BASE.garage,nplan:BASE.nplan||0,stats:BASE.stats,opal:BASE.opalPiles.filter(o=>!o.dead).map(o=>[Math.round(o.x),Math.round(o.y),+o.a.toFixed(2),+o.vol.toFixed(2),o.edge.id,Math.round(o.s),+o.day.toFixed(2),o.odd])},
-   assess:ASSESS.slice(-80),
+   assess:ASSESS.slice(-80),hl:saveHealth(),
    fauna:{pop:FA.pop,plan:FA.plan,culled:FA.culled,reduction:FA.reduction,feeders:FA.feeders.map(f=>+f.level.toFixed(3)),winterT:FA.winterT,emptyT:FA.emptyT}};
   localStorage.setItem(KEY,JSON.stringify(o));
  }catch(e){console.warn('Zapis gry nie powiódł się:',e)}
@@ -60,7 +61,7 @@ export function loadGame(){
   E.piles=(o.piles||[]).map(([x,y,a,vol,sp,logs,bark,sorts,vals])=>({x,y,a,vol,sp,logs,bark,sorts:sorts||undefined,vals:vals||undefined,state:'ground',dead:false}));
   const ec=o.eco||{};ECO.cover0=ec.cover0;ECO.damage=ec.damage;ECO.plan=ec.plan;ECO.lastDay=Math.floor(o.days);ECO.lastSeason=Math.floor(o.days/SEASON_DAYS)%4;
   if(ec.market)ECO.market=ec.market;if(ec.nursery)ECO.nursery=ec.nursery;if(ec.feedCost)ECO.feedCost=ec.feedCost;
-  E.burns=o.burns||[];
+  E.burns=o.burns||[];loadHealth(o.hl);
   if(o.crewB&&J.crews.length<2)hireCrewB();
   if(o.base){BASE.nursery=!!o.base.nursery;BASE.garage=!!o.base.garage;BASE.nplan=o.base.nplan||0;Object.assign(BASE.stats,o.base.stats||{});
    BASE.opalPiles=(o.base.opal||[]).map(([x,y,a,vol,eid,s,day,odd])=>({x,y,a,vol,edge:EDGES.find(e=>e.id===eid)||EDGES[4],s,day,odd,logs:Math.max(2,Math.min(6,Math.round(vol*1.5))),bark:'#7a5a3e',sp:'sosna'}))}

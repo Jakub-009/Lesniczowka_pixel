@@ -21,7 +21,7 @@ function dijkstra(src,prevNode,allow,tc){
  for(;;){let u=null,b=1e9;for(const [k,d] of dist)if(!done.has(k)&&d<b){b=d;u=k}
   if(!u)break;done.add(u);const [n,p]=u.split('|');
   for(const q of ADJ[n]){if(!allow.includes(q.edge.kind))continue;let extra=0;if(q.to===p){const t=turnCost(n,allow,tc);if(t==null)continue;extra=t}
-   const k=K(q.to,n),d=b+q.edge.len+extra;if(d<(dist.get(k)??1e9)){dist.set(k,d);prev.set(k,u)}}}
+   const k=K(q.to,n),d=b+q.edge.len+extra+(q.edge.blocked?4000:0);if(d<(dist.get(k)??1e9)){dist.set(k,d);prev.set(k,u)}}}
  return{dist,prev};
 }
 // Najlepszy stan w węźle gx, z którego wolno wjechać na odcinek prowadzący do gy.
