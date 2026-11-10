@@ -15,7 +15,8 @@ function init(){
   const filt=(type,f,q=1)=>{const b=ac.createBiquadFilter();b.type=type;b.frequency.value=f;b.Q.value=q;return b};
   // wiatr
   const windF=filt('lowpass',380),windG=gain(.02);chain([noise,windF,windG,master]);
-  const leafF=filt('highpass',3200),leafG=gain(.004);chain([noise,leafF,leafG,master]);
+  // szelest liści: miękkie pasmo 700–2200 Hz (bez ostrych wysokich tonów), słychać go tylko w porywach wiatru
+  const leafH=filt('highpass',700,.5),leafF=filt('lowpass',2200,.5),leafG=gain(0);chain([noise,leafH,leafF,leafG,master]);
   // piła łańcuchowa: piła + szum pasmowy
   const sawO=ac.createOscillator();sawO.type='sawtooth';sawO.frequency.value=150;sawO.start();
   const sawF=filt('bandpass',1400,1.4),sawG=gain(0);chain([sawO,sawF,sawG,master]);
@@ -25,7 +26,7 @@ function init(){
   const engF=filt('lowpass',260),engG=gain(0);chain([engO,engF,engG,master]);
   const quadO=ac.createOscillator();quadO.type='square';quadO.frequency.value=92;quadO.start();
   const quadF=filt('bandpass',700,1.2),quadG=gain(0);chain([quadO,quadF,quadG,master]);
-  A={ac,master,noise,windG,leafG,sawO,sawG,sawNG,engO,engG,quadO,quadG,bird:4,wood:12,owl:20};
+  A={ac,master,noise,windG,leafG,gust:0,gustT:3,sawO,sawG,sawNG,engO,engG,quadO,quadG,bird:4,wood:12,owl:20};
  }catch(e){A=null}
 }
 export function toggleSound(){
@@ -39,7 +40,9 @@ export function updateSound(dt){
  master.gain.setTargetAtTime(on?.9*SETTINGS.volume:0,t,.1);if(!on)return;
  const h=cal.hour(),night=cal.night(),se=cal.season();
  A.windG.gain.setTargetAtTime(.22+.2*Math.sin(state.elapsed*.21)**2,t,.4);
- A.leafG.gain.setTargetAtTime(se===3?.01:.025+.03*Math.sin(state.elapsed*.33)**2,t,.4);
+ // porywy: co kilka–kilkanaście sekund liście szeleszczą przez 2–4 s, potem cisza (zimą prawie wcale)
+ A.gustT-=dt;if(A.gustT<=0){A.gust=A.gust>0?0:(se===3?.15:.4+Math.random()*.6);A.gustT=A.gust>0?2+Math.random()*2:6+Math.random()*10}
+ A.leafG.gain.setTargetAtTime(A.gust*.035,t,A.gust>0?.7:1.2);
  let saw=0;for(const p of E.people)if(p.pose==='saw'&&!p.hidden&&p.kind==='worker')saw=Math.max(saw,inView(p.x,p.y));
  A.sawG.gain.setTargetAtTime(saw*.5,t,.05);A.sawNG.gain.setTargetAtTime(saw*.3,t,.05);
  A.sawO.frequency.setTargetAtTime(140+Math.sin(state.elapsed*7)*14+saw*20,t,.05);
