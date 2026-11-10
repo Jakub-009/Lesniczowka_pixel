@@ -1,7 +1,7 @@
 // Zwierzyna (0.5): liczebność w obwodzie (widać tylko jej część), rozród wiosną, wilki, plan łowiecki koła,
 // paśniki i dokarmianie zimą, zgryzanie niegrodzonych sadzonek, rykowisko jesienią.
 import {state,cal,toast,clamp,zl,SEASONS,displayNumber} from '../core.js';
-import {POLANA,UPRAWA,inRect,roadClearance} from '../map.js';
+import {POLANA,UPRAWA,FEEDERS,inRect,roadClearance} from '../map.js';
 import {trees,STAND,removeTree,dirtyTree,SAPLING_AGE} from '../forest.js';
 import {E} from '../ents.js';
 import {rand} from './agents.js';
@@ -17,7 +17,7 @@ const TARGET={roe:48,deer:16,boar:22};   // las 0.6 jest ok. 2,25× większy
 export const FA={pop:{roe:58,deer:20,boar:30,wolf:6,fox:9,hare:28},plan:{roe:8,deer:3,boar:8},culled:{roe:0,deer:0,boar:0},seasonCull:0,
  feeders:[],winterT:0,emptyT:0,reduction:false,roarT:0,roarSeason:-1,browsed:0,carcasses:[]};
 export function initFauna(){
- FA.feeders=[{name:'P1 (polana)',x:POLANA.x+40,y:POLANA.y-60,level:.3,task:null},{name:'P2 (oddz. 101)',x:560,y:1060,level:.3,task:null},{name:'P3 (oddz. 106)',x:3050,y:620,level:.3,task:null},{name:'P4 (oddz. 109)',x:1260,y:2040,level:.3,task:null}];
+ FA.feeders=FEEDERS.map(f=>({name:f.name,x:f.x,y:f.y,level:.3,task:null}));
  newPlan(false);
  if(!ECO.seasonHooks.includes(seasonEnd))ECO.seasonHooks.push(seasonEnd);
 }

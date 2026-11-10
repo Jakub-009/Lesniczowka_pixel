@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.6.3 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.6.4 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -166,3 +166,10 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
 - **Węższe pobocza:** las bliżej dróg (w starym zapisie pobocza zarastają przy wczytaniu).
 - **Mniej śmieci, a część odwiedzających sprząta sama** („Grzybiarz pozbierał śmieci…” — zgłoszenie znika).
 - **Rowerzyści** jeżdżą za dnia i zjeżdżają z lasu przed zmrokiem.
+
+## Zmiany w 0.6.4 „Nowe drogi”
+- Nowy układ mapy: jedna łagodnie wygięta szosa, kręte dukty w północnej części, prostokątna pętla dróg na południu (zaokrąglone narożniki), skrzyżowania naprzeciw siebie, jedna ślepa droga do mokradła. Wszystkie drogi to gładkie krzywe (jazda, malowanie i kolizje używają tej samej geometrii).
+- Oddziały 101–112 w regularnej siatce przesiek (wąskie linie podziału dla pieszych i zwierząt, słupki oddziałowe). Oddział 104 to puszcza w NE bez dróg.
+- Leśniczówka, plac i szkółka przy szosie na zachodzie; polany nieregularne; strumień łączący trzy mokradła (mostki/przepusty).
+- Cztery stałe miejsca paśników; zarezerwowane miejsca na parking leśny, ścieżkę przyrodniczą i drogi pożarowe (kolejne wersje).
+- **Zapis z wcześniejszych wersji nie działa (nowa gra) — to ostatnie złamanie zapisu.**

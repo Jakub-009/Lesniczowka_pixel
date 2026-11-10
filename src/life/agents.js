@@ -1,7 +1,7 @@
 // Trzy rodzaje „żywych” obiektów: pojazdy na grafie dróg, piesi ze scenariuszem kroków, dzika zwierzyna (A*, grupy, ucieczka).
 // Wzorzec: klasy Walker / Person / Wild z life.js farmy, uogólnione — bez pojazdu gracza.
 import {clamp,angDiff,hash,ctx,camera,VIEW,cal} from '../core.js';
-import {NODES} from '../map.js';
+import {NODES,ptAt,dirPt,dirProj} from '../map.js';
 import {neighbours,edgeOf,planRoute,offMap,nearestRoad} from '../roads.js';
 import {obb,collide} from '../geometry.js';
 import {E,NAV,nearestThreat} from '../ents.js';
@@ -50,18 +50,18 @@ export class Vehicle{
   Object.assign(this,{color:o.color||'#8c9b95',v:0,laneX:0,travel:0,dwell:0,steer:0,route:null,final:false,stopS:null,park:false,parked:false,arrived:false,
    leave:false,dead:false,roam:o.roam||null,despawn:o.despawn??true,blockT:0,ghost:false,load:0,cap:o.cap||8,label:o.label||null,speedMul:1,stopped:false,off:null});
   this.setEdge(o.from,o.to);this.s=o.s||0;
-  const [cx,cy]=this.carrot();this.pos=[cx,cy];this.heading=this.dirH;this.shape=obb(cx,cy,this.spec.hw,this.spec.hh,this.heading);
+  this.s=o.s||0;{const t=dirPt(this.edge,this.from,this.s);this.heading=Math.atan2(t[2],-t[3])}const [cx,cy]=this.carrot();this.pos=[cx,cy];this.shape=obb(cx,cy,this.spec.hw,this.spec.hh,this.heading);
   const ck=o.cart||this.spec.cart;if(ck){this.cart={kind:ck,x:0,y:0,angle:0};const H=this.hitch();alignCart(this.cart,H[0],H[1],this.heading)}
   E.vehicles.push(this);
  }
  get x(){return this.pos[0]}get y(){return this.pos[1]}
- setEdge(from,to){const e=edgeOf(from,to);this.from=from;this.to=to;this.edge=e;const A=NODES[from],B=NODES[to];this.len=e.len;this.dx=(B[0]-A[0])/e.len;this.dy=(B[1]-A[1])/e.len;this.dirH=Math.atan2(this.dx,-this.dy)}
+ setEdge(from,to){const e=edgeOf(from,to);this.from=from;this.to=to;this.edge=e;this.len=e.len;const t=dirPt(e,from,0);this.dirH=Math.atan2(t[2],-t[3])}
  hitch(){const k=this.spec.hitch;return[this.pos[0]-Math.sin(this.heading)*k,this.pos[1]+Math.cos(this.heading)*k]}
  // Punkt na pasie ruchu odcinka from→to w odległości s od from (prawy pas + zjazd na pobocze dla bieżącego odcinka).
  lanePos(from,to,s,cur){
-  const e=edgeOf(from,to),A=NODES[from],B=NODES[to],dx=(B[0]-A[0])/e.len,dy=(B[1]-A[1])/e.len,h=Math.atan2(dx,-dy);
+  const e=edgeOf(from,to),[px,py,tx,ty]=dirPt(e,from,s);
   const lane=(this.spec.rider?Math.min(26,e.w/2-2):e.lane)+(cur?this.laneX:0);
-  return[A[0]+dx*s+Math.cos(h)*lane,A[1]+dy*s+Math.sin(h)*lane];
+  return[px-ty*lane,py+tx*lane];
  }
  // Następny węzeł trasy (przy jeździe bez celu wybierany z wyprzedzeniem, żeby pojazd mógł ściąć zakręt).
  peek(k){
@@ -108,7 +108,7 @@ export class Vehicle{
  // Powrót na drogę w najbliższym punkcie (po jeździe w terenie): pas dobrany do kierunku jazdy.
  rejoin(){
   const rp=nearestRoad(this.pos[0],this.pos[1],this.allow,{margin:20});this.off=null;
-  const e=rp.edge,ab=Math.atan2((NODES[e.b][0]-NODES[e.a][0]),-(NODES[e.b][1]-NODES[e.a][1]));
+  const e=rp.edge,tg=ptAt(e,rp.s),ab=Math.atan2(tg[2],-tg[3]);
   if(Math.cos(angDiff(this.heading,ab))>=0){this.setEdge(e.a,e.b);this.s=rp.s}else{this.setEdge(e.b,e.a);this.s=e.len-rp.s}
   this.final=true;this.stopS=this.s;this.arrived=true;this.laneX=0;
  }
@@ -137,14 +137,14 @@ export class Vehicle{
     if(t>=L-2&&O.i<P.length-2){O.i++;O.t=0;continue}
     if(O.i>=P.length-2&&t>=L-2)O.done=true;break}
    return}
-  const A=NODES[this.from];let sp=(x-A[0])*this.dx+(y-A[1])*this.dy;
+  let sp=dirProj(this.edge,this.from,x,y,this.s,110);
   if(this.final&&this.stopS!=null)sp=Math.min(sp,this.stopS);
   this.s=Math.max(0,sp);
   for(let g=0;g<3;g++){
    if(this.final)break;
    const nx=this.peek(0);if(!nx)break;
-   const N=NODES[this.to],B=NODES[nx],e=edgeOf(this.to,nx),ex=(B[0]-N[0])/e.len,ey=(B[1]-N[1])/e.len,sn=(x-N[0])*ex+(y-N[1])*ey;
-   if(this.s>=this.len-2||(sn>=1&&this.s>=this.len-this.la()-4)){this.arriveNode();if(this.dead)return;const A2=NODES[this.from];this.s=Math.max(0,(x-A2[0])*this.dx+(y-A2[1])*this.dy);continue}
+   const e=edgeOf(this.to,nx),sn=dirProj(e,this.to,x,y,0,60);
+   if(this.s>=this.len-2||(sn>=1&&this.s>=this.len-this.la()-4)){this.arriveNode();if(this.dead)return;this.s=Math.max(0,dirProj(this.edge,this.from,x,y,0,60));continue}
    break;
   }
   if(!this.final&&!this.peek(0)&&this.s>=this.len-1)this.arriveNode();

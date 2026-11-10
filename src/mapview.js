@@ -2,7 +2,7 @@
 // drogi, oddziały, powierzchnie odnowieniowe, stosy i pojazdy. Klik przenosi kamerę w to miejsce.
 import {WORLD,camera,VIEW,$} from './core.js';
 import {trees,STAND,STUMP,SAPLING_AGE,crownR,QUAL} from './forest.js';
-import {NODES,EDGES,STANDS,oddzial,YARD,POLANA,UPRAWA,PLAC} from './map.js';
+import {NODES,EDGES,STANDS,oddzial,YARD,POLANA,UPRAWA,PLAC,WETLANDS,STREAM,FEEDERS} from './map.js';
 import {R} from './renew.js';
 import {J} from './jobs.js';
 import {U} from './incidents.js';
@@ -20,7 +20,11 @@ function background(){
  const ODC={'101':'#d9d4b8','102':'#cfd2bc','103':'#ddd0b4','104':'#d6d6b8','105':'#d2d2bc','106':'#cbcfbb','107':'#d8d6b6','108':'#d6d2b6','109':'#dccfb6','110':'#d9d9ba'};
  for(let y=0;y<c.height;y+=3)for(let X=0;X<c.width;X+=3){x.fillStyle=ODC[oddzial(X*K,y*K)]||'#d6d2b8';x.fillRect(X,y,3,3)}
  x.strokeStyle='#8a7a5a';x.lineCap='round';
- for(const e of EDGES){const A=NODES[e.a],B=NODES[e.b];x.lineWidth=e.kind==='main'?5:3;x.strokeStyle=e.kind==='main'?'#6a6e72':'#a8946a';x.beginPath();x.moveTo(A[0]/K,A[1]/K);x.lineTo(B[0]/K,B[1]/K);x.stroke()}
+ x.lineJoin='round';x.lineCap='round';
+ x.strokeStyle='#7aa4c0';x.lineWidth=2;x.beginPath();STREAM.forEach((p,i)=>i?x.lineTo(p[0]/K,p[1]/K):x.moveTo(p[0]/K,p[1]/K));x.stroke();
+ x.fillStyle='#7aa4c0';for(const w of WETLANDS){x.beginPath();x.ellipse(w.x/K,w.y/K,w.rx/K,w.ry/K,0,0,6.28);x.fill()}
+ for(const e of EDGES){x.lineWidth=e.kind==='main'?5:3;x.strokeStyle=e.kind==='main'?'#6a6e72':'#a8946a';x.beginPath();e.pts.forEach((p,i)=>i?x.lineTo(p[0]/K,p[1]/K):x.moveTo(p[0]/K,p[1]/K));x.stroke()}
+ x.fillStyle='#8a4a2a';for(const f of FEEDERS)x.fillRect(f.x/K-2,f.y/K-2,4,4);
  x.fillStyle='#b89a6a';x.fillRect(YARD.x/K,YARD.y/K,YARD.w/K,YARD.h/K);x.fillStyle='#a8a08a';x.fillRect(PLAC.x/K,PLAC.y/K,PLAC.w/K,PLAC.h/K);
  x.fillStyle='#b8cc8a';x.beginPath();x.arc(POLANA.x/K,POLANA.y/K,POLANA.r/K,0,6.28);x.fill();
  return c;

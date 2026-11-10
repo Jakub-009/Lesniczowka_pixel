@@ -1,5 +1,5 @@
 // Graf dróg: sąsiedztwo, najkrótsze trasy (Dijkstra), najbliższy punkt drogi i plan przejazdu do dowolnego miejsca.
-import {NODES,EDGES} from './map.js';
+import {NODES,EDGES,ptAt,nearestOn} from './map.js';
 import {WORLD} from './core.js';
 const ADJ={};for(const k in NODES)ADJ[k]=[];
 for(const e of EDGES){ADJ[e.a].push({edge:e,to:e.b});ADJ[e.b].push({edge:e,to:e.a})}
@@ -28,16 +28,14 @@ function dijkstra(src,prevNode,allow,tc){
 function bestAt(D,gx,gy,allow,tc){let best=null;for(const [k,d0] of D.dist){const [n,p]=k.split('|');if(n!==gx)continue;let d=d0;if(p===gy){const t=turnCost(gx,allow,tc);if(t==null)continue;d+=t}if(!best||d<best.d)best={k,d}}return best}
 const pathTo=(D,k)=>{const p=[k];while(D.prev.has(p[0]))p.unshift(D.prev.get(p[0]));return p.map(q=>q.split('|')[0])};
 
-// Punkt na krawędzi: s mierzone od węzła e.a.
-export function pointOn(e,s){const A=NODES[e.a],B=NODES[e.b],t=s/e.len;return[A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t]}
+// Punkt na krawędzi: s mierzone od węzła e.a (krzywa).
+export function pointOn(e,s){const p=ptAt(e,s);return[p[0],p[1]]}
 export function nearestRoad(x,y,allow=ALL,opts={}){
  let best=null;
  for(const e of EDGES){
   if(!allow.includes(e.kind))continue;
-  const A=NODES[e.a],B=NODES[e.b],dx=B[0]-A[0],dy=B[1]-A[1];
-  let s=((x-A[0])*dx+(y-A[1])*dy)/e.len;
-  const m=opts.margin??30;s=Math.max(Math.min(m,e.len/2),Math.min(e.len-Math.min(m,e.len/2),s));
-  const [px,py]=pointOn(e,s),d=Math.hypot(px-x,py-y);
+  const q=nearestOn(e,x,y);if(best&&q.d>=best.d)continue;
+  const m=opts.margin??30,s=Math.max(Math.min(m,e.len/2),Math.min(e.len-Math.min(m,e.len/2),q.s)),[px,py]=pointOn(e,s),d=Math.hypot(px-x,py-y);
   if(!best||d<best.d)best={edge:e,s,x:px,y:py,d};
  }
  return best;

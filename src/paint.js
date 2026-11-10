@@ -1,7 +1,7 @@
 // Malowanie stałego podłoża z danych mapy (raz, przy starcie): ściółka oddziałów, pobocza, drogi, leśniczówka, składnica, polana, uprawa.
 import {WORLD,hash,rect,line,poly,shadow,LIGHT,clamp} from './core.js';
 import {mk,outlinedDraw,text3} from './sprite.js';
-import {NODES,EDGES,roadClearance,oddzial,YARD,HOUSE,CARPORT,WOODSHED,GARDEN,KENNEL,WELL,PLAC,TURNS,POLANA,AMBONA,UPRAWA,FENCES,POSTS,BARRIERS,BOARD,inRect,inPolana} from './map.js';
+import {NODES,EDGES,roadClearance,oddzial,YARD,HOUSE,CARPORT,WOODSHED,GARDEN,KENNEL,WELL,PLAC,TURNS,POLANA,AMBONA,UPRAWA,FENCES,POSTS,BARRIERS,BOARD,inRect,inPolana,LDY,ptAt,hy,WETLANDS,STREAM,streamDist,inWater,PRZESIEKI,FIRE_SIGNS,polR} from './map.js';
 export const [ground,g]=mk(WORLD.w,WORLD.h);
 const DARK='#2a3328';
 const vn=(u,v,z=5)=>{const x=Math.floor(u),y=Math.floor(v),fx=u-x,fy=v-y,sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy);
@@ -13,7 +13,8 @@ const FLOOR={'101':['#647a45','#7a8a50','#4d6c40'],'102':['#4b6040','#5d6b45','#
  '106':['#485c3e','#58673f','#3a4f38'],'107':['#68804a','#7a8c52','#566e40'],'108':['#6a7c46','#7e8c52','#55703f'],'109':['#7a6a46','#8c7a50','#66724a'],'110':['#72864c','#86955a','#5f7642']};
 const SPECK={'101':['#3f6a3d','#8a7a52','#506f3b','#9a8a5a'],'102':['#6b5a40','#354a35','#7a6a4c'],'103':['#9a7a48','#6e5a3a','#a88a55','#5f7243'],'104':['#8a7a50','#4a6a3c','#9a8a5a'],'105':['#836c48','#47683e','#9a8458'],
  '106':['#6b5a40','#354a35','#7a6a4c'],'107':['#8a7a50','#4a6a3c','#9a8a5a'],'108':['#3f6a3d','#8a7a52','#506f3b','#9a8a5a'],'109':['#9a7a48','#6e5a3a','#a88a55','#5f7243'],'110':['#8a7a50','#5a7a44','#a09060']};
-const AREA=WORLD.w*WORLD.h/(2400*1800),PINE=new Set(['101','104','107','108','110']),LEAF=new Set(['103','105','109']);
+{const F0={...FLOOR},S0={...SPECK};for(const [n,o] of Object.entries({'101':'101','102':'102','103':'103','104':'106','105':'105','106':'104','107':'106','108':'107','109':'108','110':'108','111':'110','112':'109'})){FLOOR[n]=F0[o];SPECK[n]=S0[o]}}
+const AREA=WORLD.w*WORLD.h/(2400*1800),PINE=new Set(['101','106','108','109','110','111']),LEAF=new Set(['103','105','112']);
 function paintFloor(){
  const B=4;
  for(let y=0;y<WORLD.h;y+=B)for(let x=0;x<WORLD.w;x+=B){
@@ -30,45 +31,48 @@ function paintFloor(){
   if(PINE.has(o)){for(let k=0;k<14;k++)rect(g,x+(hash(k,i,5)-.5)*22,y+(hash(k,i,6)-.5)*12,2,2,k%3?'#3f6638':'#577c42')}
   else if(LEAF.has(o)){if(i%3)continue;for(let k=0;k<7;k++){const a=k*.9+hash(i,k)*.4;for(let u=0;u<9;u++)rect(g,x+Math.cos(a)*u,y+Math.sin(a)*u,2,1,u%3?'#5f8a45':'#79a356')}}}
 }
-// Drogi leśne: tłuczeń z dwiema koleinami i pasem trawy pośrodku; główna — asfalt z przerywaną osią.
-const edgeRect=(e,add)=>{const A=NODES[e.a],B=NODES[e.b],h=(e.w+add)/2;
- if(A[0]===B[0])return[A[0]-h,Math.min(A[1],B[1])-(e.kind==='main'?0:h),h*2,Math.abs(B[1]-A[1])+(e.kind==='main'?0:h*2)];
- return[Math.min(A[0],B[0])-(e.kind==='main'?0:h),A[1]-h,Math.abs(B[0]-A[0])+(e.kind==='main'?0:h*2),h*2]};
+// Drogi jako krzywe (0.6.4): pobocze, tłuczeń/asfalt, koleiny z trawą pośrodku, rozszerzenia przy skrzyżowaniach (zaokrąglone narożniki).
+const trace=(e,a,b,off=0)=>{g.beginPath();for(let u=a;u<=b+5;u+=5){const p=ptAt(e,Math.min(u,b));if(u===a)g.moveTo(p[0]-p[3]*off,p[1]+p[2]*off);else g.lineTo(p[0]-p[3]*off,p[1]+p[2]*off)}};
+const strokeE=(e,w,col,off=0,a=0,b=e.len)=>{g.lineWidth=w;g.strokeStyle=col;g.lineCap='butt';g.lineJoin='round';trace(e,a,b,off);g.stroke()};
+const deg={};for(const e of EDGES){deg[e.a]=(deg[e.a]||0)+1;deg[e.b]=(deg[e.b]||0)+1}
+const junc=k=>deg[k]>=3&&k[0]!=='m';
+function flare(e,col,extra){g.fillStyle=col;for(const [node,atA] of [[e.a,true],[e.b,false]]){if(!junc(node)||e.kind==='main')continue;
+ for(let u=26;u<=70;u+=3){const p=ptAt(e,atA?u:e.len-u),r=e.w/2+extra*(1-(u-26)/44)**2;g.beginPath();g.arc(p[0],p[1],r,0,6.283);g.fill()}}}
 function paintRoads(){
- const E=EDGES;
- for(const e of E){const [x,y,w,h]=edgeRect(e,e.kind==='main'?8:6);rect(g,x,y,w,h,e.kind==='main'?'#9a9888':'#9d8f70')}
- for(const kind of ['forest','drive','main'])for(const e of E.filter(q=>q.kind===kind)){const [x,y,w,h]=edgeRect(e,0);rect(g,x,y,w,h,kind==='main'?'#75797c':'#b8a682')}
- for(const e of E.filter(q=>q.kind!=='main')){
-  const [x,y,w,h]=edgeRect(e,0);
-  for(let i=0;i<w*h/7;i++){const px=x+hash(i,e.len|0,41)*(w-1)|0,py=y+hash(i,e.len|0,42)*(h-1)|0;rect(g,px,py,1+(i%4===0),1,['#a99674','#c7b791','#9a8866','#d2c4a0'][i%4])}
+ const E=EDGES,nm=E.filter(q=>q.kind!=='main'),mn=E.filter(q=>q.kind==='main');
+ for(const e of E){strokeE(e,e.w+(e.kind==='main'?8:6),e.kind==='main'?'#9a9888':'#9d8f70');flare(e,'#9d8f70',22)}
+ for(const e of nm){strokeE(e,e.w,'#b8a682');flare(e,'#b8a682',18)}
+ for(const e of mn)strokeE(e,e.w,'#75797c');
+ for(const e of nm){
+  for(let i=0;i<e.len*e.w/7;i++){const s0=hash(i,e.len|0,41)*e.len,lat=(hash(i,e.len|0,42)-.5)*(e.w-2),p=ptAt(e,s0);rect(g,p[0]-p[3]*lat|0,p[1]+p[2]*lat|0,1+(i%4===0),1,['#a99674','#c7b791','#9a8866','#d2c4a0'][i%4])}
+  if(e.kind==='drive'){strokeE(e,e.w-6,'#a89a78',0,0,e.len);continue}
+  strokeE(e,4,'#8e7a58',-9,14,e.len-14);strokeE(e,4,'#8e7a58',9,14,e.len-14);
+  for(let u=24;u<e.len-24;u+=3){if((junc(e.a)&&u<36)||(junc(e.b)&&u>e.len-36))continue;const j=hash(u,e.len|0,43);if(j<.25)continue;const p=ptAt(e,u);rect(g,p[0]-1|0,p[1]-1|0,2+(j*2|0),2,j>.7?'#7f9a58':'#6d8a4b')}
  }
- for(const e of E.filter(q=>q.kind==='forest'||q.kind==='drive')){
-  const A=NODES[e.a],B=NODES[e.b],vert=A[0]===B[0],L=e.len;
-  for(const off of [-9,9]){if(vert)rect(g,A[0]+off-2,Math.min(A[1],B[1])+14,4,L-28,'#8e7a58');else rect(g,Math.min(A[0],B[0])+14,A[1]+off-2,L-28,4,'#8e7a58')}
-  for(let u=24;u<L-24;u+=3){const j=hash(u,e.len|0,43);if(j<.25)continue;const w=2+(j*3|0);
-   if(vert)rect(g,A[0]-w/2,Math.min(A[1],B[1])+u,w,2,j>.7?'#7f9a58':'#6d8a4b');else rect(g,Math.min(A[0],B[0])+u,A[1]-w/2,2,w,j>.7?'#7f9a58':'#6d8a4b')}
+ for(const e of mn){
+  for(let i=0;i<e.len*e.w/8;i++){const s0=hash(i,301,e.len|0)*e.len,lat=(hash(i,302,e.len|0)-.5)*(e.w-2),p=ptAt(e,s0);rect(g,p[0]-p[3]*lat|0,p[1]+p[2]*lat|0,1+(i%5===0),1,['#6c7175','#81868a','#70757a'][i%3])}
+  for(let i=0;i<e.len*e.w/3600;i++){const s0=hash(i,310,e.len|0)*e.len,lat=(hash(i,311,e.len|0)-.5)*(e.w-12),p=ptAt(e,s0);rect(g,p[0]-p[3]*lat|0,p[1]+p[2]*lat|0,12+(i%4)*6,5+(i%3)*2,i%3?'#727779':'#7d8285')}
+  g.lineWidth=2;g.strokeStyle='#e6e4d8';g.lineCap='butt';
+  for(let u=10;u<e.len-32;u+=40){const p=ptAt(e,u+11);if(['j1','j2','j3','j4'].some(k=>Math.hypot(p[0]-NODES[k][0],p[1]-NODES[k][1])<46))continue;const A=ptAt(e,u),B=ptAt(e,u+22);g.beginPath();g.moveTo(A[0],A[1]);g.lineTo(B[0],B[1]);g.stroke()}
  }
- for(const e of E.filter(q=>q.kind==='main')){
-  const [x,y,w,h]=edgeRect(e,0);
-  for(let i=0;i<w*h/8;i++){const px=x+hash(i,301,w)*(w-1)|0,py=y+hash(i,302,h)*(h-1)|0;rect(g,px,py,1+(i%5===0),1,['#6c7175','#81868a','#70757a'][i%3])}
-  for(let i=0;i<w*h/3600;i++){const px=x+hash(i,310)*(w-14)|0,py=y+hash(i,311)*(h-8)|0;rect(g,px,py,12+(i%4)*6,5+(i%3)*2,i%3?'#727779':'#7d8285')}
-  for(let xx=Math.ceil(x/40)*40;xx<x+w;xx+=40){if(Object.keys(NODES).some(k=>k[0]==='j'&&Math.abs(xx+10-NODES[k][0])<42))continue;rect(g,xx,1719,22,2,'#e6e4d8')}
- }
- // rów przy drodze głównej (po południowej stronie) z wodą w zagłębieniach
- // 0.6.2: rów przerwany na wjazdach w drogi leśne — tam przepusty (betonowe rury pod drogą)
- // skrzyżowania szosy z drogami leśnymi biegnącymi na południe
- const gaps=Object.keys(NODES).filter(k=>NODES[k][1]===1720&&EDGES.some(e=>e.kind==='forest'&&(e.a===k||e.b===k)&&NODES[e.a===k?e.b:e.a][1]>1720)).map(k=>NODES[k][0]).sort((a,b)=>a-b);
- let x0=0;for(const gx of [...gaps,WORLD.w+100]){const x1=Math.min(WORLD.w,gx-30);
-  if(x1>x0){rect(g,x0,1764,x1-x0,9,'#6a8656');rect(g,x0,1767,x1-x0,4,'#56724a');for(let x=x0;x<x1-8;x+=34)rect(g,x+(hash(x,7)*10|0)%Math.max(1,x1-x-8),1768,8,2,'#7fa3a0')}
-  if(gx<=WORLD.w)for(const sx of [gx-31,gx+27]){rect(g,sx,1763,4,11,'#8e8e86');rect(g,sx+1,1766,2,5,'#4a4e4a')}
-  x0=gx+30}
+ // rów przy szosie (po południowej stronie) z wodą; przerwany tam, gdzie z szosy odchodzą drogi na południe (przepusty)
+ const gaps=['j1','j2','j4'].map(k=>NODES[k][0]);
+ for(const e of mn)for(let u=0;u<e.len-8;u+=8){const A=ptAt(e,u),B=ptAt(e,u+9),nx=-A[3]*48,ny=A[2]*48,nx2=-B[3]*48,ny2=B[2]*48;if(gaps.some(gx=>Math.abs(A[0]-gx)<32))continue;
+  g.lineCap='butt';g.lineWidth=9;g.strokeStyle='#6a8656';g.beginPath();g.moveTo(A[0]+nx,A[1]+ny);g.lineTo(B[0]+nx2,B[1]+ny2);g.stroke();
+  g.lineWidth=4;g.strokeStyle='#56724a';g.stroke();if((u/8|0)%4===0)rect(g,A[0]+nx,A[1]+ny-1,8,2,'#7fa3a0')}
+ for(const gx of gaps)for(const sx of [gx-31,gx+27]){const y=hy(sx)+48;rect(g,sx,y-6,4,11,'#8e8e86');rect(g,sx+1,y-3,2,5,'#4a4e4a')}
+ // strumień pod drogami: przepusty z kamiennymi czołami po obu stronach jezdni
+ for(const e of E){let inx=false,sum=0,n=0;for(let u=0;u<=e.len;u+=3){const p=ptAt(e,u),c=streamDist(p[0],p[1])<9;
+   if(c){inx=true;sum+=u;n++}
+   if(inx&&(!c||u+3>e.len)){inx=false;const m=sum/n,p2=ptAt(e,m);sum=0;n=0;
+    for(const sd of [-1,1]){const off=(e.w/2+4)*sd,cx=p2[0]-p2[3]*off,cy=p2[1]+p2[2]*off;rect(g,cx-4,cy-4,8,8,'#4a4a44');rect(g,cx-3,cy-3,6,6,'#8e8e84');rect(g,cx-1,cy-1,2,2,'#2c3a3d')}}}}
 }
 // Pobocza: kępy traw, kwiaty, krzewy (leszczyna, kruszyna, jeżyny).
 function paintVerges(){
- for(let i=0;i<9000*AREA;i++){const x=hash(i,7,51)*WORLD.w,y=hash(i,8,51)*WORLD.h,rc=roadClearance(x,y);if(rc<3||rc>30)continue;
+ for(let i=0;i<9000*AREA;i++){const x=hash(i,7,51)*WORLD.w,y=hash(i,8,51)*WORLD.h,rc=roadClearance(x,y);if(rc<3||rc>30||inWater(x,y,4))continue;
   const k=hash(i,9,51);rect(g,x,y,1,2+(k*2|0),k<.5?'#a4b878':'#6f8d52');if(k>.93)rect(g,x,y-1,2,2,['#e8e2c0','#d7c24a','#b98ad0','#e6a0a0'][i%4])}
  for(let i=0;i<700*AREA;i++){const x=hash(i,10,52)*WORLD.w,y=hash(i,11,52)*WORLD.h,rc=roadClearance(x,y);
-  if(rc<8||rc>30||inRect(x,y,YARD,30)||inRect(x,y,PLAC,20)||inRect(x,y,UPRAWA,10))continue;
+  if(rc<8||rc>30||inRect(x,y,YARD,30)||inRect(x,y,PLAC,20)||inRect(x,y,UPRAWA,10)||inWater(x,y,8))continue;
   const r=6+hash(i,12,52)*5,s=i*13,pal=hash(i,13)<.25?['#4a6a3a','#5d7a46','#7a5a5a','#8e4a4a']:['#4a6e4a','#5a8052','#76955c','#8ea870'];
   g.fillStyle='#2a3b2a40';g.beginPath();g.ellipse(x+LIGHT.x*5,y+LIGHT.y*4,r*1.1,r*.7,.5,0,6.28);g.fill();
   outlinedDraw(g,x,y,G=>{for(let k=0;k<3;k++){const a=k*2.1+hash(k,s),d=r*.35;blobPatch(G,Math.cos(a)*d,Math.sin(a)*d,r*.6,pal[0],pal,s+k)}},'#26392a');
@@ -92,9 +96,9 @@ function paintYard(){
  rect(g,Y.x,Y.y,Y.w,Y.h,'#8aa064');
  for(let i=0;i<4200;i++){const x=Y.x+hash(i,61)*(Y.w-2)|0,y=Y.y+hash(i,62)*(Y.h-2)|0;rect(g,x,y,1+(i%2),1,['#9db078','#7a9257','#a9b982'][i%3])}
  // utwardzony plac i dojście do domu
- rect(g,360,262,200,76,'#b7a684');for(let i=0;i<700;i++)rect(g,360+hash(i,63)*198|0,262+hash(i,64)*74|0,2,1,i%2?'#a6956f':'#cbbd98');
- g.lineCap='round';g.strokeStyle='#cbbd98';g.lineWidth=10;g.beginPath();g.moveTo(300,292);g.lineTo(300,312);g.lineTo(372,312);g.stroke();
- g.beginPath();g.moveTo(300,312);g.lineTo(220,312);g.lineTo(212,346);g.stroke();g.lineCap='butt';
+ rect(g,360,262+LDY,200,76,'#b7a684');for(let i=0;i<700;i++)rect(g,360+hash(i,63)*198|0,262+LDY+hash(i,64)*74|0,2,1,i%2?'#a6956f':'#cbbd98');
+ g.save();g.translate(0,LDY);g.lineCap='round';g.strokeStyle='#cbbd98';g.lineWidth=10;g.beginPath();g.moveTo(300,292);g.lineTo(300,312);g.lineTo(372,312);g.stroke();
+ g.beginPath();g.moveTo(300,312);g.lineTo(220,312);g.lineTo(212,346);g.stroke();g.lineCap='butt';g.restore();
  // ogródek z grządkami
  const G=GARDEN;rect(g,G.x-3,G.y-3,G.w+6,G.h+6,'#6f8a4c');
  for(let x=G.x+4;x<G.x+G.w-8;x+=16){rect(g,x,G.y,10,G.h,'#6b5238');for(let y=G.y+5;y<G.y+G.h-6;y+=11)rect(g,x+2,y,6,5,(x+y)%3?'#4f7a45':'#7a9a4a')}
@@ -113,8 +117,8 @@ function paintYard(){
  const K=KENNEL;shadow(g,K.x,K.y,K.w,K.h,10);rect(g,K.x,K.y,K.w,K.h,'#6f4f38');rect(g,K.x+1,K.y+1,K.w-2,K.h-2,'#a5714f');rect(g,K.x+K.w/2-1,K.y+1,2,K.h-2,'#7d5238');
  g.fillStyle='#4f4a44';g.beginPath();g.arc(WELL.x,WELL.y,9,0,6.28);g.fill();g.fillStyle='#8f8a80';g.beginPath();g.arc(WELL.x,WELL.y,7,0,6.28);g.fill();g.fillStyle='#2c3a3d';g.beginPath();g.arc(WELL.x,WELL.y,4,0,6.28);g.fill();rect(g,WELL.x-10,WELL.y-1,20,2,'#6b563d');
  // ławka i maszt z tablicą „LEŚNICTWO”
- rect(g,232,404,26,6,'#7a5a3e');rect(g,232,404,26,2,'#a07a52');
- outlinedDraw(g,520,240,G=>{rect(G,-1,-6,2,10,'#6b563d');rect(G,-22,-16,44,11,'#2f5a3a');rect(G,-21,-15,42,9,'#3e7048');text3(G,'LEŚNICTWO',-18,-13,'#f1e6c2')},DARK);
+ rect(g,232,404+LDY,26,6,'#7a5a3e');rect(g,232,404+LDY,26,2,'#a07a52');
+ outlinedDraw(g,520,240+LDY,G=>{rect(G,-1,-6,2,10,'#6b563d');rect(G,-22,-16,44,11,'#2f5a3a');rect(G,-21,-15,42,9,'#3e7048');text3(G,'LEŚNICTWO',-18,-13,'#f1e6c2')},DARK);
 }
 const DOORX=300;
 function fence(f){
@@ -134,20 +138,48 @@ function paintPlac(){
  g.fillStyle='#4a4a4250';g.beginPath();g.ellipse(S.x+150,S.y+70,10,5,0,0,6.28);g.fill();
  outlinedDraw(g,S.x+S.w-18,S.y+S.h-6,G=>{rect(G,-1,-4,2,10,'#6b563d');rect(G,-12,-14,24,10,'#2f5a3a');rect(G,-11,-13,22,8,'#3e7048');text3(G,'PLAC',-8,-12,'#f1e6c2')},DARK);
 }
-// Place nawrotowe na końcach ślepych dróg: poszerzenie z tłucznia, na którym zawraca nawet ciągnik siodłowy.
+// Mały plac nawrotowy na końcu ślepej drogi (przy paśniku P2): niewielkie poszerzenie z tłucznia.
 function paintTurns(){
- for(const k of TURNS){const [cx,cy]=NODES[k],R=80;
-  for(let y=-R;y<=R;y+=2)for(let x=-R;x<=R;x+=2){const d=Math.hypot(x,y);if(d>R)continue;rect(g,cx+x,cy+y,2,2,d>R-5?'#9d8f70':'#b8a682')}
-  for(let i=0;i<1600;i++){const a=hash(i,k.length,61)*6.283,d=Math.sqrt(hash(i,k.length,62))*(R-6);rect(g,cx+Math.cos(a)*d,cy+Math.sin(a)*d,1+(i%4===0),1,['#a99674','#c7b791','#9a8866','#d2c4a0'][i%4])}
-  for(let a=0;a<6.28;a+=.06){rect(g,cx+Math.cos(a)*(R-30),cy+Math.sin(a)*(R-30),2,2,'#8e7a58')}
+ for(const k of TURNS){const [cx,cy]=NODES[k];
+  for(const [R,c] of [[38,'#9d8f70'],[33,'#b8a682']]){g.fillStyle=c;g.beginPath();g.ellipse(cx,cy,R,R*.8,.5,0,6.283);g.fill()}
+  for(let i=0;i<260;i++){const a=hash(i,1,61)*6.283,d=Math.sqrt(hash(i,1,62))*30;rect(g,cx+Math.cos(a)*d,cy+Math.sin(a)*d*.8,1+(i%4===0),1,['#a99674','#c7b791','#9a8866','#d2c4a0'][i%4])}
  }
 }
+// Mokradła i strumień: pas błota i trzcin, woda w środku; strumień łączy mokradła (pod drogami przepusty).
+function paintWater(){
+ g.lineJoin='round';g.lineCap='round';
+ const path=()=>{g.beginPath();STREAM.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]))};
+ path();g.lineWidth=20;g.strokeStyle='#6f7a4c';g.stroke();path();g.lineWidth=15;g.strokeStyle='#5d5a3e';g.stroke();path();g.lineWidth=10;g.strokeStyle='#4f7f8f';g.stroke();
+ path();g.lineWidth=3;g.strokeStyle='#8fc0cb';g.setLineDash([9,15]);g.stroke();g.setLineDash([]);
+ for(let i=0;i<STREAM.length*5;i++){const p=STREAM[(hash(i,5,71)*(STREAM.length-1))|0],a=hash(i,6,71)*6.283,d=9+hash(i,7,71)*6;rect(g,p[0]+Math.cos(a)*d,p[1]+Math.sin(a)*d,1,3+(i%3),i%2?'#9a9a58':'#b8b070')}
+ for(const W of WETLANDS){
+  for(let y=W.y-W.ry*1.4;y<W.y+W.ry*1.4;y+=3)for(let x=W.x-W.rx*1.4;x<W.x+W.rx*1.4;x+=3){
+   const nz=1+.22*(vn(x/28,y/28,21)-.5)*2,d=Math.hypot((x-W.x)/W.rx,(y-W.y)/W.ry)/nz;if(d>1)continue;
+   const c=d>.8?mixc('#6f7f4a','#8a9456',vn(x/9,y/9,22)):d>.52?mixc('#5d5a3e','#6e6a48',vn(x/10,y/10,23)):mixc('#4a7a88','#5f93a0',vn(x/14,y/14,24));rect(g,x,y,3,3,c)}
+  for(let i=0;i<380;i++){const a=hash(i,W.x|0,72)*6.283,d=.55+hash(i,W.x|0,73)*.55,x=W.x+Math.cos(a)*W.rx*d,y=W.y+Math.sin(a)*W.ry*d;if(d>.8&&hash(i,W.y|0,74)<.7||d>.52)rect(g,x,y,1,3+(i%4),['#9a9a58','#b8b070','#7f8a46'][i%3]);if(i%47===0)rect(g,x,y-4,2,5,'#5a3f2a')}
+ }
+}
+// Przesieki: wąskie proste pasy trawy między oddziałami (dla pieszych i zwierząt, nie dla aut).
+function paintPrzesieki(){
+ for(const L of PRZESIEKI){const v=L.dir==='v',n=Math.hypot(L.x2-L.x1,L.y2-L.y1);
+  for(let u=0;u<n;u+=2){const x=v?L.x1:L.x1+u,y=v?L.y1+u:L.y1;
+   if(roadClearance(x,y)<24||inPolana(x,y,8)||inRect(x,y,UPRAWA,26)||inRect(x,y,YARD,30)||inRect(x,y,PLAC,20)||inWater(x,y,4))continue;
+   const j=hash(u,L.x1+L.y1,75);
+   if(v){rect(g,x-4,y,8,2,'#6b8a4c');rect(g,x-3,y,6,2,j>.5?'#86a464':'#7b9a58');if(j>.8)rect(g,x-1,y,1,2,'#a8c07c')}
+   else{rect(g,x,y-4,2,8,'#6b8a4c');rect(g,x,y-3,2,6,j>.5?'#86a464':'#7b9a58');if(j>.8)rect(g,x,y-1,2,1,'#a8c07c')}}}
+}
+// Tablice dróg pożarowych (zarezerwowane do 0.7).
+function paintSigns(){for(const f of FIRE_SIGNS)outlinedDraw(g,f.x+28,f.y,G=>{rect(G,-1,-4,2,10,'#6b563d');rect(G,-13,-14,26,10,'#a8342b');rect(G,-12,-13,24,8,'#c8453a');text3(G,'DP '+f.n,-8,-12,'#f6efe0')},DARK)}
 function paintPolana(){
- const P=POLANA;
- for(let y=P.y-P.r-12;y<P.y+P.r+12;y+=3)for(let x=P.x-P.r-12;x<P.x+P.r+12;x+=3){const d=Math.hypot(x-P.x,y-P.y);if(d>P.r+8*vn(x/30,y/30,9))continue;
+ const P=POLANA,R=P.r*1.45;
+ for(let y=P.y-R;y<P.y+R;y+=3)for(let x=P.x-R;x<P.x+R;x+=3){if(!inPolana(x,y,8*vn(x/30,y/30,9)))continue;
   const n=vn(x/40,y/40,8);rect(g,x,y,3,3,mixc('#8aa462','#a6b878',n))}
- for(let i=0;i<1800;i++){const a=hash(i,81)*6.283,d=Math.sqrt(hash(i,82))*P.r,x=P.x+Math.cos(a)*d,y=P.y+Math.sin(a)*d;
+ for(let i=0;i<2600;i++){const a=hash(i,81)*6.283,d=Math.sqrt(hash(i,82)),r=polR(a)*d,x=P.x+Math.cos(a)*r,y=P.y+Math.sin(a)*r;
   rect(g,x,y,1,2,i%7===0?['#e8e2c0','#d7c24a','#b98ad0','#e6e6f0'][i%4]:i%2?'#b4c288':'#71904f')}
+ // krzewy na polanie i przy brzegu (zarastanie)
+ for(let i=0;i<16;i++){const a=hash(i,83)*6.283,d=i<6?.35+hash(i,84)*.4:.82+hash(i,85)*.12,x=P.x+Math.cos(a)*polR(a)*d,y=P.y+Math.sin(a)*polR(a)*d,r=5+hash(i,86)*4,pal=['#4a6e4a','#5a8052','#76955c','#8ea870'];
+  g.fillStyle='#2a3b2a40';g.beginPath();g.ellipse(x+LIGHT.x*4,y+LIGHT.y*3,r*1.1,r*.7,.5,0,6.28);g.fill();
+  outlinedDraw(g,x,y,G=>{for(let k=0;k<3;k++){const aa=k*2.1+hash(k,i),dd=r*.35;blobPatch(G,Math.cos(aa)*dd,Math.sin(aa)*dd,r*.6,pal[0],pal,i+k)}},'#26392a')}
 }
 // Ambona myśliwska: drewniana kabina na nogach, dach z papy (rysowana dynamicznie, nad postaciami).
 export function drawAmbona(c){
@@ -170,17 +202,15 @@ function paintUprawa(){
 }
 function paintProps(){
  for(const p of POSTS){shadow(g,p.x-3,p.y-3,6,6,12);rect(g,p.x-4,p.y-4,8,8,'#55524a');rect(g,p.x-3,p.y-3,6,6,'#e8e6dc');rect(g,p.x-3,p.y-3,6,1,'#ffffff');
-  text3(g,p.n[0],p.x+6,p.y-9,'#f1ecd8');text3(g,p.n[1],p.x+6,p.y+3,'#f1ecd8');
-  g.globalAlpha=.55;rect(g,p.x+5,p.y-10,13,7,'#1f2a20');rect(g,p.x+5,p.y+2,13,7,'#1f2a20');g.globalAlpha=1;
-  text3(g,p.n[0],p.x+6,p.y-9,'#f1ecd8');text3(g,p.n[1],p.x+6,p.y+3,'#f1ecd8')}
+  p.n.forEach((t,k)=>{const y=p.y-9+k*12;g.globalAlpha=.55;rect(g,p.x+5,y-1,t.length*5+3,8,'#1f2a20');g.globalAlpha=1;text3(g,t,p.x+6,y,'#f1ecd8')})}
  // szlabany (otwarte, ramię wzdłuż pobocza)
  for(const b of BARRIERS){shadow(g,b.x+22,b.y-4,8,8,14);rect(g,b.x+22,b.y-4,8,8,'#4a4740');rect(g,b.x+23,b.y-3,6,6,'#7a776e');
-  const dir=b.y>1720?1:-1;for(let k=0;k<40;k++)rect(g,b.x+25,dir<0?b.y-4-k:b.y+4+k,3,1,Math.floor(k/6)%2?'#c8342b':'#f2efe6')}
+  const dir=b.y>hy(b.x)?1:-1;for(let k=0;k<40;k++)rect(g,b.x+25,dir<0?b.y-4-k:b.y+4+k,3,1,Math.floor(k/6)%2?'#c8342b':'#f2efe6')}
  // tablica informacyjna leśnictwa
  const B=BOARD;shadow(g,B.x,B.y,34,8,18);outlinedDraw(g,B.x+17,B.y,G=>{rect(G,-15,-2,2,8,'#6b563d');rect(G,13,-2,2,8,'#6b563d');rect(G,-18,-14,36,14,'#5a4630');rect(G,-17,-13,34,12,'#3e7048');rect(G,-15,-11,30,2,'#f1e6c2');rect(G,-15,-7,22,1,'#cfe0c2');rect(G,-15,-5,26,1,'#cfe0c2')},DARK);
 }
 export function buildGround(){
- paintFloor();paintPolana();paintUprawa();paintRoads();paintTurns();paintVerges();paintPlac();paintYard();
+ paintFloor();paintPolana();paintUprawa();paintWater();paintPrzesieki();paintRoads();paintTurns();paintVerges();paintPlac();paintYard();paintSigns();
  for(const f of FENCES)fence(f);
  paintProps();
 }

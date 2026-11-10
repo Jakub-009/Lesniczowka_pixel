@@ -16,14 +16,14 @@ import {FA} from './life/fauna.js';
 import {spawnWildlife} from './life/populate.js';
 import {BASE} from './base.js';
 import {hirePod,ASSESS} from './incidents.js';
-const KEY='lesniczowka-save-2';   // 0.6: nowa, większa mapa — zapisy z 0.5 nie pasują
+const KEY='lesniczowka-save-3';   // 0.6.4: nowy układ map — zapisy sprzed 0.6.4 nie pasują (ostatnie złamanie zapisu)
 const FADE=.88;   // koleiny i bruzdy blakną o 12% dziennie
 export function hasSave(){try{return !!localStorage.getItem(KEY)}catch(e){return false}}
 export function clearSave(){try{localStorage.removeItem(KEY)}catch(e){}}
 export function saveGame(){
  if(!state.playing)return;
  try{
-  const o={v:3,ver:'0.6.3',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
+  const o={v:3,ver:'0.6.4',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
    stacks:J.stacks.filter(s=>s.vol>.05).map(s=>[s.edge.id,Math.round(s.s),+s.vol.toFixed(2),Math.round(s.value),s.sort||'tart',s.truck!==false]),sold:J.sold,
    plants:J.plants.map(p=>[Math.round(p.x),Math.round(p.y),p.sp]),
    piles:E.piles.filter(p=>!p.dead).map(p=>[Math.round(p.x),Math.round(p.y),+p.a.toFixed(2),+p.vol.toFixed(3),p.sp,p.logs,p.bark,p.sorts||null,p.vals||null]),

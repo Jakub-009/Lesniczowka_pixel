@@ -28,7 +28,7 @@ export function spawnWildlife(){
  for(const [x,y] of [[1250,1500],[2300,2150]].slice(0,P.boar>18?2:1)){if(P.boar<4)break;const G=g(x,y,{range:[200,500],kind:'boar',likes:LIKES});const sow=add('boar',x,y,G);sow.sow=se<=1&&P.boar>8;
   if(P.boar>=11)add('boar',x+30,y+10,G,{male:true});
   if(sow.sow)for(let i=0;i<clamp(Math.round(P.boar/10),2,4);i++)add('piglet',x,y,G,{follow:sow,flee:110})}
- for(const [x,y] of [[300,1300],[2900,2300]].slice(0,P.fox>=6?2:1)){if(P.fox<3)break;const G=g(x,y,{range:[300,700],kind:'fox'});add('fox',x,y,G)}
+ for(const [x,y] of [[300,800],[2900,2300]].slice(0,P.fox>=6?2:1)){if(P.fox<3)break;const G=g(x,y,{range:[300,700],kind:'fox'});add('fox',x,y,G)}
  const wolfN=clamp(Math.round(P.wolf/2.5),0,3);
  if(wolfN){const G=g(3150,500,{range:[600,1200],kind:'wolf'});const lead=add('wolf',3150,500,G);for(let i=1;i<wolfN;i++)add('wolf',3150,500,G,{follow:lead,leash:90})}
  for(const [x,y] of [[2000,1150],[600,700],[1400,2450]].slice(0,P.hare>=20?3:P.hare>=10?2:1)){const G=g(x,y,{range:[100,260],kind:'hare'});add('hare',x,y,G)}
@@ -43,7 +43,7 @@ function leaveMap(v){v.goTo(goalNode(exitNode(v.pos[0]+(rand()-.5)*1200)),{leave
 // Grzybiarze: przyjeżdżają autem, parkują na poboczu, chodzą z koszykiem po lesie i wracają (czasem zostawiają śmieci).
 function spawnPickers(berry){
  // jagody: bory sosnowe (101, 104, 107, 108); grzyby: wszędzie
- const E2=berry?EDGES.filter(e=>['j1-a1','a1-b1','j1-s1','s1-s3','c1-j3'].includes(e.id)):forestEdges(),e=pick(E2),s=60+rand()*(e.len-120),who=berry?'zbieracze jagód':'grzybiarze';
+ const E2=berry?EDGES.filter(e=>['a3-a1','a1-b1','j1-s2','s2-se','c1-j3'].includes(e.id)):forestEdges(),e=pick(E2),s=60+rand()*(e.len-120),who=berry?'zbieracze jagód':'grzybiarze';
  const car=spawnFrom('car',{color:pick(CAR_COLS)});car.label=who;
  car.goTo({edge:e,s},{park:true,onArrive:v=>{
   const n=1+(rand()<.55?1:0),[cx,cy]=sideSpot(v,18);let back=0;
@@ -100,10 +100,10 @@ function spawnHunter(dawn){
 // Polowanie zbiorowe (0.6): jesienią i zimą w sobotę. Linia myśliwych przy drodze, naganka przechodzi oddział i wypędza
 // zwierzynę na linię. Na koniec pokot — podsumowanie pozyskania.
 const DRIVES=[
- {odd:'105',road:'b1-b2',line:[[1750,640],[1750,1040]],beat:[[2330,640],[2330,1040]]},
- {odd:'106',road:'c1-d1',line:[[2700,1052],[3200,1052]],beat:[[2700,470],[3200,470]]},
- {odd:'107',road:'c1-j3',line:[[2650,1180],[2650,1640]],beat:[[3200,1180],[3200,1640]]},
- {odd:'109',road:'s1-s3',line:[[900,2250],[1620,2250]],beat:[[900,1800],[1620,1800]]}
+ {odd:'106',road:'j2-b1',line:[[1740,1200],[1740,1650]],beat:[[2110,1200],[2110,1650]]},
+ {odd:'107',road:'c1-j3',line:[[2625,1180],[2625,1640]],beat:[[2930,1180],[2930,1640]]},
+ {odd:'110',road:'j2-s2',line:[[1730,1800],[1730,2260]],beat:[[2120,1800],[2120,2260]]},
+ {odd:'112',road:'se-j4',line:[[3225,1830],[3225,2230]],beat:[[3560,1830],[3560,2230]]}
 ];
 const lerp=(A,B,t)=>[A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t];
 function spawnDrive(){

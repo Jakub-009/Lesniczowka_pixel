@@ -1,79 +1,153 @@
 // Mapa jako dane (wzorzec z farmy): jedno źródło prawdy dla malowania, kolizji, nawigacji i tras pojazdów.
+// 0.6.4 „Nowe drogi”: drogi to gładkie krzywe (linie łamane gęsto próbkowane), jedna wspólna geometria dla jazdy, malowania i kolizji.
 import {WORLD} from './core.js';
-import {distToSegment,obbCircle} from './geometry.js';
+import {obbCircle} from './geometry.js';
 
-// ── Graf dróg ──
-// main = droga wojewódzka na dole (asfalt), forest = drogi leśne (tłuczeń, trawa pośrodku), drive = wjazd na podwórze leśniczówki.
-// Węzły mW i mE leżą poza mapą: tam pojazdy pojawiają się i znikają.
-export const NODES={mW:[-140,1720],j1:[820,1720],j2:[1700,1720],j3:[2600,1720],j4:[3260,1720],mE:[3740,1720],
- a1:[820,1100],a2:[820,560],a3:[820,300],l1:[560,300],yd:[478,300],
- b1:[1700,1100],b2:[1700,560],e1:[2250,560],
- c1:[2600,1100],c2:[2600,560],d1:[3260,1100],
- s1:[820,2300],s3:[1700,2300]};
-const F=(a,b)=>({a,b,kind:'forest',w:40,lane:7});
-export const EDGES=[
- {a:'mW',b:'j1',kind:'main',w:60,lane:15},{a:'j1',b:'j2',kind:'main',w:60,lane:15},{a:'j2',b:'j3',kind:'main',w:60,lane:15},{a:'j3',b:'j4',kind:'main',w:60,lane:15},{a:'j4',b:'mE',kind:'main',w:60,lane:15},
- F('j1','a1'),F('a1','a2'),F('a2','a3'),F('a3','l1'),{a:'l1',b:'yd',kind:'drive',w:44,lane:0},
- F('a1','b1'),F('j2','b1'),F('b1','b2'),F('a2','b2'),F('b2','e1'),
- // 0.6: wschód (oddz. 106–107) i południe (108–110); 0.6.3: mniej dróg — pętla południowa i wschodnia, bez ślepych końców
- F('e1','c2'),F('c2','c1'),F('c1','j3'),F('c1','d1'),F('d1','j4'),
- F('j1','s1'),F('s1','s3'),F('s3','j2')
-];
-// Place nawrotowe (0.6.1) zastąpione pętlami dróg; pojazdy zawracają na skrzyżowaniach.
-export const TURNS=[];
-for(const e of EDGES){const A=NODES[e.a],B=NODES[e.b];e.len=Math.hypot(B[0]-A[0],B[1]-A[1]);e.id=e.a+'-'+e.b}
-const SEG=EDGES.map(e=>({x1:NODES[e.a][0],y1:NODES[e.a][1],x2:NODES[e.b][0],y2:NODES[e.b][1],w:e.w,kind:e.kind}));
-for(const s of SEG){s.bx0=Math.min(s.x1,s.x2);s.bx1=Math.max(s.x1,s.x2);s.by0=Math.min(s.y1,s.y2);s.by1=Math.max(s.y1,s.y2)}
-// Odległość od krawędzi jezdni (ujemna = na jezdni). Odcinki daleko od punktu (po prostokącie) pomijamy — duża mapa.
-export function roadClearance(x,y,kinds){let m=1e9;for(const s of SEG){if(kinds&&!kinds.includes(s.kind))continue;
- const bx=x<s.bx0?s.bx0-x:x>s.bx1?x-s.bx1:0,by=y<s.by0?s.by0-y:y>s.by1?y-s.by1:0;if(Math.max(bx,by)-s.w/2>=m)continue;
- m=Math.min(m,distToSegment(x,y,s.x1,s.y1,s.x2,s.y2)-s.w/2)}return m}
+// ── Krzywe ──
+const D=(a,b)=>Math.hypot(b[0]-a[0],b[1]-a[1]);
+// Catmull–Rom przez punkty kontrolne (węzły drogi leżą dokładnie na jej końcach)
+function cr(P){const out=[];for(let i=0;i<P.length-1;i++){const p0=P[Math.max(0,i-1)],p1=P[i],p2=P[i+1],p3=P[Math.min(P.length-1,i+2)],n=Math.max(2,Math.round(D(p1,p2)/12));
+ for(let k=0;k<n;k++){const t=k/n,t2=t*t,t3=t2*t;out.push([0,1].map(c=>.5*(2*p1[c]+(p2[c]-p0[c])*t+(2*p0[c]-5*p1[c]+4*p2[c]-p3[c])*t2+(3*p1[c]-p0[c]-3*p2[c]+p3[c])*t3)))}}
+ out.push(P[P.length-1].slice());return out}
+// zagęszczenie prostych odcinków (żeby dało się dzielić ścieżkę w dowolnym miejscu)
+function dens(P,st=12){const out=[P[0].slice()];for(let i=1;i<P.length;i++){const A=P[i-1],B=P[i],n=Math.max(1,Math.round(D(A,B)/st));for(let k=1;k<=n;k++)out.push([A[0]+(B[0]-A[0])*k/n,A[1]+(B[1]-A[1])*k/n])}return out}
+// łamana z zaokrąglonymi narożnikami (łuk = krzywa Béziera z punktem kontrolnym w narożniku)
+function rounded(P,r){const out=[P[0].slice()];for(let i=1;i<P.length-1;i++){const A=P[i-1],B=P[i],C=P[i+1],la=D(A,B),lc=D(B,C),t=Math.min(r,la/2,lc/2),
+  T1=[B[0]+(A[0]-B[0])*t/la,B[1]+(A[1]-B[1])*t/la],T2=[B[0]+(C[0]-B[0])*t/lc,B[1]+(C[1]-B[1])*t/lc];
+ for(let k=0;k<=14;k++){const u=k/14,a=(1-u)*(1-u),b=2*u*(1-u),c=u*u;out.push([a*T1[0]+b*B[0]+c*T2[0],a*T1[1]+b*B[1]+c*T2[1]])}}
+ out.push(P[P.length-1].slice());return dens(out)}
+const nearIdx=(P,pt)=>{let bi=0,bd=1e9;P.forEach((p,i)=>{const d=D(p,pt);if(d<bd){bd=d;bi=i}});return bi};
 
-// ── Leśniczówka (północny zachód) ──
-export const YARD={x:150,y:150,w:410,h:300,gate:[270,330]};
-export const HOUSE={x:196,y:178,w:156,h:108};
-export const CARPORT={x:412,y:172,w:112,h:78};
-export const WOODSHED={x:172,y:352,w:72,h:70};
-export const GARDEN={x:272,y:330,w:124,h:92};
-export const KENNEL={x:424,y:372,w:22,h:18};
-export const WELL={x:500,y:404};
-export const DOOR=[300,296];            // drzwi leśniczówki (od podwórza)
-export const PARK_YARD=[478,300];
+// ── Szosa: łagodny łuk (y zależy od x) ──
+export const hy=x=>1724-26*Math.sin(Math.PI*(x+140)/3880);
+const HX={j1:820,j2:1700,j3:2600,j4:3260};
+export const NODES={mW:[-140,hy(-140)],j1:[820,hy(820)],j2:[1700,hy(1700)],j3:[2600,hy(2600)],j4:[3260,hy(3260)],mE:[3740,hy(3740)],
+ // dukty północne (zakręcone) i pętle
+ a3:[820,1400],a1:[800,1000],b1:[1720,1150],b2:[1680,560],c1:[2600,1100],
+ // leśniczówka (0.6.4: zachód, przy szosie i wjeździe w duktę)
+ l1:[560,1400],yd:[478,1400]};
+export const EDGES=[];
+function mkEdge(a,b,kind,w,lane,pts){pts=dens(pts);pts[0]=NODES[a].slice();pts[pts.length-1]=NODES[b].slice();
+ const e={a,b,kind,w,lane,pts,id:a+'-'+b,cum:[0]};for(let i=1;i<pts.length;i++)e.cum.push(e.cum[i-1]+D(pts[i-1],pts[i]));e.len=e.cum[e.cum.length-1];EDGES.push(e);return e}
+const F=(a,b,ctrl)=>mkEdge(a,b,'forest',40,7,cr([NODES[a],...ctrl,NODES[b]]));
+// szosa
+{const ks=['mW','j1','j2','j3','j4','mE'];for(let i=0;i<5;i++){const A=NODES[ks[i]],B=NODES[ks[i+1]],c=[];for(let x=A[0]+260;x<B[0]-130;x+=260)c.push([x,hy(x)]);mkEdge(ks[i],ks[i+1],'main',60,15,cr([A,...c,B]))}}
+// pętla południowa: prostokąt z zaokrąglonymi rogami, wyjazdy z szosy dokładnie naprzeciw dukt północnych (j1, j4) i środkowej (j2)
+{const P=rounded([[820,hy(820)],[820,2310],[3260,2310],[3260,hy(3260)]],110);
+ NODES.s2=[1700,2310];const i2=nearIdx(P,NODES.s2);NODES.s2=P[i2].slice();
+ const i3=nearIdx(P,[3260,2310]);NODES.se=P[i3].slice();
+ mkEdge('j1','s2','forest',40,7,P.slice(0,i2+1));mkEdge('s2','se','forest',40,7,P.slice(i2,i3+1));mkEdge('se','j4','forest',40,7,P.slice(i3));
+ mkEdge('j2','s2','forest',40,7,[NODES.j2,NODES.s2]);
+ // ślepa droga z narożnika pętli do mokradła (paśnik P2); na końcu mały plac nawrotowy
+ NODES.w1=[3392,2530];mkEdge('se','w1','forest',40,7,cr([NODES.se,[3300,2380],[3350,2450],NODES.w1]))}
+// dukty północne
+F('j1','a3',[[820,1560]]);
+F('a3','a1',[[842,1280],[812,1130]]);
+F('a1','b2',[[822,900],[840,780],[826,640],[850,540],[1000,480],[1200,505],[1420,590]]);
+F('a1','b1',[[1000,1060],[1250,1000],[1480,1110]]);
+F('j2','b1',[[1706,1500],[1740,1300]]);
+F('b1','b2',[[1745,950],[1690,780]]);
+F('b2','c1',[[1850,520],[2050,600],[2250,560],[2400,500],[2520,580],[2640,560],[2610,760],[2640,950]]);
+F('c1','j3',[[2570,1300],[2620,1500]]);
+F('c1','j4',[[2800,1050],[3000,1120],[3150,1115],[3230,1160],[3262,1250],[3260,1500]]);
+// droga do leśniczówki i podjazd
+F('a3','l1',[]);mkEdge('l1','yd','drive',44,0,[NODES.l1,NODES.yd]);
+// Place nawrotowe: jedynie mały plac na końcu ślepej drogi (u ślepego końca pojazd zawraca bez kosztu)
+export const TURNS=['w1'];
+
+// ── Dostęp do geometrii krzywej ──
+const idxAt=(e,s)=>{const c=e.cum;let lo=0,hi=c.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(c[m]<=s)lo=m;else hi=m}return lo};
+// punkt i wersor stycznej w odległości s od węzła e.a
+export function ptAt(e,s){const c=e.cum;s=s<0?0:s>e.len?e.len:s;const lo=idxAt(e,s),hi=lo+1,L=c[hi]-c[lo]||1,t=(s-c[lo])/L,A=e.pts[lo],B=e.pts[hi];
+ return[A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t,(B[0]-A[0])/L,(B[1]-A[1])/L]}
+// punkt/styczna dla jazdy od węzła from (s liczone od from)
+export function dirPt(e,from,s){if(from===e.a)return ptAt(e,s);const p=ptAt(e,e.len-s);return[p[0],p[1],-p[2],-p[3]]}
+// najbliższy punkt krawędzi; s0+win — szukanie tylko w pobliżu podpowiedzi (jazda), inaczej na całej drodze
+export function nearestOn(e,x,y,s0=null,win=90){
+ const P=e.pts,c=e.cum;let i0=0,i1=P.length-2;
+ if(s0!=null){i0=idxAt(e,Math.max(0,s0-win));i1=Math.min(P.length-2,idxAt(e,Math.min(e.len,s0+win)))}
+ let bs=0,bd=1e18,bx=0,by=0;
+ for(let i=i0;i<=i1;i++){const A=P[i],B=P[i+1],dx=B[0]-A[0],dy=B[1]-A[1],l2=dx*dx+dy*dy||1;let t=((x-A[0])*dx+(y-A[1])*dy)/l2;t=t<0?0:t>1?1:t;
+  const px=A[0]+dx*t,py=A[1]+dy*t,d=(px-x)*(px-x)+(py-y)*(py-y);if(d<bd){bd=d;bs=c[i]+t*(c[i+1]-c[i]);bx=px;by=py}}
+ return{s:bs,d:Math.sqrt(bd),x:bx,y:by}}
+// postęp s (od węzła from) rzutu punktu na krawędź
+export function dirProj(e,from,x,y,s0,win=90){if(from===e.a)return nearestOn(e,x,y,s0,win).s;return e.len-nearestOn(e,x,y,s0==null?null:e.len-s0,win).s}
+
+// ── Odległość od krawędzi jezdni (ujemna = na jezdni) ──
+// Odcinki w siatce 128 px; poza zasięgiem 100 px od drogi zwracamy ≥100 (dokładna wartość nie jest potrzebna).
+const SEG=[];for(const e of EDGES)for(let i=0;i<e.pts.length-1;i++){const A=e.pts[i],B=e.pts[i+1];SEG.push({x1:A[0],y1:A[1],x2:B[0],y2:B[1],w:e.w,kind:e.kind})}
+const CELL=128,OFF=300,GW=Math.ceil((WORLD.w+2*OFF)/CELL),GH=Math.ceil((WORLD.h+2*OFF)/CELL),GRID=Array.from({length:GW*GH},()=>[]);
+for(const s of SEG){const R=s.w/2+100,x0=Math.floor((Math.min(s.x1,s.x2)-R+OFF)/CELL),x1=Math.floor((Math.max(s.x1,s.x2)+R+OFF)/CELL),y0=Math.floor((Math.min(s.y1,s.y2)-R+OFF)/CELL),y1=Math.floor((Math.max(s.y1,s.y2)+R+OFF)/CELL);
+ for(let j=Math.max(0,y0);j<=Math.min(GH-1,y1);j++)for(let i=Math.max(0,x0);i<=Math.min(GW-1,x1);i++)GRID[j*GW+i].push(s)}
+export function roadClearance(x,y,kinds){const i=Math.floor((x+OFF)/CELL),j=Math.floor((y+OFF)/CELL);if(i<0||j<0||i>=GW||j>=GH)return 160;
+ let m=160;for(const s of GRID[j*GW+i]){if(kinds&&!kinds.includes(s.kind))continue;
+  const dx=s.x2-s.x1,dy=s.y2-s.y1,l2=dx*dx+dy*dy||1;let t=((x-s.x1)*dx+(y-s.y1)*dy)/l2;t=t<0?0:t>1?1:t;
+  const d=Math.hypot(x-(s.x1+dx*t),y-(s.y1+dy*t))-s.w/2;if(d<m)m=d}return m}
+
+// ── Leśniczówka (zachód, przy szosie i wjeździe w duktę — 0.6.4) ──
+export const LDY=1100;   // przesunięcie względem układu z 0.6.3 (NW → zachód-środek)
+export const YARD={x:150,y:150+LDY,w:410,h:300,gate:[270+LDY,330+LDY]};
+export const HOUSE={x:196,y:178+LDY,w:156,h:108};
+export const CARPORT={x:412,y:172+LDY,w:112,h:78};
+export const WOODSHED={x:172,y:352+LDY,w:72,h:70};
+export const GARDEN={x:272,y:330+LDY,w:124,h:92};
+export const KENNEL={x:424,y:372+LDY,w:22,h:18};
+export const WELL={x:500,y:404+LDY};
+export const DOOR=[300,296+LDY];            // drzwi leśniczówki (od podwórza)
+export const PARK_YARD=[478,300+LDY];
 // Szkółka leśna (budowana w 0.5) — tuż za płotem podwórza, od południa.
-export const NURSERY={x:186,y:470,w:214,h:78};
-
+export const NURSERY={x:186,y:470+LDY,w:214,h:78};
 // ── Plac manewrowy przy leśniczówce (0.6): tu nocują maszyny zrywkowe i stoi kupiony forwarder ──
-export const PLAC={x:604,y:330,w:196,h:92};
-export const PLAC_SPOTS=[{x:660,y:378,h:Math.PI/2},{x:748,y:378,h:Math.PI/2}];   // h: kierunek jazdy (na wschód)
+export const PLAC={x:604,y:330+LDY,w:196,h:92};
+export const PLAC_SPOTS=[{x:660,y:378+LDY,h:Math.PI/2},{x:748,y:378+LDY,h:Math.PI/2}];   // h: kierunek jazdy (na wschód)
 
-// ── Polana z amboną, uprawa w grodzeniu ──
-export const POLANA={x:2080,y:1090,r:150};
-export const AMBONA={x:1946,y:1050};
-export const UPRAWA={x:960,y:680,w:400,h:250,gate:[780,828]};   // furtka w zachodnim płocie (od drogi A)
+// ── Polana z amboną: nieregularna (zatoki), uprawa w grodzeniu ──
+export const POLANA={x:2100,y:1060,r:150};
+export const polR=a=>POLANA.r*(1+.17*Math.sin(2*a+1)+.1*Math.sin(3*a+.5)+.06*Math.sin(5*a+2));
+export const AMBONA={x:1958,y:1030};
+export const UPRAWA={x:960,y:680,w:400,h:250,gate:[780,828]};   // furtka w zachodnim płocie (od dukty)
 
-// ── Oddziały (granice biegną drogami, jak liniami oddziałowymi) ──
+// ── Mokradła i strumień (łańcuch: zachód → środek → południowy wschód) ──
+export const WETLANDS=[{x:470,y:1010,rx:120,ry:62},{x:1850,y:1430,rx:130,ry:70},{x:3440,y:2590,rx:115,ry:60}];
+export const STREAM=dens(cr([[585,1030],[700,1110],[850,1200],[1100,1260],[1400,1330],[1730,1400],[1850,1430],[1990,1455],[2250,1530],[2500,1610],[2700,1700],[2750,1800],[2800,2000],[3000,2200],[3100,2330],[3250,2420],[3380,2520],[3440,2590]]),10);
+export const inWetland=(x,y,m=0)=>WETLANDS.some(w=>((x-w.x)/(w.rx+m))**2+((y-w.y)/(w.ry+m))**2<1);
+export function streamDist(x,y){let m=1e9;for(let i=0;i<STREAM.length-1;i++){const A=STREAM[i],B=STREAM[i+1];if(Math.abs(A[0]-x)>60&&Math.abs(B[0]-x)>60)continue;if(Math.abs(A[1]-y)>60&&Math.abs(B[1]-y)>60)continue;
+ const dx=B[0]-A[0],dy=B[1]-A[1],l2=dx*dx+dy*dy||1;let t=((x-A[0])*dx+(y-A[1])*dy)/l2;t=t<0?0:t>1?1:t;m=Math.min(m,Math.hypot(x-A[0]-dx*t,y-A[1]-dy*t))}return m}
+export const inWater=(x,y,m=0)=>inWetland(x,y,m)||streamDist(x,y)<8+m;
+// paśniki: stałe miejsca (0.6.4 — wszystkie 4; od 0.9 gra zaczyna od jednego, resztę się dokupuje)
+export const FEEDERS=[{name:'P1 (polana)',x:POLANA.x+40,y:POLANA.y-60},{name:'P2 (mokradło SE)',x:3340,y:2560},{name:'P3 (mokradło przy leśniczówce)',x:548,y:1092},{name:'P4 (skraj puszczy)',x:2695,y:790}];
+// miejsca zarezerwowane na kolejne wersje: parking leśny przy szosie (0.8), ścieżka przyrodnicza (0.9), drogi pożarowe z tablicami (0.7)
+export const RESERVED=[{id:'parking',x:2010,y:1630,w:150,h:56},{id:'sciezka',x:2840,y:1280,w:120,h:90}];
+export const FIRE_SIGNS=[{x:842,y:1250,n:1},{x:1740,y:1330,n:2},{x:2625,y:1390,n:3},{x:3280,y:1420,n:4}];
+
+// ── Oddziały: regularna siatka przesiek (wąskie proste linie podziału, trawa i słupki; dla pieszych i zwierząt, nie dla aut) ──
+// 12 oddziałów 101–112 od NW do SE: trzy rzędy (północ I/II, południe) × cztery kolumny.
+export const GX=[1250,2150,2950],GY=870;
+export const PRZESIEKI=[...GX.map(x=>({x1:x,y1:0,x2:x,y2:1660,dir:'v'})),{x1:0,y1:GY,x2:WORLD.w,y2:GY,dir:'h'},...GX.map(x=>({x1:x,y1:1790,x2:x,y2:WORLD.h,dir:'v'}))];
+export const onPrzesieka=(x,y,m=8)=>{for(const p of PRZESIEKI){if(p.dir==='v'){if(Math.abs(x-p.x1)<m&&y>p.y1&&y<p.y2)return true}else if(Math.abs(y-p.y1)<m)return true}return false};
 export const STANDS={
  '101':{name:'101',desc:'starodrzew sosnowy',mix:{sosna:.84,brzoza:.1,dab:.06},age:[66,88]},
  '102':{name:'102',desc:'świerczyna z brzozą',mix:{swierk:.55,brzoza:.25,sosna:.2},age:[38,62]},
  '103':{name:'103',desc:'dąbrowa z bukiem',mix:{dab:.46,buk:.4,sosna:.14},age:[82,115]},
- '104':{name:'104',desc:'młodszy bór mieszany',mix:{sosna:.6,dab:.24,brzoza:.16},age:[32,50]},
- '105':{name:'105',desc:'las mieszany',mix:{swierk:.38,buk:.36,brzoza:.26},age:[48,76]},
- '106':{name:'106',desc:'stara świerczyna',mix:{swierk:.7,sosna:.15,brzoza:.15},age:[70,96]},
- '107':{name:'107',desc:'bór sosnowy w średnim wieku',mix:{sosna:.8,brzoza:.12,dab:.08},age:[40,62]},
- '108':{name:'108',desc:'bór sosnowy przy szosie',mix:{sosna:.72,brzoza:.18,swierk:.1},age:[55,82]},
- '109':{name:'109',desc:'grąd: dąb, buk, brzoza',mix:{dab:.36,buk:.34,brzoza:.2,sosna:.1},age:[60,92]},
- '110':{name:'110',desc:'młodnik i drągowina sosnowa',mix:{sosna:.76,brzoza:.24},age:[16,34]}
+ '104':{name:'104',desc:'puszcza: stary, ciemny drzewostan bez dróg',mix:{swierk:.46,buk:.28,dab:.16,sosna:.1},age:[96,130]},
+ '105':{name:'105',desc:'las mieszany przy leśniczówce',mix:{swierk:.38,buk:.36,brzoza:.26},age:[48,76]},
+ '106':{name:'106',desc:'młodszy bór mieszany',mix:{sosna:.6,dab:.24,brzoza:.16},age:[32,50]},
+ '107':{name:'107',desc:'stara świerczyna',mix:{swierk:.7,sosna:.15,brzoza:.15},age:[70,96]},
+ '108':{name:'108',desc:'bór sosnowy w średnim wieku',mix:{sosna:.8,brzoza:.12,dab:.08},age:[40,62]},
+ '109':{name:'109',desc:'młodszy bór sosnowy przy szosie',mix:{sosna:.74,brzoza:.2,swierk:.06},age:[24,42]},
+ '110':{name:'110',desc:'bór sosnowy w środku pętli',mix:{sosna:.72,brzoza:.18,swierk:.1},age:[34,58]},
+ '111':{name:'111',desc:'młode sosny z brzozą',mix:{sosna:.76,brzoza:.24},age:[18,36]},
+ '112':{name:'112',desc:'grąd przy mokradle: dąb, buk, brzoza',mix:{dab:.36,buk:.34,brzoza:.2,sosna:.1},age:[60,92]}
 };
 export function oddzial(x,y){
- if(y>=1720){if(x>=1700)return '110';if(x>=820&&y<2300)return '109';return '108'}
- if(x>=2600)return y<1100?'106':'107';
- if(x<820)return y<470?'102':'101';if(y<560)return '102';if(x<1700)return y<1100?'103':'104';return '105'}
-// Słupki oddziałowe na skrzyżowaniach (numery sąsiednich oddziałów).
-export const POSTS=[{x:842,y:1122,n:['103','104']},{x:842,y:582,n:['102','103']},{x:1722,y:1122,n:['104','105']},{x:1722,y:582,n:['102','105']},{x:798,y:1078,n:['101','103']},
- {x:2622,y:1122,n:['106','107']},{x:2578,y:582,n:['105','106']},{x:842,y:2278,n:['108','109']},{x:1722,y:2278,n:['109','110']},{x:3282,y:1122,n:['106','107']}];
-// Szlabany na wjazdach z drogi głównej, tablica leśnictwa.
-export const BARRIERS=[{x:820,y:1636},{x:1700,y:1636},{x:2600,y:1636},{x:820,y:1804},{x:1700,y:1804},{x:2600,y:1804},{x:3260,y:1636}];
-export const BOARD={x:872,y:1630};
+ const r=y<GY?0:y<1720?1:2,c=x<GX[0]?0:x<GX[1]?1:x<GX[2]?2:3;return String(101+r*4+c)}
+// Słupki oddziałowe: skrzyżowania przesiek i miejsca, gdzie przesieki dochodzą do szosy (numery sąsiednich oddziałów).
+const st=(r,c)=>String(101+r*4+c);
+export const POSTS=[...GX.flatMap((x,i)=>[{x:x+14,y:GY+14,n:[st(0,i)+' '+st(0,i+1),st(1,i)+' '+st(1,i+1)]},
+ {x:x+14,y:hy(x)-46,n:[st(1,i)+' '+st(1,i+1)]},{x:x+14,y:hy(x)+52,n:[st(2,i)+' '+st(2,i+1)]}])];
+// Szlabany na wjazdach z szosy w dukty i tablica leśnictwa.
+export const BARRIERS=[];for(const k of ['j1','j2','j3','j4']){const x=HX[k];BARRIERS.push({x,y:hy(x)-84});if(k!=='j3')BARRIERS.push({x,y:hy(x)+84})}
+export const BOARD={x:872,y:hy(820)-96};
 
 // ── Kolizje (dla pieszych i zwierząt) ──
 export const colliders=[];
@@ -103,5 +177,5 @@ export function pointBlocked(x,y,r=6){
  return false;
 }
 export const inRect=(x,y,R,m=0)=>x>R.x-m&&x<R.x+R.w+m&&y>R.y-m&&y<R.y+R.h+m;
-export const inPolana=(x,y,m=0)=>Math.hypot(x-POLANA.x,y-POLANA.y)<POLANA.r+m;
+export const inPolana=(x,y,m=0)=>Math.hypot(x-POLANA.x,y-POLANA.y)<polR(Math.atan2(y-POLANA.y,x-POLANA.x))+m;
 export const inWorld=(x,y,m=0)=>x>m&&y>m&&x<WORLD.w-m&&y<WORLD.h-m;
