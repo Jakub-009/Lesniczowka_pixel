@@ -49,7 +49,15 @@ export function updateSound(dt){
  if(night&&A.owl<=0){A.owl=12+Math.random()*16;owl()}
 }
 function tone(type,f0,f1,a,d,at=0){const {ac,master}=A,t=ac.currentTime+at,o=ac.createOscillator(),g=ac.createGain();o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(f1,t+d);g.gain.setValueAtTime(.00001,t);g.gain.linearRampToValueAtTime(a,t+.01);g.gain.exponentialRampToValueAtTime(.00001,t+d);o.connect(g).connect(master);o.start(t);o.stop(t+d+.03)}
-function burst(f,q,a,d,at=0){const {ac,master,noise}=A,t=ac.currentTime+at,b=ac.createBiquadFilter(),g=ac.createGain();b.type='bandpass';b.frequency.value=f;b.Q.value=q;g.gain.setValueAtTime(.00001,t);g.gain.linearRampToValueAtTime(a,t+.01);g.gain.exponentialRampToValueAtTime(.00001,t+d);noise.connect(b).connect(g).connect(A.master);setTimeout(()=>{try{b.disconnect()}catch(e){}},(d+at)*1000+200)}
+// Krótki szum (dzięcioł, strzał, kłoda). Wzmocnienie startuje od zera TERAZ — wcześniej do chwili startu efektu
+// grało pełną głośnością (głośny szum). Po efekcie węzły są odłączane od wspólnego źródła szumu (inaczej narastały).
+function burst(f,q,a,d,at=0){
+ const {ac,master,noise}=A,now=ac.currentTime,t=now+at,b=ac.createBiquadFilter(),g=ac.createGain();
+ b.type='bandpass';b.frequency.value=f;b.Q.value=q;
+ g.gain.value=0;g.gain.setValueAtTime(0,now);g.gain.setValueAtTime(.00001,t);g.gain.linearRampToValueAtTime(a,t+.01);g.gain.exponentialRampToValueAtTime(.00001,t+d);g.gain.setValueAtTime(0,t+d+.01);
+ noise.connect(b);b.connect(g);g.connect(master);A.live=(A.live||0)+1;
+ setTimeout(()=>{try{noise.disconnect(b)}catch(e){}try{b.disconnect()}catch(e){}try{g.disconnect()}catch(e){}A.live--},(d+at)*1000+300);
+}
 function chirp(){const f=1800+Math.random()*1400,n=2+Math.floor(Math.random()*4);for(let i=0;i<n;i++)tone('sine',f,f*(1.2+Math.random()*.3),.01,.09,i*.13)}
 function drum(){for(let i=0;i<14;i++)burst(900,4,.05*(1-i/16),.03,i*.055)}
 function owl(){tone('sine',380,340,.02,.35);tone('sine',390,330,.018,.6,.55)}
