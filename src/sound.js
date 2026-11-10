@@ -39,8 +39,7 @@ export function updateSound(dt){
  if(!A)return;const {ac,master}=A,t=ac.currentTime,on=active()&&!state.mute;
  master.gain.setTargetAtTime(on?.9*SETTINGS.volume:0,t,.1);if(!on)return;
  const h=cal.hour(),night=cal.night(),se=cal.season();
- A.windG.gain.setTargetAtTime(.22+.2*Math.sin(state.elapsed*.21)**2,t,.4);
- // porywy: co kilka–kilkanaście sekund liście szeleszczą przez 2–4 s, potem cisza (zimą prawie wcale)
+ A.windG.gain.setTargetAtTime(0,t,.1); // porywy: co kilka–kilkanaście sekund liście szeleszczą przez 2–4 s, potem cisza (zimą prawie wcale)
  A.gustT-=dt;if(A.gustT<=0){A.gust=A.gust>0?0:(se===3?.15:.4+Math.random()*.6);A.gustT=A.gust>0?2+Math.random()*2:6+Math.random()*10}
  A.leafG.gain.setTargetAtTime(A.gust*.035,t,A.gust>0?.7:1.2);
  let saw=0;for(const p of E.people)if(p.pose==='saw'&&!p.hidden&&p.kind==='worker')saw=Math.max(saw,inView(p.x,p.y));
