@@ -21,12 +21,12 @@ function paintFloor(){
   const rc=roadClearance(x+2,y+2);
   let col=n<.5?mixc(f[2],f[0],n*2):mixc(f[0],f[1],(n-.5)*2);
   // pobocze: trawa przechodząca w ściółkę
-  const verge=rc<62?clamp((62-rc)/22,0,1):0;
+  const verge=rc<34?clamp((34-rc)/16,0,1):0;
   g.fillStyle=verge>0?mixc(n<.5?f[2]:f[0],n>.6?'#9aae70':'#89a063',verge):col;g.fillRect(x,y,B,B);
  }
- for(let i=0;i<52000*AREA;i++){const x=hash(i,1,31)*WORLD.w|0,y=hash(i,2,31)*WORLD.h|0;if(roadClearance(x,y)<58)continue;const s=SPECK[oddzial(x,y)];rect(g,x,y,1+(i%3===0),1,s[i%s.length])}
+ for(let i=0;i<52000*AREA;i++){const x=hash(i,1,31)*WORLD.w|0,y=hash(i,2,31)*WORLD.h|0;if(roadClearance(x,y)<30)continue;const s=SPECK[oddzial(x,y)];rect(g,x,y,1+(i%3===0),1,s[i%s.length])}
  // borówczyska i kępy paproci w starszych drzewostanach
- for(let i=0;i<900*AREA;i++){const x=hash(i,3,31)*WORLD.w,y=hash(i,4,31)*WORLD.h;if(roadClearance(x,y)<70)continue;const o=oddzial(x,y);
+ for(let i=0;i<900*AREA;i++){const x=hash(i,3,31)*WORLD.w,y=hash(i,4,31)*WORLD.h;if(roadClearance(x,y)<40)continue;const o=oddzial(x,y);
   if(PINE.has(o)){for(let k=0;k<14;k++)rect(g,x+(hash(k,i,5)-.5)*22,y+(hash(k,i,6)-.5)*12,2,2,k%3?'#3f6638':'#577c42')}
   else if(LEAF.has(o)){if(i%3)continue;for(let k=0;k<7;k++){const a=k*.9+hash(i,k)*.4;for(let u=0;u<9;u++)rect(g,x+Math.cos(a)*u,y+Math.sin(a)*u,2,1,u%3?'#5f8a45':'#79a356')}}}
 }
@@ -65,10 +65,10 @@ function paintRoads(){
 }
 // Pobocza: kępy traw, kwiaty, krzewy (leszczyna, kruszyna, jeżyny).
 function paintVerges(){
- for(let i=0;i<9000*AREA;i++){const x=hash(i,7,51)*WORLD.w,y=hash(i,8,51)*WORLD.h,rc=roadClearance(x,y);if(rc<3||rc>52)continue;
+ for(let i=0;i<9000*AREA;i++){const x=hash(i,7,51)*WORLD.w,y=hash(i,8,51)*WORLD.h,rc=roadClearance(x,y);if(rc<3||rc>30)continue;
   const k=hash(i,9,51);rect(g,x,y,1,2+(k*2|0),k<.5?'#a4b878':'#6f8d52');if(k>.93)rect(g,x,y-1,2,2,['#e8e2c0','#d7c24a','#b98ad0','#e6a0a0'][i%4])}
  for(let i=0;i<700*AREA;i++){const x=hash(i,10,52)*WORLD.w,y=hash(i,11,52)*WORLD.h,rc=roadClearance(x,y);
-  if(rc<14||rc>46||inRect(x,y,YARD,30)||inRect(x,y,PLAC,20)||inRect(x,y,UPRAWA,10))continue;
+  if(rc<8||rc>30||inRect(x,y,YARD,30)||inRect(x,y,PLAC,20)||inRect(x,y,UPRAWA,10))continue;
   const r=6+hash(i,12,52)*5,s=i*13,pal=hash(i,13)<.25?['#4a6a3a','#5d7a46','#7a5a5a','#8e4a4a']:['#4a6e4a','#5a8052','#76955c','#8ea870'];
   g.fillStyle='#2a3b2a40';g.beginPath();g.ellipse(x+LIGHT.x*5,y+LIGHT.y*4,r*1.1,r*.7,.5,0,6.28);g.fill();
   outlinedDraw(g,x,y,G=>{for(let k=0;k<3;k++){const a=k*2.1+hash(k,s),d=r*.35;blobPatch(G,Math.cos(a)*d,Math.sin(a)*d,r*.6,pal[0],pal,s+k)}},'#26392a');

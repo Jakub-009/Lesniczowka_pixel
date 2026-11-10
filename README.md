@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.6.2 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.6.3 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -158,3 +158,11 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
 - **Szkółka:** plan produkcji gatunków (panel L); zapas sadzonek liczony osobno dla każdego gatunku.
 - **Poprawki:** rów przy szosie przerwany na wjazdach (przepusty), ślepe drogi połączone w pętle (bez placów nawrotowych), płynne przesuwanie mapy (las malowany zawczasu i trzymany w pamięci karty graficznej).
 - Zapis z 0.6.1 wczytuje się.
+
+## Zmiany w 0.6.3 (poprawki po testach)
+- **Trzebież z umiarem:** to samo miejsce leśniczy cechuje najwyżej raz na ok. 10 lat (wcześniej tylko ocenia jakość), jednorazowo najwyżej 15% drzew i tylko wadliwe drzewa w zwarciu — najpierw te, które przeszkadzają dorodnym. W luźnym drzewostanie: „nie wymaga trzebieży”.
+- **Cofanie zaznaczeń:** Ctrl+Z cofa ostatnie zaznaczenie obszarem (wycinka i sadzonki), Shift + przeciągnięcie odznacza drzewa.
+- **Mniej dróg:** usunięte pętle przy oddz. 108 i 110. W starym zapisie las zarasta dawne drogi, a stosy z nich trafiają na najbliższą drogę.
+- **Węższe pobocza:** las bliżej dróg (w starym zapisie pobocza zarastają przy wczytaniu).
+- **Mniej śmieci, a część odwiedzających sprząta sama** („Grzybiarz pozbierał śmieci…” — zgłoszenie znika).
+- **Rowerzyści** jeżdżą za dnia i zjeżdżają z lasu przed zmrokiem.

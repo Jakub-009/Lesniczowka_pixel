@@ -2,9 +2,10 @@
 // kłody w lesie, plany, powierzchnie z grodzeniem, szlaki (blakną z czasem), kadry, budynki, populacje zwierzyny i paśniki.
 // Pojedyncze zwierzęta, goście i pojazdy pojawiają się na nowo po wczytaniu.
 import {state,SEASON_DAYS} from './core.js';
-import {serializeTrees,loadTrees,trees,removeTree,STAND} from './forest.js';
+import {serializeTrees,loadTrees,trees,removeTree,STAND,fillVerges} from './forest.js';
+import {inRect} from './map.js';
 import {roadClearance} from './map.js';
-import {J,MACH,restoreStack,hireCrewB,placeForwarder} from './jobs.js';
+import {J,MACH,restoreStack,hireCrewB,placeForwarder,stackFor} from './jobs.js';
 import {R,rowsOf} from './renew.js';
 import {paintTrail,paintFurrowRow,markAlpha} from './paint.js';
 import {Vehicle} from './life/agents.js';
@@ -14,7 +15,7 @@ import {E} from './ents.js';
 import {FA} from './life/fauna.js';
 import {spawnWildlife} from './life/populate.js';
 import {BASE} from './base.js';
-import {hirePod} from './incidents.js';
+import {hirePod,ASSESS} from './incidents.js';
 const KEY='lesniczowka-save-2';   // 0.6: nowa, większa mapa — zapisy z 0.5 nie pasują
 const FADE=.88;   // koleiny i bruzdy blakną o 12% dziennie
 export function hasSave(){try{return !!localStorage.getItem(KEY)}catch(e){return false}}
@@ -22,13 +23,14 @@ export function clearSave(){try{localStorage.removeItem(KEY)}catch(e){}}
 export function saveGame(){
  if(!state.playing)return;
  try{
-  const o={v:3,days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
+  const o={v:3,ver:'0.6.3',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
    stacks:J.stacks.filter(s=>s.vol>.05).map(s=>[s.edge.id,Math.round(s.s),+s.vol.toFixed(2),Math.round(s.value),s.sort||'tart',s.truck!==false]),sold:J.sold,
    plants:J.plants.map(p=>[Math.round(p.x),Math.round(p.y),p.sp]),
    piles:E.piles.filter(p=>!p.dead).map(p=>[Math.round(p.x),Math.round(p.y),+p.a.toFixed(2),+p.vol.toFixed(3),p.sp,p.logs,p.bark,p.sorts||null,p.vals||null]),
    eco:{cover0:ECO.cover0,damage:ECO.damage,plan:ECO.plan,market:ECO.market,pod:ECO.staff.pod,nursery:ECO.nursery,feedCost:ECO.feedCost},burns:E.burns||[],
    plots:R.plots.map(p=>({...p})),nextPlot:R.nextId,trails:J.trails.slice(-160),forwarder:J.skid.owned,crewB:J.crews.length>1,
    base:{nursery:BASE.nursery,garage:BASE.garage,nplan:BASE.nplan||0,stats:BASE.stats,opal:BASE.opalPiles.filter(o=>!o.dead).map(o=>[Math.round(o.x),Math.round(o.y),+o.a.toFixed(2),+o.vol.toFixed(2),o.edge.id,Math.round(o.s),+o.day.toFixed(2),o.odd])},
+   assess:ASSESS.slice(-80),
    fauna:{pop:FA.pop,plan:FA.plan,culled:FA.culled,reduction:FA.reduction,feeders:FA.feeders.map(f=>+f.level.toFixed(3)),winterT:FA.winterT,emptyT:FA.emptyT}};
   localStorage.setItem(KEY,JSON.stringify(o));
  }catch(e){console.warn('Zapis gry nie powiódł się:',e)}
@@ -42,7 +44,11 @@ export function loadGame(){
   for(const t of trees.slice())if(roadClearance(t.x,t.y)<(t.st===STAND?24:4))removeTree(t);
   // stosy przy drogach (zapis z 0.3: jedna składnica → jeden stos przy drodze B)
   J.stacks.length=0;J.sold=o.sold||0;
-  for(const [id,s,vol,val,sort,truck] of o.stacks||[])restoreStack(id,s,vol,val,sort||'tart',truck);
+  // stosy z dróg usuniętych w 0.6.3 przenosimy na najbliższą istniejącą drogę
+  const GONE={'s1-s0':[820,2300,300,2300],'s0-j0':[300,2300,300,1720],'j3-s4':[2600,1720,2600,2380],'s4-s5':[2600,2380,3260,2380],'s5-j4':[3260,2380,3260,1720],'c2-c3':[2600,560,2600,190]};
+  for(const [id,s,vol,val,sort,truck] of o.stacks||[]){
+   if(restoreStack(id,s,vol,val,sort||'tart',truck))continue;const G=GONE[id];if(!G)continue;
+   const L=Math.hypot(G[2]-G[0],G[3]-G[1]),k=Math.min(1,s/L),st=stackFor(G[0]+(G[2]-G[0])*k,G[1]+(G[3]-G[1])*k,sort||'tart');st.vol+=vol;st.value+=val;if(truck===false)st.truck=false}
   J.plants=(o.plants||[]).map(([x,y,sp])=>({x,y,sp,assigned:false}));
   // powierzchnie odnowieniowe i szlaki: dane + ponowne malowanie bruzd i kolein (z wyblaknięciem według wieku)
   R.plots=(o.plots||[]).map(p=>({...p,state:p.state==='planting'||p.state==='queued'||p.state==='prepping'?(p.prepared?'prepared':'new'):p.state}));R.nextId=o.nextPlot||R.plots.length+1;
@@ -61,6 +67,10 @@ export function loadGame(){
   if(ec.pod&&!ECO.staff.pod){ECO.staff.pod=true;hirePod()}
   if(o.fauna){const F=o.fauna;Object.assign(FA.pop,F.pop);Object.assign(FA.plan,F.plan);Object.assign(FA.culled,F.culled);FA.reduction=!!F.reduction;FA.winterT=F.winterT||0;FA.emptyT=F.emptyT||0;
    (F.feeders||[]).forEach((l,i)=>{if(FA.feeders[i])FA.feeders[i].level=l})}
+  ASSESS.length=0;ASSESS.push(...(o.assess||[]));
+  // zapis sprzed 0.6.3: węższe pobocza i drogi usunięte w 0.6.3 zarastają lasem (poza powierzchniami gracza i stosami)
+  if(!o.ver){const old=[[820,2300,300,2300],[300,2300,300,1720],[2600,1720,2600,2380],[2600,2380,3260,2380],[3260,2380,3260,1720]];
+   fillVerges(old,(x,y)=>R.plots.some(p=>inRect(x,y,p,10))||J.stacks.some(s=>Math.hypot(s.x-x,s.y-y)<40))}
   spawnWildlife();
   return true;
  }catch(e){console.warn('Wczytanie zapisu nie powiodło się:',e);return false}

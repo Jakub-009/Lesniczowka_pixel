@@ -29,10 +29,19 @@ export function pick(x,y){
  return treeAt(x,y)||plotAt(x,y);
 }
 let down=null;
+// 0.6.3: cofanie ostatnich zaznaczeń obszarem (Ctrl+Z)
+const UNDO=[];
+function undo(){
+ const u=UNDO.pop();if(!u){toast('Nie ma czego cofnąć.');return}
+ if(u.type==='mark'){let n=0;for(const t of u.list)if(t.marked&&!t.assigned){t.marked=false;n++}toast('Cofnięto oznaczenie '+n+' drzew.')}
+ else if(u.type==='unmark'){let n=0;for(const t of u.list)if(!t.marked&&!t.assigned&&t.st===STAND){t.marked=true;n++}toast('Przywrócono oznaczenie '+n+' drzew.')}
+ else if(u.type==='plant'){const set=new Set(u.list.filter(p=>!p.assigned));J.plants=J.plants.filter(p=>!set.has(p));toast('Cofnięto plan '+set.size+' sadzonek.')}
+ hud();
+}
 export function bindInput(zoomFn){
  C.addEventListener('contextmenu',e=>e.preventDefault());
  // w narzędziach wycinki, sadzenia i odnowienia lewy przycisk zaznacza obszar; mapę przesuwa prawy (albo lewy w podglądzie)
- C.addEventListener('pointerdown',e=>{C.focus();resumeSound();down={x:e.clientX,y:e.clientY,cx:camera.x,cy:camera.y,btn:e.button,drag:false,box:e.button===0&&state.tool!=='select',w:toWorld(e)};C.setPointerCapture(e.pointerId)});
+ C.addEventListener('pointerdown',e=>{C.focus();resumeSound();down={x:e.clientX,y:e.clientY,cx:camera.x,cy:camera.y,btn:e.button,drag:false,box:e.button===0&&state.tool!=='select',shift:e.shiftKey,w:toWorld(e)};C.setPointerCapture(e.pointerId)});
  C.addEventListener('pointermove',e=>{
   if(down){const dx=e.clientX-down.x,dy=e.clientY-down.y;if(!down.drag&&Math.hypot(dx,dy)>5)down.drag=true;
    if(down.drag){if(down.box){state.box=[down.w,toWorld(e)]}else{const r=C.getBoundingClientRect();camera.x=down.cx-dx*VIEW.w/r.width;camera.y=down.cy-dy*VIEW.h/r.height;state.follow=null}}return}
@@ -44,10 +53,15 @@ export function bindInput(zoomFn){
  C.addEventListener('pointerup',e=>{
   if(!down)return;const d=down;down=null;
   if(d.box&&d.drag&&state.box){const [[x0,y0],[x1,y1]]=state.box;state.box=null;
-   if(state.tool==='mark'){let n=0;
-    for(const t of treesIn(Math.min(x0,x1),Math.min(y0,y1),Math.max(x0,x1),Math.max(y0,y1)))if(t.st===STAND&&!t.falling&&!t.lying&&!t.assigned&&t.age>=CUT_AGE&&!t.marked){t.marked=true;n++}
-    toast(n?'Wyznaczono '+n+' drzew do wycinki. E — wyślij ekipę.':'W zaznaczeniu nie ma drzew do wycinki (od '+CUT_AGE+' lat).')}
-   else if(state.tool==='plant'){const n=planAreaPlants(x0,y0,x1,y1);toast(n?'Zaplanowano '+n+' sadzonek w rzędach. E — wyślij ekipę.':'Brak wolnych miejsc na sadzonki.')}
+   const area=treesIn(Math.min(x0,x1),Math.min(y0,y1),Math.max(x0,x1),Math.max(y0,y1));
+   if(state.tool==='mark'&&d.shift){const list=[];   // Shift + przeciągnięcie: odznaczenie obszaru
+    for(const t of area)if(t.marked&&!t.assigned){t.marked=false;list.push(t)}
+    if(list.length)UNDO.push({type:'unmark',list});toast(list.length?'Usunięto oznaczenie '+list.length+' drzew. Ctrl+Z — cofnij.':'W zaznaczeniu nie było oznaczonych drzew.')}
+   else if(state.tool==='mark'){const list=[];
+    for(const t of area)if(t.st===STAND&&!t.falling&&!t.lying&&!t.assigned&&t.age>=CUT_AGE&&!t.marked){t.marked=true;list.push(t)}
+    if(list.length)UNDO.push({type:'mark',list});
+    toast(list.length?'Wyznaczono '+list.length+' drzew do wycinki. E — wyślij ekipę. Ctrl+Z — cofnij, Shift + przeciągnięcie — odznacz.':'W zaznaczeniu nie ma drzew do wycinki (od '+CUT_AGE+' lat).')}
+   else if(state.tool==='plant'){const before=J.plants.length,n=planAreaPlants(x0,y0,x1,y1);if(n)UNDO.push({type:'plant',list:J.plants.slice(before)});toast(n?'Zaplanowano '+n+' sadzonek w rzędach. E — wyślij ekipę. Ctrl+Z — cofnij.':'Brak wolnych miejsc na sadzonki.')}
    else if(state.tool==='plot'){const p=createPlot(x0,y0,x1,y1);if(p)state.selected=p}
    hud();return}
   if(d.drag)return;
@@ -63,6 +77,7 @@ export function bindInput(zoomFn){
  C.addEventListener('wheel',e=>{e.preventDefault();zoomFn(e.deltaY>0?1:-1,toWorld(e))},{passive:false});
  addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
+  if((e.ctrlKey||e.metaKey)&&k==='z'&&state.playing&&!state.modal){e.preventDefault();undo();return}
   if(['arrowup','arrowdown','arrowleft','arrowright',' ','f1','f3','tab'].includes(k))e.preventDefault();
   if(!state.playing){if(k==='enter')$('#start').click();return}
   if(mapOpen()&&(k==='tab'||k==='escape')){toggleMap(false);return}

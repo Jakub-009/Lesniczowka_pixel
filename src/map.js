@@ -5,19 +5,19 @@ import {distToSegment,obbCircle} from './geometry.js';
 // ── Graf dróg ──
 // main = droga wojewódzka na dole (asfalt), forest = drogi leśne (tłuczeń, trawa pośrodku), drive = wjazd na podwórze leśniczówki.
 // Węzły mW i mE leżą poza mapą: tam pojazdy pojawiają się i znikają.
-export const NODES={mW:[-140,1720],j0:[300,1720],j1:[820,1720],j2:[1700,1720],j3:[2600,1720],j4:[3260,1720],mE:[3740,1720],
+export const NODES={mW:[-140,1720],j1:[820,1720],j2:[1700,1720],j3:[2600,1720],j4:[3260,1720],mE:[3740,1720],
  a1:[820,1100],a2:[820,560],a3:[820,300],l1:[560,300],yd:[478,300],
  b1:[1700,1100],b2:[1700,560],e1:[2250,560],
  c1:[2600,1100],c2:[2600,560],d1:[3260,1100],
- s1:[820,2300],s0:[300,2300],s3:[1700,2300],s4:[2600,2380],s5:[3260,2380]};
+ s1:[820,2300],s3:[1700,2300]};
 const F=(a,b)=>({a,b,kind:'forest',w:40,lane:7});
 export const EDGES=[
- {a:'mW',b:'j0',kind:'main',w:60,lane:15},{a:'j0',b:'j1',kind:'main',w:60,lane:15},{a:'j1',b:'j2',kind:'main',w:60,lane:15},{a:'j2',b:'j3',kind:'main',w:60,lane:15},{a:'j3',b:'j4',kind:'main',w:60,lane:15},{a:'j4',b:'mE',kind:'main',w:60,lane:15},
+ {a:'mW',b:'j1',kind:'main',w:60,lane:15},{a:'j1',b:'j2',kind:'main',w:60,lane:15},{a:'j2',b:'j3',kind:'main',w:60,lane:15},{a:'j3',b:'j4',kind:'main',w:60,lane:15},{a:'j4',b:'mE',kind:'main',w:60,lane:15},
  F('j1','a1'),F('a1','a2'),F('a2','a3'),F('a3','l1'),{a:'l1',b:'yd',kind:'drive',w:44,lane:0},
  F('a1','b1'),F('j2','b1'),F('b1','b2'),F('a2','b2'),F('b2','e1'),
- // 0.6: wschód (oddz. 106–107) i południe (108–110); 0.6.2: bez ślepych dróg — wszystkie tworzą pętle
+ // 0.6: wschód (oddz. 106–107) i południe (108–110); 0.6.3: mniej dróg — pętla południowa i wschodnia, bez ślepych końców
  F('e1','c2'),F('c2','c1'),F('c1','j3'),F('c1','d1'),F('d1','j4'),
- F('j1','s1'),F('s1','s0'),F('s0','j0'),F('s1','s3'),F('s3','j2'),F('j3','s4'),F('s4','s5'),F('s5','j4')
+ F('j1','s1'),F('s1','s3'),F('s3','j2')
 ];
 // Place nawrotowe (0.6.1) zastąpione pętlami dróg; pojazdy zawracają na skrzyżowaniach.
 export const TURNS=[];
@@ -72,7 +72,7 @@ export function oddzial(x,y){
 export const POSTS=[{x:842,y:1122,n:['103','104']},{x:842,y:582,n:['102','103']},{x:1722,y:1122,n:['104','105']},{x:1722,y:582,n:['102','105']},{x:798,y:1078,n:['101','103']},
  {x:2622,y:1122,n:['106','107']},{x:2578,y:582,n:['105','106']},{x:842,y:2278,n:['108','109']},{x:1722,y:2278,n:['109','110']},{x:3282,y:1122,n:['106','107']}];
 // Szlabany na wjazdach z drogi głównej, tablica leśnictwa.
-export const BARRIERS=[{x:820,y:1636},{x:1700,y:1636},{x:2600,y:1636},{x:820,y:1804},{x:1700,y:1804},{x:2600,y:1804},{x:300,y:1804},{x:3260,y:1636},{x:3260,y:1804}];
+export const BARRIERS=[{x:820,y:1636},{x:1700,y:1636},{x:2600,y:1636},{x:820,y:1804},{x:1700,y:1804},{x:2600,y:1804},{x:3260,y:1636}];
 export const BOARD={x:872,y:1630};
 
 // ── Kolizje (dla pieszych i zwierząt) ──

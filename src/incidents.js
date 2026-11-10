@@ -1,6 +1,6 @@
 // Interwencje (0.5): quad/cross, śmieci, dym (latem i przy wiosennym wypalaniu traw), nocni intruzi (kłusownik, złodziej drewna ze stosu,
 // złodziej choinek zimą) i zadania: dowiezienie karmy do paśnika. Patrolują jednostki: leśniczy (zawsze) i podleśniczy (po zatrudnieniu).
-import {state,toast,cal,hash,particle,clamp,zl,DOW} from './core.js';
+import {state,toast,cal,hash,particle,clamp,zl,DOW,SEASON_DAYS} from './core.js';
 import {oddzial,DOOR,YARD,roadClearance,EDGES,POLANA,UPRAWA,inRect} from './map.js';
 import {nearestRoad,goalNode,offMap,ENTRY,exitNode} from './roads.js';
 import {E,NAV} from './ents.js';
@@ -158,7 +158,7 @@ class Unit{
   inc.status='done';this.cur=null;
   if(ok){
    const k=inc.type==='intruder'?inc.ref.intruder:inc.type,snare=inc.type==='trash'&&inc.ref.kind==='snare';
-   if(k==='assess'){const A=inc.ref;toast('Ocena drzewostanu (oddz. '+oddzial(A.x,A.y)+'): dorodne '+A.n[0]+', przeciętne '+A.n[1]+', wadliwe '+A.n[2]+'. Do trzebieży oznaczono '+A.marked+' drzew — E: wyślij ekipę.');this.startNext();return}
+   if(k==='assess'){const A=inc.ref;selectThinning(A);toast('Ocena drzewostanu (oddz. '+oddzial(A.x,A.y)+'): dorodne '+A.n[0]+', przeciętne '+A.n[1]+', wadliwe '+A.n[2]+'. '+(A.marked?'Do trzebieży oznaczono '+A.marked+' drzew — E: wyślij ekipę.':'Bez cechowania: '+A.why+'.'));this.startNext();return}
    const gain={quad:6,poacher:9,thief:7,xmas:5,fire:5,feed:1}[k]??(snare?3:2);bumpProtect(gain);planProgress('handle',1);
    toast({quad:'Kontrola zakończona: kierujący ukarany mandatem.',poacher:'Kłusownik zatrzymany, wnyki zebrane.',thief:'Złodziej drewna zatrzymany, drewno wróciło na stos.',xmas:'Złodziej choinek zatrzymany.',fire:'Zarzewie ugaszone.',feed:'Paśnik uzupełniony karmą.'}[k]||(snare?'Wnyki usunięte.':'Śmieci zebrane.'));
   }
@@ -252,8 +252,25 @@ export const openIncidents=()=>E.incidents.filter(open_);
 // Leśniczy obchodzi okolicę (promień ok. 23 m), poznaje jakość drzew i oznacza wadliwe (krzywe, chore) do usunięcia w trzebieży.
 function reveal(A,x,y){
  for(const t of treesIn(x-95,y-95,x+95,y+95)){if(t.st!==STAND||t.qk||Math.hypot(t.x-x,t.y-y)>95||t.age<SAPLING_AGE)continue;
-  t.qk=true;A.n[t.q]++;
-  if(t.q===2&&t.age>=THIN_AGE&&!t.marked&&!t.assigned&&!t.uprawa){t.marked=true;A.marked++}}
+  t.qk=true;A.n[t.q]++}
+}
+// 0.6.3: cechowanie z umiarem, jak w prawdziwej trzebieży selekcyjnej:
+// — to samo miejsce najwyżej raz na ok. 10 lat (wcześniej leśniczy tylko ocenia jakość),
+// — najwyżej 15% drzew w obchodzonym miejscu,
+// — tylko wadliwe drzewa w zwarciu, najpierw te, które przeszkadzają dorodnym sąsiadom.
+export const ASSESS=[];   // {x,y,day} — miejsca, gdzie już cechowano
+const THIN_EVERY=10/3*SEASON_DAYS;   // 10 lat lasu = ok. 3,3 pory roku
+function selectThinning(A){
+ const recent=ASSESS.find(q=>Math.hypot(q.x-A.x,q.y-A.y)<A.r&&state.days-q.day<THIN_EVERY);
+ if(recent){A.why='tu cechowano niedawno — kolejna trzebież za kilka lat';return}
+ const all=treesIn(A.x-A.r,A.y-A.r,A.x+A.r,A.y+A.r).filter(t=>t.st===STAND&&!t.falling&&!t.lying&&t.age>=THIN_AGE&&Math.hypot(t.x-A.x,t.y-A.y)<A.r);
+ const cap=Math.floor(all.length*.15);
+ const near=t=>{const r=crownR(t)*1.9;return treesIn(t.x-r,t.y-r,t.x+r,t.y+r).filter(q=>q!==t&&q.st===STAND&&q.age>=SAPLING_AGE&&Math.hypot(q.x-t.x,q.y-t.y)<r)};
+ const cand=[];for(const t of all){if(!t.qk||t.q!==2||t.marked||t.assigned||t.uprawa)continue;const nb=near(t);if(nb.length<2)continue;cand.push({t,score:nb.filter(q=>q.q===0).length*3+nb.length})}
+ cand.sort((a,b)=>b.score-a.score);
+ for(const c of cand.slice(0,cap)){c.t.marked=true;A.marked++}
+ ASSESS.push({x:A.x,y:A.y,day:state.days});
+ if(!A.marked)A.why=cand.length?'':'drzewostan jest luźny — nie wymaga trzebieży';
 }
 export const assessing=(x,y)=>E.incidents.some(q=>q.type==='assess'&&q.status!=='done'&&q.status!=='gone'&&Math.hypot(q.x-x,q.y-y)<q.ref.r);
 export function orderAssess(x,y){

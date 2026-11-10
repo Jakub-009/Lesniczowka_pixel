@@ -8,7 +8,7 @@ export const edgeOf=(a,b)=>ADJ[a].find(n=>n.to===b)?.edge;
 export const ALL=['main','forest','drive'];
 export const offMap=k=>{const p=NODES[k];return p[0]<0||p[0]>WORLD.w||p[1]<0||p[1]>WORLD.h};
 // Wjazd na mapę (zachód / wschód) i najbliższy wyjazd.
-export const ENTRY=w=>w?{from:'mW',to:'j0',s:0}:{from:'mE',to:'j4',s:0};
+export const ENTRY=w=>w?{from:'mW',to:'j1',s:0}:{from:'mE',to:'j4',s:0};
 export const exitNode=x=>x<WORLD.w/2?'mW':'mE';
 // Zawracanie: na końcu drogi (plac nawrotowy, brama, wyjazd z mapy) bez kosztu, na skrzyżowaniu z kosztem tc
 // (wjazd w boczną drogę i powrót), a na środku odcinka — prawie nigdy (pen w planRoute).

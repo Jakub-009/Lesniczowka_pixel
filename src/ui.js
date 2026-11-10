@@ -1,12 +1,12 @@
 // HUD w HTML (styl farmy): trzy wskaźniki, zegar i kalendarz, narzędzia, plan na sezon, zgłoszenia, karta wybranego obiektu.
-import {$,state,cal,SEASONS,DOW,displayNumber,zl,SETTINGS,camera,VIEW,clamp,toast} from './core.js';
+import {$,state,cal,SEASONS,DOW,displayNumber,zl,SETTINGS,camera,VIEW,clamp,toast,SEASON_DAYS,YEARS_PER_SEASON} from './core.js';
 import {SP,STAND,STUMP,SAPLING_AGE,CUT_AGE,THIN_AGE,crownR,heightM,dbhCm,volume,counts,treesIn,QUAL,SORTS,sortSplit,treeValue} from './forest.js';
 import {STANDS,oddzial} from './map.js';
 import {J,COST,PRICE,MACH,pendingCount,toggleMark,dispatchCrew,orderTruck,togglePlant,buyForwarder,stackTotal,stackValue,hireCrewB,fireCrewB,truckTotal,pileSorts} from './jobs.js';
 import {R,plotStats,prepCost,areaHa,spotsIn,orderPrep,orderPlant,removePlot,rowsOf,fenceCost,orderFence,orderRepel,repelCost,seasonKey,MIXES,mixFor,cycleMix,mixSp} from './renew.js';
 import {ECO,dailyCost} from './economy.js';
 import {E} from './ents.js';
-import {dispatch,openIncidents,U,orderAssess,assessing} from './incidents.js';
+import {dispatch,openIncidents,U,orderAssess,assessing,ASSESS} from './incidents.js';
 import {FA,NAMES,pressure,planLeft,requestReduction} from './life/fauna.js';
 import {BASE,BUILD,buildNursery,buildGarage,hireDeputy,fireDeputy,NPLANS,cycleNursery,nurseryText} from './base.js';
 import {VSPEC,ASPEC} from './life/agents.js';
@@ -15,7 +15,7 @@ export function lat(n){n=Math.round(n);const d=n%10,dd=n%100;return n+(n===1?' r
 const pct=v=>Math.round(v)+'%';
 function barCol(v){return v>=70?'#8ec86a':v>=50?'#d8b665':'#e0704f'}
 export function setTool(t){state.tool=t;state.hover=null;state.box=null;for(const b of document.querySelectorAll('[data-tool]'))b.classList.toggle('on',b.dataset.tool===t);
- const msg={select:'Podgląd: kliknij drzewo, zwierzę, pojazd, zgłoszenie albo powierzchnię.',mark:'Wycinka: klik = drzewo (trzebież od '+THIN_AGE+' lat), przeciągnij = obszar (od '+CUT_AGE+' lat). Kolorowe kropki = oceniona jakość. Prawy przycisk przesuwa mapę.',plant:'Sadzenie: klik = sadzonka, przeciągnij = rzędy sadzonek (bez przygotowania gleby).',plot:'Odnowienie: przeciągnij obszar zrębu → pług LPz → sadzenie w rzędach.'}[t];
+ const msg={select:'Podgląd: kliknij drzewo, zwierzę, pojazd, zgłoszenie albo powierzchnię.',mark:'Wycinka: klik = drzewo (trzebież od '+THIN_AGE+' lat), przeciągnij = obszar (od '+CUT_AGE+' lat), Shift + przeciągnij = odznacz, Ctrl+Z = cofnij. Kolorowe kropki = oceniona jakość. Prawy przycisk przesuwa mapę.',plant:'Sadzenie: klik = sadzonka, przeciągnij = rzędy sadzonek (bez przygotowania gleby).',plot:'Odnowienie: przeciągnij obszar zrębu → pług LPz → sadzenie w rzędach.'}[t];
  $('#toolhint').textContent=msg;}
 let incSig='',infoSig='',taskSig='';
 export function hud(){
@@ -66,7 +66,9 @@ function treeInfo(t){
   'Koszt ścinki '+zl(COST.fell)];
  if(t.assigned)lines.push('Ekipa ma je na liście.');
  const btns=t.assigned||t.age<THIN_AGE?[]:[['mark',t.marked?'Usuń oznaczenie':t.age<CUT_AGE||t.q===2&&t.qk?'Wyznacz do trzebieży':'Wyznacz do wycinki']];
- if(!t.qk&&!assessing(t.x,t.y))btns.push(['assess','Ocena drzewostanu i cechowanie (okolica)']);
+ const last=ASSESS.filter(q=>Math.hypot(q.x-t.x,q.y-t.y)<250).sort((a,b)=>b.day-a.day)[0],ago=last?(state.days-last.day)/SEASON_DAYS*YEARS_PER_SEASON:null;
+ if(last)lines.push('Cechowanie w tym miejscu: '+(ago<1?'w tym roku':Math.round(ago)+' lat temu')+(ago<10?' — kolejne za ok. '+Math.max(1,Math.round(10-ago))+' lat.':'.'));
+ if((!t.qk||ago==null||ago>=10)&&!assessing(t.x,t.y))btns.push(['assess','Ocena drzewostanu i cechowanie (okolica)']);
  if(assessing(t.x,t.y))lines.push('Leśniczy ma tu zleconą ocenę drzewostanu.');
  return{title:sp.name[0].toUpperCase()+sp.name.slice(1),lines,btns};
 }

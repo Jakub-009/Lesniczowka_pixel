@@ -1,10 +1,11 @@
 // Kto mieszka w lesie i kto do niego przyjeżdża: zwierzyna w grupach, ruch na drodze, grzybiarze, spacerowicze, rowerzyści, myśliwy.
 import {cal,hash,state,clamp,SEASON_DAYS,toast} from '../core.js';
-import {EDGES,NODES,POLANA,UPRAWA,AMBONA,roadClearance} from '../map.js';
+import {EDGES,NODES,POLANA,UPRAWA,AMBONA,roadClearance,oddzial} from '../map.js';
 import {goalNode,pointOn,nearestRoad,ENTRY,exitNode} from '../roads.js';
 import {E,NAV} from '../ents.js';
 import {Vehicle,Ped,Wild,Group,rand} from './agents.js';
-import {addTrash} from '../incidents.js';
+import {addTrash,U} from '../incidents.js';
+import {bumpProtect} from '../economy.js';
 import {sfx} from '../sound.js';
 import {FA,cull,planLeft,likesNow} from './fauna.js';
 
@@ -50,7 +51,7 @@ function spawnPickers(berry){
    const p=new Ped({kind:'picker',x:cx+i*6,y:cy,prop:berry?'bucket':'basket',berry,speed:13+rand()*3,coat:pick(['#8a6a4a','#5a6a8a','#7a3a3a','#4a6a4a','#9a8a5a']),cap:pick(['#c84a3a','#d8b23a','#3a4a6a','#e8e4dc'])});
    p.label=berry?'zbieracz jagód':'grzybiarz';
    p.run([{wander:{x:cx,y:cy,r:240,t:110+rand()*110,pickP:.7,until:()=>cal.hour()>15,ok:(x,y)=>roadClearance(x,y)>24}},{go:[cx,cy]},{call:q=>{
-    if(rand()<.28)addTrash(q.x+(rand()-.5)*30,q.y+(rand()-.5)*30);
+    if(rand()<.14)addTrash(q.x+(rand()-.5)*30,q.y+(rand()-.5)*30);
     q.hidden=true;q.dead=true;if(++back>=n){v.label=who+' — odjeżdżają';leaveMap(v)}}}]);
   }
   v.label=who+' (zaparkowani)';
@@ -62,7 +63,7 @@ function spawnWalker(){
  const p=new Ped({kind:'walker',x,y:y0,speed:11+rand()*3,coat:pick(['#5a7aa0','#a05a5a','#6a8a5a','#c0a050','#7a5a8a']),cap:pick(['#6b4a2e','#e8e4dc','#3a3a3a'])});
  p.label='spacerowicz';
  let dog=null;if(rand()<.5){dog=new Wild({kind:'dog',x:x+8,y:y0,seed:Math.floor(rand()*1e5),nav:'foot',group:new Group(x,y0,1,{fixed:true}),follow:p,leash:60,idleMin:.4,idleVar:1.2,col:pick(['#c8a060','#3a3430','#e8e0d0']),col2:'#5a4636',flee:0})}
- p.run([{go:[x,y1]},{wait:4+rand()*4,pose:'stand'},{go:[x+(rand()-.5)*10,y0+10]},{call:q=>{q.dead=true;if(dog)dog.dead=true;if(rand()<.12)addTrash(q.x+12,q.y-30)}}]);
+ p.run([{go:[x,y1]},{wait:4+rand()*4,pose:'stand'},{go:[x+(rand()-.5)*10,y0+10]},{call:q=>{q.dead=true;if(dog)dog.dead=true;if(rand()<.06)addTrash(q.x+12,q.y-30)}}]);
 }
 // Myśliwy z koła łowieckiego (0.6: szybszy): przyjeżdża wieczorem albo o świcie, idzie z psem na ambonę i — jeśli plan
 // łowiecki nie jest wykonany — po krótkim mierzeniu strzela do sarny, jelenia albo dzika (nigdy do lochy z warchlakami).
@@ -157,7 +158,14 @@ export function updateVisitors(dt){
  const mushrooms=(se===1&&cal.dayOf()>=SEASON_DAYS)||se===2,berries=se===1&&!mushrooms;
  if(T.pick<=0){T.pick=(we?70:140)+rand()*90;if(h>5.5&&h<12.5&&(mushrooms||berries)&&E.people.filter(p=>p.kind==='picker').length<4)spawnPickers(berries)}
  if(T.walk<=0){T.walk=((we?80:170)+rand()*100)*(winter?1.8:1);if(h>9&&h<18)spawnWalker()}
- if(T.bike<=0){T.bike=(we?110:240)+rand()*140;if(h>9&&h<19&&!winter){const b=spawnFrom('bike',{roam:['main','forest'],color:pick(['#4f6a8a','#c0473a','#3a7a5a','#d8b23a'])});b.label='rowerzysta'}}
+ if(T.bike<=0){T.bike=(we?110:240)+rand()*140;if(h>9&&h<19&&!winter){const b=spawnFrom('bike',{roam:['main','forest'],color:pick(['#4f6a8a','#c0473a','#3a7a5a','#d8b23a'])});b.label='rowerzysta';b.life=80+rand()*100}}
+ // 0.6.3: rowerzyści jeżdżą za dnia — po przejażdżce albo o zmierzchu zjeżdżają z lasu
+ for(const v of E.vehicles){if(v.kind!=='bike'||v.leaving||v.dead)continue;v.life=(v.life??120)-dt;if(v.life<=0||h>20||h<6){v.leaving=true;v.roam=null;v.label='rowerzysta wraca do domu';leaveMap(v)}}
+ // 0.6.3: niektórzy odwiedzający sami zbierają śmieci po drodze
+ T.clean=(T.clean||0)-dt;if(T.clean<=0){T.clean=20;for(const p of E.people){if(p.dead||p.hidden||!(p.kind==='walker'||p.kind==='picker')||p.petent)continue;
+  const t=E.trash.find(q=>!q.dead&&!q.fire&&q.kind!=='snare'&&Math.hypot(q.x-p.x,q.y-p.y)<110);if(!t||rand()>.18)continue;
+  t.dead=true;if(t.inc&&t.inc.status!=='done'){t.inc.status='done';for(const u of U)u.queue=u.queue.filter(q=>q!==t.inc)}bumpProtect(.5);
+  toast((p.kind==='picker'?(p.berry?'Zbieracz jagód':'Grzybiarz'):'Spacerowicz')+' pozbierał śmieci w oddz. '+oddzial(t.x,t.y)+' — dziękujemy!')}}
  const dayN=Math.floor(state.days);
  const want=FA.reduction?1:planLeft()<=0?.15:we?.85:.55;
  if(h>18&&h<19.5&&se!==0&&T.huntDay!==dayN){T.huntDay=dayN;if(rand()<want)spawnHunter(false)}
