@@ -13,11 +13,22 @@ export const SP={
 };
 export const STAND=0,STUMP=1;
 export const SAPLING_AGE=8;      // młodsze drzewka malujemy jako sadzonki (warstwa dolna)
-export const CUT_AGE=25;         // od tego wieku drzewo można wyznaczyć do wycinki (trzebież / rębnia)
+export const CUT_AGE=25;
+export const THIN_AGE=12;        // 0.6.2: od tego wieku pojedyncze drzewo można usunąć w trzebieży         // od tego wieku drzewo można wyznaczyć do wycinki (trzebież / rębnia)
 export const trees=[];
 
 // ── rozmiar, wysokość, miąższość ──
-export const frac=t=>clamp(t.age/SP[t.sp].mature,0,1);
+export const frac=t=>clamp((t.age+(t.gb||0))/SP[t.sp].mature,0,1);   // gb: premia wzrostu z trzebieży (luźniej = szybciej)
+// ── jakość drzewa (0.6.2): ukryta, dopóki leśniczy nie oceni drzewostanu ──
+export const QUAL=[{name:'dorodne',col:'#6ad06a'},{name:'przeciętne',col:'#e0d050'},{name:'wadliwe (krzywe / chore)',col:'#e05040'}];
+const qualityFor=(x,y,planted)=>{const r=hash(x|0,y|0,313);return planted?(r<.25?0:r<.85?1:2):(r<.3?0:r<.8?1:2)};
+// Sortymenty: tartaczne (grube, proste), papierówka (cienkie), opał (krzywe, chore, wierzchołki). Udziały w miąższości:
+export function sortSplit(t){
+ if(t.age<35||volume(t)<.25)return t.q===2?{tart:0,pap:.3,opal:.7}:{tart:0,pap:.7,opal:.3};
+ return [{tart:.75,pap:.1,opal:.15},{tart:.5,pap:.25,opal:.25},{tart:.1,pap:.3,opal:.6}][t.q||0];
+}
+export const SORTS={tart:{name:'drewno tartaczne',short:'tartaczne',k:1.35},pap:{name:'papierówka',short:'papierówka',k:.72},opal:{name:'drewno opałowe',short:'opał',k:.5}};
+export const treeValue=t=>{const v=volume(t),f=sortSplit(t);let s=0;for(const k in f)s+=v*f[k]*SP[t.sp].price*SORTS[k].k;return s};
 export const crownR=t=>SP[t.sp].maxR*(.1+.9*frac(t)**.75);
 export const heightM=t=>SP[t.sp].h*frac(t)**.8;
 export const dbhCm=t=>Math.max(1,SP[t.sp].d*frac(t));
@@ -28,7 +39,7 @@ export const fallLen=t=>clamp(crownR(t)*4.2,30,170);
 function pickSpecies(mix,u){let a=0;for(const k in mix){a+=mix[k];if(u<a)return k}return Object.keys(mix)[0]}
 const nearTurn=(x,y)=>TURNS.some(k=>Math.hypot(x-NODES[k][0],y-NODES[k][1])<118);
 const free=(x,y)=>inWorld(x,y,6)&&!nearTurn(x,y)&&!inRect(x,y,YARD,46)&&!inRect(x,y,PLAC,40)&&!inPolana(x,y,6)&&!inRect(x,y,UPRAWA,22);
-function addTree(x,y,sp,age,extra={}){const t={id:trees.length,x,y,sp,age,st:STAND,seed:(hash(x|0,y|0,77)*1e6)|0,marked:false,...extra};t.rI=Math.round(crownR(t));trees.push(t);bucketAdd(t);return t}
+function addTree(x,y,sp,age,extra={}){const t={id:trees.length,x,y,sp,age,st:STAND,seed:(hash(x|0,y|0,77)*1e6)|0,marked:false,q:qualityFor(x,y,extra.planted),qk:false,gb:0,...extra};t.rI=Math.round(crownR(t));trees.push(t);bucketAdd(t);return t}
 export function generate(){
  const CELL=38;
  for(let j=0;j*CELL<WORLD.h+CELL;j++)for(let i=0;i*CELL<WORLD.w+CELL;i++){
@@ -64,13 +75,14 @@ export function generate(){
 // Wczytanie stanu lasu z zapisu (zamiast wygenerowanego).
 export function loadTrees(arr){
  trees.length=0;for(const b of buckets)b.length=0;
- for(const [x,y,sp,age,st,marked,stumpR,stumpAge,slash,burnt,uprawa,seed,flags] of arr){
-  const t=addTree(x,y,sp,age,{st,marked:!!marked,stumpR,stumpAge,burnt:!!burnt,uprawa:!!uprawa,planted:!!(flags&1),prep:!!(flags&2)});if(seed)t.seed=seed;
+ for(const [x,y,sp,age,st,marked,stumpR,stumpAge,slash,burnt,uprawa,seed,flags,gb] of arr){
+  const t=addTree(x,y,sp,age,{st,marked:!!marked,stumpR,stumpAge,burnt:!!burnt,uprawa:!!uprawa,planted:!!(flags&1),prep:!!(flags&2),gb:gb||0});if(seed)t.seed=seed;
+  if(flags&32){t.q=(flags>>3)&3;t.qk=!!(flags&4)}
   if(slash)t.slash={x:slash[0],y:slash[1],a:slash[2]};
  }
  dirtyAll();
 }
-export function serializeTrees(){return trees.map(t=>[+t.x.toFixed(1),+t.y.toFixed(1),t.sp,+t.age.toFixed(2),t.st===STUMP||t.lying?1:0,t.marked||t.assigned?1:0,t.stumpR||(t.lying?clamp(t.lying.r*.2,3,8):0),+(t.stumpAge||0).toFixed(1),t.slash?[Math.round(t.slash.x),Math.round(t.slash.y),+t.slash.a.toFixed(2)]:0,t.burnt?1:0,t.uprawa?1:0,t.seed,(t.planted?1:0)|(t.prep?2:0)])}
+export function serializeTrees(){return trees.map(t=>[+t.x.toFixed(1),+t.y.toFixed(1),t.sp,+t.age.toFixed(2),t.st===STUMP||t.lying?1:0,t.marked||t.assigned?1:0,t.stumpR||(t.lying?clamp(t.lying.r*.2,3,8):0),+(t.stumpAge||0).toFixed(1),t.slash?[Math.round(t.slash.x),Math.round(t.slash.y),+t.slash.a.toFixed(2)]:0,t.burnt?1:0,t.uprawa?1:0,t.seed,(t.planted?1:0)|(t.prep?2:0)|(t.qk?4:0)|((t.q||0)<<3)|32,+(t.gb||0).toFixed(2)])}
 // ── indeks przestrzenny (kubełki 128 px) ──
 const BK=128,BW=Math.ceil(WORLD.w/BK)+1,BH=Math.ceil(WORLD.h/BK)+1,buckets=Array.from({length:BW*BH},()=>[]);
 function bucketAdd(t){buckets[clamp(Math.floor(t.y/BK),0,BH-1)*BW+clamp(Math.floor(t.x/BK),0,BW-1)].push(t)}
@@ -104,7 +116,7 @@ export function dirtyAll(){for(const c of chunks)if(c)c.dirty=true}
 function paintChunk(c,i,j){
  const x0=i*CH,y0=j*CH,M=104;
  const list=treesIn(x0-M,y0-M,x0+CH+M,y0+CH+M).sort((a,b)=>a.y-b.y||a.x-b.x);
- const season=cal.season(),lg=c.lg,hg=c.hg;
+ const season=cal.season(),lg=c.lg,hg=scrG;
  lg.setTransform(1,0,0,1,0,0);lg.clearRect(0,0,CH,CH);hg.setTransform(1,0,0,1,0,0);hg.clearRect(0,0,CH,CH);
  // cienie koron: jedna maska (bez podwójnego ciemnienia), potem nałożona półprzezroczyście
  maskG.setTransform(1,0,0,1,-x0,-y0);maskG.clearRect(x0,y0,CH,CH);maskG.fillStyle='#1c2b1b';
@@ -121,11 +133,23 @@ function paintChunk(c,i,j){
   if(t.age<SAPLING_AGE)paintSapling(lg,t,season);
   else outlinedDraw(hg,t.x,t.y,G=>paintCrown(G,t,season),'#1a2a20');
  }
- crispAlpha(c.high);
+ // korony malujemy na wspólnym płótnie roboczym (odczyt pikseli), a do kawałka kopiujemy gotowy obraz —
+ // kawałki zostają w pamięci karty graficznej i przesuwanie mapy nie przycina
+ crispAlpha(scrH);c.hg.setTransform(1,0,0,1,0,0);c.hg.clearRect(0,0,CH,CH);c.hg.drawImage(scrH,0,0);
  c.dirty=false;c.painted=true;
 }
-function chunk(i,j){let c=chunks[j*CW+i];if(!c){const [low,lg]=mk(CH,CH),[high,hg]=mk(CH,CH,true);c=chunks[j*CW+i]={low,lg,high,hg,dirty:true,painted:false}}return c}
+const [scrH,scrG]=mk(CH,CH,true);
+function chunk(i,j){let c=chunks[j*CW+i];if(!c){const [low,lg]=mk(CH,CH),[high,hg]=mk(CH,CH);c=chunks[j*CW+i]={low,lg,high,hg,dirty:true,painted:false}}return c}
 // Rysuje widoczne kawałki jednej warstwy; przemalowanie ograniczone do kilku kawałków na klatkę (zmiana pory roku rozkłada się w czasie).
+// Wstępne malowanie kawałków wokół widoku (w zapasie czasu klatki), żeby przy przesuwaniu były już gotowe.
+export function prefetchForest(cam,vw,vh,ms=3,all=false){
+ const t0=performance.now(),cx=cam.x+vw/2,cy=cam.y+vh/2,mx=all?1e5:vw*.8+CH,my=all?1e5:vh*.8+CH,list=[];
+ for(let j=clamp(Math.floor((cam.y-my)/CH),0,CHH-1);j<=clamp(Math.floor((cam.y+vh+my)/CH),0,CHH-1);j++)
+  for(let i=clamp(Math.floor((cam.x-mx)/CH),0,CW-1);i<=clamp(Math.floor((cam.x+vw+mx)/CH),0,CW-1);i++){const c=chunks[j*CW+i];if(!c||!c.painted||c.dirty)list.push([i,j,Math.hypot((i+.5)*CH-cx,(j+.5)*CH-cy)])}
+ list.sort((a,b)=>a[2]-b[2]);let n=0;
+ for(const [i,j] of list){paintChunk(chunk(i,j),i,j);n++;if(performance.now()-t0>ms)break}
+ return list.length-n;
+}
 export function drawForest(g,cam,vw,vh,layer){
  let budget=layer==='low'?4:0;
  const i0=clamp(Math.floor(cam.x/CH),0,CW-1),i1=clamp(Math.floor((cam.x+vw)/CH),0,CW-1),j0=clamp(Math.floor(cam.y/CH),0,CHH-1),j1=clamp(Math.floor((cam.y+vh)/CH),0,CHH-1);
@@ -137,7 +161,7 @@ export function drawForest(g,cam,vw,vh,layer){
  if(layer==='high'){frame++;if(frame%120===0)evict()}
 }
 // Duża mapa: trzymamy w pamięci najwyżej MAXC kawałków lasu; dawno niewidziane zwalniamy (namalują się ponownie przy powrocie).
-let frame=0;const MAXC=72;
+let frame=0;const MAXC=400;   // 0.6.2: praktycznie bez zwalniania — ponowne malowanie przy przesuwaniu powodowało przycięcia
 function evict(){
  const live=[];for(let k=0;k<chunks.length;k++)if(chunks[k])live.push(k);
  if(live.length<=MAXC)return;
@@ -249,7 +273,11 @@ export function seasonGrow(years){
  for(const t of trees.slice()){
   if(t.st===STUMP){t.stumpAge=(t.stumpAge||0)+years;continue}
   if(t.planted&&t.age<4){young++;if(hash(t.seed,Math.floor(t.age*10),91)<(t.prep?.05:.25)){removeTree(t);died++;continue}}
-  const was=t.age<SAPLING_AGE;t.age+=years;if(was&&t.age>=SAPLING_AGE)grown++;t.rI=Math.round(crownR(t));
+  const was=t.age<SAPLING_AGE;t.age+=years;if(was&&t.age>=SAPLING_AGE)grown++;
+  // 0.6.2: w luźniejszym drzewostanie (po trzebieży) drzewa przyrastają szybciej; dorodne lepiej, wadliwe słabiej
+  if(t.age>=THIN_AGE&&t.age<120){const r=crownR(t)*1.7;let n=0;for(const q of treesIn(t.x-r,t.y-r,t.x+r,t.y+r))if(q!==t&&q.st===STAND&&q.age>=SAPLING_AGE&&Math.hypot(q.x-t.x,q.y-t.y)<r)n++;
+   t.gb=(t.gb||0)+years*(clamp(.35-.06*n,-.25,.35)+[.1,0,-.1][t.q||0])}
+  t.rI=Math.round(crownR(t));
  }
  dirtyAll();return{grown,died,young};
 }

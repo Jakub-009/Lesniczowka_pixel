@@ -6,7 +6,7 @@ import {nearestRoad,goalNode,edgeOf,pointOn,ENTRY,exitNode} from './roads.js';
 import {paintRut} from './paint.js';
 import {E,NAV} from './ents.js';
 import {Vehicle,Ped,rand,cartRear,cartFront} from './life/agents.js';
-import {trees,STAND,STUMP,CUT_AGE,SP,startFall,finishTree,plantTree,volume,crownR,speciesFor,treesIn,SAPLING_AGE} from './forest.js';
+import {trees,STAND,STUMP,CUT_AGE,THIN_AGE,SP,startFall,finishTree,plantTree,volume,crownR,speciesFor,treesIn,SAPLING_AGE,sortSplit,SORTS} from './forest.js';
 import {pay,earn,planProgress,stat,canAfford,ECO} from './economy.js';
 import {sfx} from './sound.js';
 import {pileTop} from './life/sprites.js';
@@ -18,15 +18,18 @@ const newCrew=id=>({id,van:null,phase:'idle',tasks:[],cluster:[],workers:[],held
 export const J={plants:[],trails:[],crews:[newCrew('A')],
  skid:{trac:null,phase:'idle',mach:'tractor',list:[],cur:null,wait:0,watch:0,owned:false},
  truck:{v:null,phase:'idle',pending:false,route:[],cur:null},stacks:[],nextStack:1,sold:0,auto:true};
-export const stackTotal=()=>J.stacks.reduce((a,s)=>a+s.vol,0);
-export const stackValue=()=>J.stacks.reduce((a,s)=>a+s.value,0);
+export const stackTotal=(f)=>J.stacks.reduce((a,s)=>a+(!f||f(s)?s.vol:0),0);
+export const stackValue=(f)=>J.stacks.reduce((a,s)=>a+(!f||f(s)?s.value:0),0);
+// ciężarówka bierze tartaczne i papierówkę; opał zostaje dla ludności, chyba że gracz pozwoli
+export const forTruck=s=>s.truck!==false;
+export const truckTotal=()=>stackTotal(forTruck);
 
 // ── polecenia gracza ──
 export function birdBan(t){return cal.season()===0&&oddzial(t.x,t.y)==='103'}
 export function toggleMark(t){
  if(!t||t.st!==STAND||t.falling||t.lying){return false}
  if(t.assigned){toast('To drzewo jest już w pracy ekipy.');return false}
- if(t.age<CUT_AGE){toast('Za młode do wycinki ('+Math.round(t.age)+' lat) — zostaw je, niech rośnie.');return false}
+ if(t.age<THIN_AGE){toast('Za młode nawet na trzebież ('+Math.round(t.age)+' lat) — zostaw je, niech rośnie.');return false}
  t.marked=!t.marked;sfx(t.marked?'mark':'unmark');
  if(t.marked&&birdBan(t))toast('Okres lęgowy ptaków: w oddz. 103 ekipa zetnie to drzewo dopiero latem.');
  return true;
@@ -129,15 +132,22 @@ function assignNext(w){
  }else{
   const p=task.p;w.label='pilarz '+C.id+' — sadzi '+SP[p.sp].name.split(' ')[0];w.prop='sapling';
   w.run([{go:[p.x-7,p.y],face:[p.x,p.y]},{wait:p.plot?1:1.8,pose:'kneel',face:[p.x,p.y]},
-   {call:()=>{const nur=ECO.nursery&&ECO.nursery.stock>0;if(nur)ECO.nursery.stock--;
+   {call:()=>{const nur=takeNursery(p.sp);
     plantTree(p.x,p.y,p.sp,!!p.prep||nur);J.plants=J.plants.filter(q=>q!==p);pay(nur?COST.plantNursery:COST.plant,nur?'sadzonka ze szkółki':'sadzonka i sadzenie');planProgress('plant',1);w.label='pilarz (ekipa '+C.id+')';w.prop=null;p.onDone&&p.onDone()}}]);
  }
 }
+// sadzonka danego gatunku ze szkółki (0.6.2: zapas osobno dla każdego gatunku)
+export function takeNursery(sp){const N=ECO.nursery;if(!N)return false;if(!N.sp)N.sp={sosna:N.stock||0};if((N.sp[sp]||0)<=0)return false;N.sp[sp]--;N.stock=Math.max(0,(N.stock||0)-1);return true}
 const fallMid=t=>(t.falling?t.falling.L:t.lying?t.lying.L:60)*.45;
+// Kłody z drzewa od razu dzielone na sortymenty (tartaczne / papierówka / opał) według grubości i jakości.
 function makePile(t,dir){
- const L=t.lying?t.lying.L:60,vol=Math.max(.08,volume(t));
- E.piles.push({x:t.x+Math.cos(dir)*L*.45,y:t.y+Math.sin(dir)*L*.45,a:dir,vol,sp:t.sp,logs:clamp(Math.round(vol*3)+1,1,6),bark:SP[t.sp].bark[1]==='#2e2c28'?'#e6e2d6':SP[t.sp].bark[1],state:'ground',dead:false});
+ const L=t.lying?t.lying.L:60,vol=Math.max(.08,volume(t)),f=sortSplit(t),sorts={},vals={};
+ for(const k in f){sorts[k]=vol*f[k];vals[k]=vol*f[k]*SP[t.sp].price*SORTS[k].k}
+ E.piles.push({x:t.x+Math.cos(dir)*L*.45,y:t.y+Math.sin(dir)*L*.45,a:dir,vol,sp:t.sp,sorts,vals,logs:clamp(Math.round(vol*3)+1,1,6),bark:SP[t.sp].bark[1]==='#2e2c28'?'#e6e2d6':SP[t.sp].bark[1],state:'ground',dead:false});
 }
+// kłody bez podziału (zapis z 0.6.1): całość jako papierówka i opał po połowie
+export const pileSorts=p=>p.sorts||{tart:0,pap:p.vol*.5,opal:p.vol*.5};
+const pileVals=p=>p.vals||{tart:0,pap:p.vol*.5*SP[p.sp].price*SORTS.pap.k,opal:p.vol*.5*SP[p.sp].price*SORTS.opal.k};
 export function hireCrewB(){
  if(J.crews.length>1){toast('Druga ekipa już pracuje.');return}
  J.crews.push(newCrew('B'));toast('Zatrudniono drugą ekipę (ZUL): '+zl(COST.crewB)+' dziennie. Zadania dzielą się między ekipy.');
@@ -152,15 +162,17 @@ export function fireCrewB(){
 const STACK_CAP=40;
 function stackPos(e,s){const A=NODES[e.a],B=NODES[e.b],dx=(B[0]-A[0])/e.len,dy=(B[1]-A[1])/e.len,h=Math.atan2(dx,-dy),off=e.w/2+14,[cx,cy]=pointOn(e,s);
  return{x:cx+Math.cos(h)*off,y:cy+Math.sin(h)*off,ax:dx,ay:dy,nx:Math.cos(h),ny:Math.sin(h)}}
-export function stackFor(x,y){
+// 0.6.2: osobny stos dla każdego sortymentu; stosy jednego miejsca leżą obok siebie wzdłuż drogi
+const SORT_OFF={tart:0,pap:44,opal:-44};
+export function stackFor(x,y,sort='tart'){
  const rp=nearestRoad(x,y,['forest'],{margin:60});
- let best=null;for(const st of J.stacks){const d=Math.hypot(st.x-rp.x,st.y-rp.y);if(d<150&&st.vol<STACK_CAP-2&&(!best||d<best.d))best={st,d}}
+ let best=null;for(const st of J.stacks){if((st.sort||'tart')!==sort)continue;const d=Math.hypot(st.x-rp.x,st.y-rp.y);if(d<170&&st.vol<STACK_CAP-2&&(!best||d<best.d))best={st,d}}
  if(best)return best.st;
- // nowy stos: nie bliżej niż 80 px od innego
- let s=rp.s;for(let k=0;k<6;k++){const p=stackPos(rp.edge,s);if(!J.stacks.some(q=>Math.hypot(q.x-p.x,q.y-p.y)<80))break;s=clamp(s+(k%2?-1:1)*(k+1)*40,50,rp.edge.len-50)}
- const P=stackPos(rp.edge,s),st={id:J.nextStack++,edge:rp.edge,s,...P,vol:0,value:0,odd:oddzial(P.x,P.y)};J.stacks.push(st);return st;
+ // nowy stos: nie bliżej niż 38 px od innego
+ let s=clamp(rp.s+SORT_OFF[sort],50,rp.edge.len-50);for(let k=0;k<8;k++){const p=stackPos(rp.edge,s);if(!J.stacks.some(q=>Math.hypot(q.x-p.x,q.y-p.y)<38))break;s=clamp(s+(k%2?-1:1)*(k+1)*22,50,rp.edge.len-50)}
+ const P=stackPos(rp.edge,s),st={id:J.nextStack++,edge:rp.edge,s,...P,vol:0,value:0,sort,truck:sort!=='opal',odd:oddzial(P.x,P.y)};J.stacks.push(st);return st;
 }
-export function restoreStack(edgeId,s,vol,value){const e=EDGES.find(q=>q.id===edgeId);if(!e)return null;const P=stackPos(e,s),st={id:J.nextStack++,edge:e,s,...P,vol,value,odd:oddzial(P.x,P.y)};J.stacks.push(st);return st}
+export function restoreStack(edgeId,s,vol,value,sort='tart',truck){const e=EDGES.find(q=>q.id===edgeId);if(!e)return null;const P=stackPos(e,s),st={id:J.nextStack++,edge:e,s,...P,vol,value,sort,truck:truck??sort!=='opal',odd:oddzial(P.x,P.y)};J.stacks.push(st);return st}
 export function addToStack(st,vol,value){st.vol+=vol;st.value+=value}
 export function takeFromStack(st,vol){const q=Math.min(vol,st.vol),val=st.vol>0?st.value*q/st.vol:0;st.vol-=q;st.value-=val;if(st.vol<.05&&!J.truck.route.includes(st)&&J.truck.cur!==st)J.stacks=J.stacks.filter(z=>z!==st);return{q,val}}
 
@@ -197,8 +209,8 @@ function goHome(){
 }
 export function initJobs(){
  J.skid.trac=null;J.skid.phase='idle';
- // drewno z poprzedniego sezonu: dwa stosy przy drogach
- const a=stackFor(780,1300);addToStack(a,2.6,2.6*250);const b=stackFor(1760,850);addToStack(b,1.8,1.8*300);
+ // drewno z poprzedniego sezonu: stosy przy drogach (tartaczne, papierówka, opał dla ludności)
+ addToStack(stackFor(780,1300,'tart'),2.6,2.6*340);addToStack(stackFor(780,1300,'opal'),3.2,3.2*125);addToStack(stackFor(1760,850,'pap'),1.8,1.8*190);addToStack(stackFor(1760,850,'opal'),2.4,2.4*120);
 }
 export function buyForwarder(){
  const S=J.skid,M=MACH.forwarder;
@@ -233,7 +245,7 @@ function skidUpdate(dt){
   for(const p of E.piles)if(p.state==='reserved'||p.state==='winch')p.state='ground';
   if(S.target)S.target.skipT=state.elapsed+600;
   const load=v.load,val=S.val||0,[px,py]=v.pos;v.dead=true;S.trac=null;S.phase='idle';S.watch=0;
-  if(load>0){const st=stackFor(px,py);addToStack(st,load,val)}
+  if(load>0){for(const k of ['tart','pap','opal'])if(S.ls&&S.ls[k]>.01)addToStack(stackFor(px,py,k),S.ls[k],S.lv[k]);S.ls=S.lv=null}
   if(S.owned)spawnMachine('forwarder',true);
   toast(M.name[0].toUpperCase()+M.name.slice(1)+' utknął — odholowano go, ładunek złożono przy drodze.'+(S.owned?'':' Przyjedzie inny ciągnik.'));return;
  }
@@ -263,17 +275,22 @@ function skidUpdate(dt){
    comeBack();return;
   }
   const p=S.cur,[wx,wy]=anchor(v),dx=wx-p.x,dy=wy-p.y,d=Math.hypot(dx,dy);
-  if(d<12){v.load+=p.vol;S.val=(S.val||0)+p.vol*SP[p.sp].price;p.dead=true;S.cur=null;S.wait=M.crane?.5:.8;S.watch=0;sfx(M.crane?'log':'clunk');return}
+  if(d<12){v.load+=p.vol;const ps=pileSorts(p),pv=pileVals(p);S.ls=S.ls||{tart:0,pap:0,opal:0};S.lv=S.lv||{tart:0,pap:0,opal:0};for(const k in ps){S.ls[k]+=ps[k];S.lv[k]+=pv[k]}p.dead=true;S.cur=null;S.wait=M.crane?.5:.8;S.watch=0;sfx(M.crane?'log':'clunk');return}
   const st=Math.min(d,M.pull*dt);p.x+=dx/d*st;p.y+=dy/d*st;p.a+=clamp(Math.atan2(dy,dx)-p.a,-dt*2,dt*2);
   if(M.rope&&rand()<dt*10)particle('dust',p.x,p.y,{col:'#a88c62'});
  }else if(S.phase==='unload'){
   // rozładunek na stos przy drodze (kłody lecą z przyczepy na stos)
-  const st=S.stack,q=Math.min(v.load,dt*1.6),frac=v.load>0?q/v.load:1,vv=(S.val||0)*frac;
-  v.load-=q;S.val=(S.val||0)-vv;addToStack(st,q,vv);S.delivered=(S.delivered||0)+q;
+  // rozładunek po kolei: tartaczne, papierówka, opał — każdy sortyment na swój stos
+  const ls=S.ls||(S.ls={tart:0,pap:0,opal:v.load}),lv=S.lv||(S.lv={tart:0,pap:0,opal:0});
+  const k=['tart','pap','opal'].find(q=>ls[q]>.001)||'opal',st=S.stacks&&S.stacks[k]||(S.stacks=S.stacks||{},S.stacks[k]=stackFor(S.stack.x,S.stack.y,k));
+  const q=Math.min(ls[k],dt*1.6),vv=ls[k]>0?lv[k]*q/ls[k]:0;
+  ls[k]-=q;lv[k]-=vv;v.load=Math.max(0,v.load-q);addToStack(st,q,vv);S.delivered=(S.delivered||0)+q;S.dsort=S.dsort||{};S.dsort[k]=(S.dsort[k]||0)+q;
+  if(ls.tart+ls.pap+ls.opal<=.001)v.load=0;
   if(rand()<dt*8)particle('dust',st.x+(rand()-.5)*20,st.y+(rand()-.5)*20,{col:'#b8a07a'});
   if(v.load<=.001){
-   const d=S.delivered||0;v.load=0;S.val=0;S.delivered=0;S.watch=0;
-   if(d>0){pay(Math.round(d*COST.skid),'zrywka');planProgress('cut',d);toast('Przy drodze w oddz. '+st.odd+' złożono '+displayNumber(d,1)+' m³ (stos: '+displayNumber(st.vol,1)+' m³).')}
+   J.stacks=J.stacks.filter(z=>z.vol>.05||z===J.truck.cur||J.truck.route.includes(z));
+   const d=S.delivered||0,ds=S.dsort||{};v.load=0;S.val=0;S.ls=null;S.lv=null;S.stacks=null;S.delivered=0;S.dsort=null;S.watch=0;
+   if(d>0){pay(Math.round(d*COST.skid),'zrywka');planProgress('cut',d);toast('Przy drodze w oddz. '+st.odd+' złożono '+displayNumber(d,1)+' m³: '+['tart','pap','opal'].filter(k=>ds[k]>.05).map(k=>SORTS[k].short+' '+displayNumber(ds[k],1)).join(', ')+'.')}
    if(freePiles().length&&cal.work(7,17)){S.phase='idle';}
    else{S.phase='idle';goHome()}
   }
@@ -299,7 +316,7 @@ function comeBack(){
  const S=J.skid,v=S.trac,M=MACH[S.mach];
  const toStack=()=>{
   if(v.load<=.001){S.phase='idle';goHome();return}
-  const st=S.stack=stackFor(v.pos[0],v.pos[1]);S.phase='tostack';v.label=M.name+' wiezie '+displayNumber(v.load,1)+' m³ na stos przy drodze';
+  const k0=['tart','pap','opal'].find(q=>S.ls&&S.ls[q]>.001)||'opal',st=S.stack=stackFor(v.pos[0],v.pos[1],k0);S.stacks={[k0]:st};S.phase='tostack';v.label=M.name+' wiezie '+displayNumber(v.load,1)+' m³ na stos przy drodze';
   v.goTo({edge:st.edge,s:st.s},{park:true,onArrive:()=>{S.phase='unload';S.watch=0;v.label='układanie stosu przy drodze'}});
  };
  if(!S.went){toStack();return}
@@ -312,11 +329,11 @@ function comeBack(){
 export function orderTruck(manual=true){
  const T=J.truck;
  if(T.v){if(manual)toast('Ciężarówka już jest w drodze.');return}
- if(stackTotal()<1){if(manual)toast('Przy drogach prawie nie ma drewna ('+displayNumber(stackTotal(),1)+' m³).');return}
+ if(truckTotal()<1){if(manual)toast('Przy drogach prawie nie ma drewna do wywozu ('+displayNumber(truckTotal(),1)+' m³; opał czeka na ludność).');return}
  if(!cal.work(8,15)){T.pending=true;if(manual)toast('Wywóz zamówiony — ciężarówka przyjedzie '+cal.nextStart(8,16)+'.');return}
  T.pending=false;
  // trasa: stosy od największego, potem po kolei najbliższe
- const cand=J.stacks.filter(s=>s.vol>.5).sort((a,b)=>b.vol-a.vol);let cap=30,route=[],pos=[NODES.j3[0],NODES.j3[1]];
+ const cand=J.stacks.filter(s=>s.vol>.5&&forTruck(s)).sort((a,b)=>b.vol-a.vol);let cap=30,route=[],pos=[NODES.j3[0],NODES.j3[1]];
  while(cand.length&&cap>0){cand.sort((a,b)=>Math.hypot(a.x-pos[0],a.y-pos[1])-Math.hypot(b.x-pos[0],b.y-pos[1]));const s=cand.shift();route.push(s);cap-=s.vol;pos=[s.x,s.y]}
  T.route=route;T.v=new Vehicle('truck',{...ENTRY(false),allow:['main','forest']});T.v.cap=30;T.v.label='ciężarówka po drewno';T.val=0;
  toast((manual?'Ciężarówka jedzie po drewno':'Nadleśnictwo wysłało ciężarówkę')+' — stosów do odbioru: '+route.length+'.');
@@ -334,7 +351,7 @@ function nextStop(){
 }
 function truckUpdate(dt){
  const T=J.truck,v=T.v;
- if(!v){if((T.pending||(J.auto&&stackTotal()>=16))&&cal.work(8,15))orderTruck(T.pending);return}
+ if(!v){if((T.pending||(J.auto&&truckTotal()>=16))&&cal.work(8,15))orderTruck(T.pending);return}
  if(v.dead){T.v=null;T.phase='idle';T.cur=null;return}
  if(T.phase==='load'){
   if(T.wait>0){T.wait-=dt;return}
@@ -344,7 +361,7 @@ function truckUpdate(dt){
  }
 }
 // Drewno opałowe dla ludności: kupujący odbiera je sam ze stosu.
-export function opalStack(vol){const c=J.stacks.filter(s=>s.vol>=vol+.2&&s!==J.truck.cur&&!J.truck.route.includes(s));if(!c.length)return null;return c.sort((a,b)=>Math.hypot(a.x-560,a.y-300)-Math.hypot(b.x-560,b.y-300))[0]}
+export function opalStack(vol){const c=J.stacks.filter(s=>s.sort==='opal'&&s.vol>=vol+.2&&s!==J.truck.cur&&!J.truck.route.includes(s));if(!c.length)return null;return c.sort((a,b)=>Math.hypot(a.x-560,a.y-300)-Math.hypot(b.x-560,b.y-300))[0]}
 export function updateJobs(dt){
  for(const C of J.crews){
   if(C.held.length&&!(cal.season()===3&&C.held.some(k=>k.type==='plant'))){const back=C.held.filter(k=>!holdReason(k));C.held=C.held.filter(k=>holdReason(k));C.tasks.push(...back)}
@@ -358,13 +375,15 @@ const rect2=(g,x,y,w,h,c)=>{g.fillStyle=c;g.fillRect(Math.round(x),Math.round(y)
 export function drawStacks(g){
  for(const st of J.stacks){
   if(st.vol<.05)continue;
-  const n=clamp(Math.ceil(st.vol*1.1),1,14),L=34,{x,y,ax,ay,nx,ny}=st;
+  const sort=st.sort||'tart',L={tart:34,pap:24,opal:13}[sort],th=sort==='tart'?4:3,n=clamp(Math.ceil(st.vol*(sort==='tart'?1.1:1.5)),1,16),{x,y,ax,ay,nx,ny}=st;
   g.save();g.translate(Math.round(x),Math.round(y));g.rotate(Math.atan2(ay,ax));   // oś X wzdłuż drogi
   const side=Math.sign(nx*-ay+ny*ax)||1;   // na zewnątrz drogi
-  g.fillStyle='#2b3b2a40';g.fillRect(-L/2+3,3*side,L,n*4*side);
-  for(const ox of [-10,8])rect2(g,-L/2+ox+8,-2*side,3,(n*4+4)*side,'#5a4634');   // podkłady
-  for(let k=0;k<n;k++){const yy=side>0?k*4:-(k+1)*4,top=k>=n-3;
-   rect2(g,-L/2,yy,L,4,'#4a3624');rect2(g,-L/2,yy+1,L,2,top?'#b8844a':'#9a6a40');rect2(g,-L/2,yy,2,4,'#e3c08a');rect2(g,L/2-2,yy,2,4,'#d8b47c')}
+  g.fillStyle='#2b3b2a40';g.fillRect(-L/2+3,3*side,L,n*th*side);
+  for(const ox of sort==='opal'?[-2]:[-10,8])rect2(g,-L/2+ox+(sort==='opal'?6:8),-2*side,3,(n*th+4)*side,'#5a4634');   // podkłady
+  for(let k=0;k<n;k++){const yy=side>0?k*th:-(k+1)*th,top=k>=n-3;
+   const bark=sort==='opal'?(k%3?'#6e5a48':'#8a7a68'):sort==='pap'?'#7a6048':'#9a6a40';
+   rect2(g,-L/2,yy,L,th,'#4a3624');rect2(g,-L/2,yy+1,L,th-2,top?'#b8844a':bark);rect2(g,-L/2,yy,2,th,'#e3c08a');rect2(g,L/2-2,yy,2,th,'#d8b47c')}
+  if(st.truck===false&&sort==='opal'){rect2(g,L/2+2,-8*side-2,2,8,'#6b563d');rect2(g,L/2-1,-10*side-3,8,5,'#e8e0c8')}   // tabliczka „opał dla ludności”
   g.restore();
  }
 }

@@ -52,10 +52,16 @@ function paintRoads(){
   const [x,y,w,h]=edgeRect(e,0);
   for(let i=0;i<w*h/8;i++){const px=x+hash(i,301,w)*(w-1)|0,py=y+hash(i,302,h)*(h-1)|0;rect(g,px,py,1+(i%5===0),1,['#6c7175','#81868a','#70757a'][i%3])}
   for(let i=0;i<w*h/3600;i++){const px=x+hash(i,310)*(w-14)|0,py=y+hash(i,311)*(h-8)|0;rect(g,px,py,12+(i%4)*6,5+(i%3)*2,i%3?'#727779':'#7d8285')}
-  for(let xx=Math.ceil(x/40)*40;xx<x+w;xx+=40){if([820,1700,2600].some(j=>Math.abs(xx+10-j)<42))continue;rect(g,xx,1719,22,2,'#e6e4d8')}
+  for(let xx=Math.ceil(x/40)*40;xx<x+w;xx+=40){if(Object.keys(NODES).some(k=>k[0]==='j'&&Math.abs(xx+10-NODES[k][0])<42))continue;rect(g,xx,1719,22,2,'#e6e4d8')}
  }
  // rów przy drodze głównej (po południowej stronie) z wodą w zagłębieniach
- rect(g,0,1764,WORLD.w,9,'#6a8656');rect(g,0,1767,WORLD.w,4,'#56724a');for(let x=0;x<WORLD.w;x+=34)rect(g,x+(hash(x,7)*10|0),1768,8,2,'#7fa3a0');
+ // 0.6.2: rów przerwany na wjazdach w drogi leśne — tam przepusty (betonowe rury pod drogą)
+ // skrzyżowania szosy z drogami leśnymi biegnącymi na południe
+ const gaps=Object.keys(NODES).filter(k=>NODES[k][1]===1720&&EDGES.some(e=>e.kind==='forest'&&(e.a===k||e.b===k)&&NODES[e.a===k?e.b:e.a][1]>1720)).map(k=>NODES[k][0]).sort((a,b)=>a-b);
+ let x0=0;for(const gx of [...gaps,WORLD.w+100]){const x1=Math.min(WORLD.w,gx-30);
+  if(x1>x0){rect(g,x0,1764,x1-x0,9,'#6a8656');rect(g,x0,1767,x1-x0,4,'#56724a');for(let x=x0;x<x1-8;x+=34)rect(g,x+(hash(x,7)*10|0)%Math.max(1,x1-x-8),1768,8,2,'#7fa3a0')}
+  if(gx<=WORLD.w)for(const sx of [gx-31,gx+27]){rect(g,sx,1763,4,11,'#8e8e86');rect(g,sx+1,1766,2,5,'#4a4e4a')}
+  x0=gx+30}
 }
 // Pobocza: kępy traw, kwiaty, krzewy (leszczyna, kruszyna, jeżyny).
 function paintVerges(){

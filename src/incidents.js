@@ -6,7 +6,7 @@ import {nearestRoad,goalNode,offMap,ENTRY,exitNode} from './roads.js';
 import {E,NAV} from './ents.js';
 import {Vehicle,Ped,Wild,Group,rand} from './life/agents.js';
 import {pay,bumpProtect,bumpDamage,planProgress,stat,ECO,canAfford} from './economy.js';
-import {treesIn,STAND,STUMP,dirtyTree,crownR,trees,removeTree,SAPLING_AGE} from './forest.js';
+import {treesIn,STAND,STUMP,dirtyTree,crownR,trees,removeTree,SAPLING_AGE,THIN_AGE,QUAL} from './forest.js';
 import {sfx} from './sound.js';
 import {J,takeFromStack} from './jobs.js';
 
@@ -98,7 +98,11 @@ class Unit{
  carDoor(){const v=this.car,h=v.heading;return[v.pos[0]-Math.cos(h)*14,v.pos[1]-Math.sin(h)*14]}
  out(){const r=this.person,[x,y]=this.carDoor();r.x=x;r.y=y;r.hidden=false;r.heading=0;return r}
  startNext(){
-  const inc=this.queue.shift();
+  // 0.6.2: najpierw pożar, potem zgłoszenie najbliżej terenówki (na dużej mapie kolejność „po drodze” oszczędza godziny)
+  this.queue=this.queue.filter(q=>q.status!=='done'&&q.status!=='gone');
+  const [cx,cy]=this.car.pos,fire=this.queue.find(q=>q.type==='fire');
+  const inc=fire||this.queue.slice().sort((a,b)=>Math.hypot(a.x-cx,a.y-cy)-Math.hypot(b.x-cx,b.y-cy))[0];
+  if(inc)this.queue=this.queue.filter(q=>q!==inc);
   if(!inc){this.goHome();return}
   this.cur=inc;inc.status='assigned';inc.unit=this;pay(35,'paliwo — wyjazd patrolu');
   const r=this.person;
@@ -108,7 +112,7 @@ class Unit{
   r.run([{go:this.carDoor()},{call:q=>{q.hidden=true;this.drive(inc)}}]);
  }
  drive(inc){
-  const c=this.car;this.phase='driving';c.beacon=inc.type!=='feed';c.label=this.name+' jedzie: '+inc.text;
+  const c=this.car;this.phase='driving';c.beacon=inc.type!=='feed'&&inc.type!=='assess';c.label=this.name+' jedzie: '+inc.text;
   if(inc.type==='quad'){this.chase(inc);return}
   const rp=nearestRoad(inc.x,inc.y,['main','forest']);
   c.goTo({edge:rp.edge,s:rp.s},{park:true,pen:400,onArrive:()=>this.onSite(inc)});
@@ -119,7 +123,21 @@ class Unit{
   if(inc.status==='gone'||(inc.ref&&inc.ref.dead&&inc.type!=='fire'&&inc.type!=='feed')){this.finish(inc,false);return}
   const r=this.out(),U=this,tx=inc.type==='quad'?inc.ref.pos[0]:inc.x,ty=inc.type==='quad'?inc.ref.pos[1]:inc.y,back={go:this.carDoor()};
   const done=ok=>({call:q=>{q.hidden=true;q.prop=null;U.finish(inc,ok)}});
-  if(inc.type==='trash')r.run([{go:[tx-6,ty]},{wait:2.2,pose:'kneel',face:[tx,ty]},{call:()=>{inc.ref.dead=true;r.prop='bag'}},back,done(true)]);
+  if(inc.type==='trash'){
+   // przy okazji zbiera inne śmieci i wnyki w promieniu ok. 18 m (także te jeszcze niezgłoszone)
+   const near=E.trash.filter(t=>t!==inc.ref&&!t.dead&&!t.fire&&Math.hypot(t.x-tx,t.y-ty)<220).slice(0,3),steps=[];
+   for(const t of [inc.ref,...near])steps.push({go:[t.x-6,t.y]},{wait:2.2,pose:'kneel',face:[t.x,t.y]},{call:()=>{t.dead=true;r.prop='bag';if(t.inc&&t.inc!==inc&&t.inc.status!=='done'){t.inc.status='done';for(const u of U)u.queue=u.queue.filter(q=>q!==t.inc)}}});
+   r.run([...steps,back,done(true)]);
+  }
+  else if(inc.type==='assess'){
+   // obchód fragmentu oddziału zygzakiem; po drodze ocena jakości drzew i cechowanie wadliwych do usunięcia (trzebież)
+   const A=inc.ref,steps=[];let row=0;
+   for(let y=A.y-A.r+45;y<=A.y+A.r-45;y+=95,row++){const w=Math.sqrt(Math.max(0,A.r*A.r-(y-A.y)**2))-30;if(w<40)continue;
+    const xs=[];for(let x=A.x-w;x<=A.x+w;x+=105)xs.push(x);if(row%2)xs.reverse();
+    for(const x of xs)if(NAV.foot.walkable(x,y))steps.push({go:[x,y]},{call:()=>reveal(A,x,y)},{wait:.6,pose:'stand'})}
+   r.label=this.name+' — ocena drzewostanu';
+   r.run([...steps,{call:q=>{q.label=this.name}},back,done(true)]);
+  }
   else if(inc.type==='feed')r.run([{go:[tx-14,ty+8]},{wait:4,pose:'kneel',face:[tx,ty]},{call:()=>{inc.ref.level=1;inc.ref.task=null;pay(ECO.feedCost||120,'karma dla zwierzyny')}},back,done(true)]);
   else if(inc.type==='fire')r.run([{go:[tx-10,ty+6]},{wait:5,pose:'saw',face:[tx,ty],tick:(q,dt)=>{inc.ref.grow=Math.max(0,inc.ref.grow-dt*.3)}},{call:()=>{inc.ref.dead=true}},back,done(true)]);
   else if(inc.type==='intruder'){
@@ -140,6 +158,7 @@ class Unit{
   inc.status='done';this.cur=null;
   if(ok){
    const k=inc.type==='intruder'?inc.ref.intruder:inc.type,snare=inc.type==='trash'&&inc.ref.kind==='snare';
+   if(k==='assess'){const A=inc.ref;toast('Ocena drzewostanu (oddz. '+oddzial(A.x,A.y)+'): dorodne '+A.n[0]+', przeciętne '+A.n[1]+', wadliwe '+A.n[2]+'. Do trzebieży oznaczono '+A.marked+' drzew — E: wyślij ekipę.');this.startNext();return}
    const gain={quad:6,poacher:9,thief:7,xmas:5,fire:5,feed:1}[k]??(snare?3:2);bumpProtect(gain);planProgress('handle',1);
    toast({quad:'Kontrola zakończona: kierujący ukarany mandatem.',poacher:'Kłusownik zatrzymany, wnyki zebrane.',thief:'Złodziej drewna zatrzymany, drewno wróciło na stos.',xmas:'Złodziej choinek zatrzymany.',fire:'Zarzewie ugaszone.',feed:'Paśnik uzupełniony karmą.'}[k]||(snare?'Wnyki usunięte.':'Śmieci zebrane.'));
   }
@@ -229,4 +248,17 @@ function burn(f){
 }
 export const openIncidents=()=>E.incidents.filter(open_);
 // Zadanie „dowieź karmę” (paśniki zimą) — zgłasza moduł zwierzyny.
+// ── ocena drzewostanu i cechowanie (0.6.2) ──
+// Leśniczy obchodzi okolicę (promień ok. 23 m), poznaje jakość drzew i oznacza wadliwe (krzywe, chore) do usunięcia w trzebieży.
+function reveal(A,x,y){
+ for(const t of treesIn(x-95,y-95,x+95,y+95)){if(t.st!==STAND||t.qk||Math.hypot(t.x-x,t.y-y)>95||t.age<SAPLING_AGE)continue;
+  t.qk=true;A.n[t.q]++;
+  if(t.q===2&&t.age>=THIN_AGE&&!t.marked&&!t.assigned&&!t.uprawa){t.marked=true;A.marked++}}
+}
+export const assessing=(x,y)=>E.incidents.some(q=>q.type==='assess'&&q.status!=='done'&&q.status!=='gone'&&Math.hypot(q.x-x,q.y-y)<q.ref.r);
+export function orderAssess(x,y){
+ if(assessing(x,y)){toast('Ocena w tym miejscu jest już zlecona.');return}
+ const inc=report('assess',x,y,'Ocena drzewostanu i cechowanie — oddz. '+oddzial(x,y)+'.',{x,y,r:250,n:[0,0,0],marked:0},true);
+ toast('Zlecono ocenę drzewostanu w oddz. '+oddzial(x,y)+': leśniczy obejdzie okolicę i oznaczy wadliwe drzewa do trzebieży.');dispatch(inc);
+}
 export function feedTask(f,name){return report('feed',f.x,f.y,'Paśnik '+name+' pusty — trzeba dowieźć karmę.',f)}

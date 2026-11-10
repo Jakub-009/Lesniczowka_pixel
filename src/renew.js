@@ -24,6 +24,24 @@ function spotOk(x,y){
  return !J.plants.some(q=>Math.hypot(q.x-x,q.y-y)<9);
 }
 export function spotsIn(x0,y0,w,h){const out=[];for(let y=y0+9;y<y0+h-5;y+=ROW)for(let x=x0+8;x<x0+w-5;x+=STEP)if(spotOk(x,y))out.push([x,y]);return out}
+// ── skład gatunkowy nasadzenia (0.6.2): rzędy z domieszką albo gniazda dębu ──
+export const MIXES={
+ so:{name:'sosna'},sobrz:{name:'sosna z domieszką brzozy (co 5. rząd)'},sodb:{name:'sosna z dębem w gniazdach'},
+ sw:{name:'świerk'},swbk:{name:'świerk z bukiem (co 3. rząd)'},bkdb:{name:'buk z dębem (grąd)'},db:{name:'dąb'},brz:{name:'brzoza'}};
+export const MIX_ORDER=Object.keys(MIXES);
+const MIX_OF={sosna:'sobrz',swierk:'swbk',dab:'bkdb',buk:'bkdb',brzoza:'brz'};
+export const mixFor=sp=>MIX_OF[sp]||'so';
+export function mixSp(p,x,y){
+ const r=Math.round((y-(p.y+9))/ROW),m=p.mix||mixFor(p.sp);
+ if(m==='so')return'sosna';if(m==='sw')return'swierk';if(m==='db')return'dab';if(m==='brz')return'brzoza';
+ if(m==='sobrz')return r%5===4?'brzoza':'sosna';
+ if(m==='swbk')return r%3===2?'buk':'swierk';
+ if(m==='bkdb')return r%3===0?'dab':'buk';
+ // gniazda dębu: koła ok. 3 m promienia co ok. 12 m
+ const gx=p.x+70+Math.round((x-p.x-70)/140)*140,gy=p.y+60+Math.round((y-p.y-60)/120)*120;
+ return Math.hypot(x-gx,y-gy)<34?'dab':'sosna';
+}
+export function cycleMix(p){const i=MIX_ORDER.indexOf(p.mix||mixFor(p.sp));p.mix=MIX_ORDER[(i+1)%MIX_ORDER.length];toast('Skład P'+p.id+': '+MIXES[p.mix].name+'.')}
 export function plotStats(p){
  let stand=0,stumps=0,slash=0,young=0;
  for(const t of treesIn(p.x,p.y,p.x+p.w,p.y+p.h)){if(t.st===STUMP){stumps++;if(t.slash)slash++}else if(t.age<SAPLING_AGE)young++;else stand++}
@@ -32,7 +50,7 @@ export function plotStats(p){
 export function createPlot(x0,y0,x1,y1){
  const x=Math.round(Math.min(x0,x1)),y=Math.round(Math.min(y0,y1)),w=Math.round(Math.abs(x1-x0)),h=Math.round(Math.abs(y1-y0));
  if(w<48||h<40){toast('Za mała powierzchnia — zaznacz większy obszar.');return null}
- const p={id:R.nextId++,x,y,w,h,state:'new',prepared:false,planted:0,toPlant:0,sp:speciesFor(x+w/2,y+h/2),odd:oddzial(x+w/2,y+h/2)};
+ const sp0=speciesFor(x+w/2,y+h/2),p={id:R.nextId++,x,y,w,h,state:'new',prepared:false,planted:0,toPlant:0,sp:sp0,mix:mixFor(sp0),odd:oddzial(x+w/2,y+h/2)};
  R.plots.push(p);toast('Powierzchnia odnowieniowa P'+p.id+' ('+displayNumber(areaHa(p),2)+' ha). Wybierz pracę na karcie.');
  return p;
 }
@@ -93,9 +111,9 @@ export function orderPlant(p){
  if(!spots.length){toast('Brak wolnych miejsc na sadzonki w tej powierzchni.');return}
  if(!canAfford(Math.min(spots.length,40)*COST.plant))return;
  const tasks=[];
- for(const [x,y] of spots){const q={x,y,sp:p.sp,assigned:true,plot:p.id,prep:p.prepared,onDone:()=>{p.planted++;if(p.planted>=p.toPlant){p.state='planted';toast('P'+p.id+' obsadzona: '+p.planted+' sadzonek ('+SP[p.sp].name.split(' ')[0]+').')}}};J.plants.push(q);tasks.push({type:'plant',p:q})}
+ for(const [x,y] of spots){const q={x,y,sp:mixSp(p,x,y),assigned:true,plot:p.id,prep:p.prepared,onDone:()=>{p.planted++;if(p.planted>=p.toPlant){p.state='planted';toast('P'+p.id+' obsadzona: '+p.planted+' sadzonek ('+MIXES[p.mix||mixFor(p.sp)].name+').')}}};J.plants.push(q);tasks.push({type:'plant',p:q})}
  p.state='planting';p.toPlant=p.planted+spots.length;
- addCrewTasks(tasks,'Sadzenie na P'+p.id+': '+spots.length+' sadzonek ('+SP[p.sp].name.split(' ')[0]+(p.prepared?', w bruzdach':', bez przygotowania gleby')+').');
+ addCrewTasks(tasks,'Sadzenie na P'+p.id+': '+spots.length+' sadzonek ('+MIXES[p.mix||mixFor(p.sp)].name+(p.prepared?', w bruzdach':', bez przygotowania gleby')+').');
 }
 // Szybkie sadzenie obszarem (narzędzie 3): rzędy zaplanowanych sadzonek bez przygotowania gleby.
 export function planAreaPlants(x0,y0,x1,y1){

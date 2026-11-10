@@ -2,7 +2,7 @@
 // korony → „prześwit” postaci pod koronami → padające drzewa, dym, znaczniki → noc i światła.
 import {ctx,VIEW,camera,state,fx,clamp,cal,DEBUG,rect,SETTINGS,RT,LIGHT} from './core.js';
 import {ground,markChunks,drawAmbona} from './paint.js';
-import {drawForest,trees,crownR,paintCrown,SP,STAND} from './forest.js';
+import {drawForest,prefetchForest,trees,crownR,paintCrown,SP,STAND,QUAL,SAPLING_AGE,treesIn} from './forest.js';
 import {outlinedDraw} from './sprite.js';
 import {E} from './ents.js';
 import {drawGroundItems,drawRopes,J} from './jobs.js';
@@ -17,6 +17,9 @@ function blitGround(cv=ground){
  const cx=Math.floor(camera.x),cy=Math.floor(camera.y),sx=Math.max(0,cx),sy=Math.max(0,cy),ex=Math.min(cv.width,cx+VIEW.w),ey=Math.min(cv.height,cy+VIEW.h);
  if(ex>sx&&ey>sy)ctx.drawImage(cv,sx,sy,ex-sx,ey-sy,sx,sy,ex-sx,ey-sy);
 }
+// w tle domalowujemy cały las (najpierw najbliżej kamery), żeby przesuwanie po mapie nie przycinało
+let prefDone=false;
+export function prefetchAll(ms){return prefetchForest(camera,VIEW.w,VIEW.h,ms,true)===0}
 function blitMarks(){for(const c of markChunks)if(c&&vis(c.x+128,c.y+128,190))ctx.drawImage(c.cv,c.x,c.y)}
 function drawTrash(){
  for(const t of E.trash){if(t.dead||t.fire||!vis(t.x,t.y))continue;const x=Math.round(t.x),y=Math.round(t.y);
@@ -57,6 +60,8 @@ function drawMarkers(){
  // drzewa wyznaczone do wycinki: pomarańczowa obwódka i kropka farby
  for(const t of trees){if(!t.marked&&!t.assigned)continue;if(t.st!==STAND||t.falling||t.lying||!vis(t.x,t.y))continue;
   const r=crownR(t)*.62;ring(t.x,t.y,r,t.assigned?'#ffd06a':'#ff7a2e',2,t.assigned?[3,3]:null);rect(ctx,t.x-2,t.y-2,4,4,'#ff5a1e');rect(ctx,t.x-1,t.y-1,2,2,'#ffd2a8')}
+ // 0.6.2: przy narzędziu Wycinka — oceniona jakość drzew (zielona / żółta / czerwona kropka)
+ if(state.tool==='mark')for(const t of treesIn(camera.x,camera.y,camera.x+VIEW.w,camera.y+VIEW.h)){if(!t.qk||t.st!==STAND||t.marked||t.assigned||t.falling||t.lying||t.age<SAPLING_AGE)continue;rect(ctx,t.x-2,t.y-2,5,5,'#1a2a20');rect(ctx,t.x-1,t.y-1,3,3,QUAL[t.q].col)}
  // zgłoszenia: pinezka z wykrzyknikiem
  for(const q of E.incidents){if(q.status==='done'||q.status==='gone')continue;
   const x=Math.round(q.x),y=Math.round(q.y)-18-Math.round(pulse*3),col=q.type==='fire'?'#e0482f':q.type==='quad'||q.type==='intruder'?'#e8a32e':q.type==='feed'?'#8ac0e0':'#d8c23a';
@@ -103,7 +108,7 @@ export function drawWorld(){
  for(const v of E.vehicles)if(!v.dead)v.draw();
  drawRopes(ctx);
  drawAmbona(ctx);for(const p of E.people)if(p.onStand)p.draw();
- drawForest(ctx,camera,VIEW.w,VIEW.h,'high');
+ drawForest(ctx,camera,VIEW.w,VIEW.h,'high');prefetchForest(camera,VIEW.w,VIEW.h,3);if(!prefDone)prefDone=prefetchAll(4);
  // prześwit: zwierzęta i ludzie pod koronami widoczni jako półprzezroczyste sylwetki
  if(SETTINGS.ghosts){ctx.globalAlpha=.5;for(const a of E.animals)if(!a.dead)a.draw();for(const p of E.people)if(!p.onStand)p.draw();for(const v of E.vehicles)if(v.off&&!v.dead)v.draw();ctx.globalAlpha=1}
  drawFire();drawFalling();drawParticles();drawPlots(ctx,state.selected);drawMarkers();

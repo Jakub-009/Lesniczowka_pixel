@@ -1,21 +1,21 @@
 // HUD w HTML (styl farmy): trzy wskaźniki, zegar i kalendarz, narzędzia, plan na sezon, zgłoszenia, karta wybranego obiektu.
 import {$,state,cal,SEASONS,DOW,displayNumber,zl,SETTINGS,camera,VIEW,clamp,toast} from './core.js';
-import {SP,STAND,STUMP,SAPLING_AGE,CUT_AGE,crownR,heightM,dbhCm,volume,counts,treesIn} from './forest.js';
+import {SP,STAND,STUMP,SAPLING_AGE,CUT_AGE,THIN_AGE,crownR,heightM,dbhCm,volume,counts,treesIn,QUAL,SORTS,sortSplit,treeValue} from './forest.js';
 import {STANDS,oddzial} from './map.js';
-import {J,COST,PRICE,MACH,pendingCount,toggleMark,dispatchCrew,orderTruck,togglePlant,buyForwarder,stackTotal,stackValue,hireCrewB,fireCrewB} from './jobs.js';
-import {R,plotStats,prepCost,areaHa,spotsIn,orderPrep,orderPlant,removePlot,rowsOf,fenceCost,orderFence,orderRepel,repelCost,seasonKey} from './renew.js';
+import {J,COST,PRICE,MACH,pendingCount,toggleMark,dispatchCrew,orderTruck,togglePlant,buyForwarder,stackTotal,stackValue,hireCrewB,fireCrewB,truckTotal,pileSorts} from './jobs.js';
+import {R,plotStats,prepCost,areaHa,spotsIn,orderPrep,orderPlant,removePlot,rowsOf,fenceCost,orderFence,orderRepel,repelCost,seasonKey,MIXES,mixFor,cycleMix,mixSp} from './renew.js';
 import {ECO,dailyCost} from './economy.js';
 import {E} from './ents.js';
-import {dispatch,openIncidents,U} from './incidents.js';
+import {dispatch,openIncidents,U,orderAssess,assessing} from './incidents.js';
 import {FA,NAMES,pressure,planLeft,requestReduction} from './life/fauna.js';
-import {BASE,BUILD,buildNursery,buildGarage,hireDeputy,fireDeputy} from './base.js';
+import {BASE,BUILD,buildNursery,buildGarage,hireDeputy,fireDeputy,NPLANS,cycleNursery,nurseryText} from './base.js';
 import {VSPEC,ASPEC} from './life/agents.js';
 
 export function lat(n){n=Math.round(n);const d=n%10,dd=n%100;return n+(n===1?' rok':(d>=2&&d<=4&&!(dd>=12&&dd<=14))?' lata':' lat')}
 const pct=v=>Math.round(v)+'%';
 function barCol(v){return v>=70?'#8ec86a':v>=50?'#d8b665':'#e0704f'}
 export function setTool(t){state.tool=t;state.hover=null;state.box=null;for(const b of document.querySelectorAll('[data-tool]'))b.classList.toggle('on',b.dataset.tool===t);
- const msg={select:'Podgląd: kliknij drzewo, zwierzę, pojazd, zgłoszenie albo powierzchnię.',mark:'Wycinka: klik = drzewo (od '+CUT_AGE+' lat), przeciągnij = obszar. Prawy przycisk przesuwa mapę.',plant:'Sadzenie: klik = sadzonka, przeciągnij = rzędy sadzonek (bez przygotowania gleby).',plot:'Odnowienie: przeciągnij obszar zrębu → pług LPz → sadzenie w rzędach.'}[t];
+ const msg={select:'Podgląd: kliknij drzewo, zwierzę, pojazd, zgłoszenie albo powierzchnię.',mark:'Wycinka: klik = drzewo (trzebież od '+THIN_AGE+' lat), przeciągnij = obszar (od '+CUT_AGE+' lat). Kolorowe kropki = oceniona jakość. Prawy przycisk przesuwa mapę.',plant:'Sadzenie: klik = sadzonka, przeciągnij = rzędy sadzonek (bez przygotowania gleby).',plot:'Odnowienie: przeciągnij obszar zrębu → pług LPz → sadzenie w rzędach.'}[t];
  $('#toolhint').textContent=msg;}
 let incSig='',infoSig='',taskSig='';
 export function hud(){
@@ -28,7 +28,7 @@ export function hud(){
  $('#health').textContent=pct(state.health);$('#healthbar').style.width=clamp(state.health,0,100)+'%';$('#healthbar').style.background=barCol(state.health);
  $('#protect').textContent=pct(state.protect);$('#protectbar').style.width=clamp(state.protect,0,100)+'%';$('#protectbar').style.background=barCol(state.protect);
  const n=pendingCount();$('#crewn').textContent=n?'('+n+')':'';$('#crewbtn').classList.toggle('hot',n>0);
- const ns=J.stacks.filter(q=>q.vol>.05).length;$('#stackinfo').textContent=displayNumber(stackTotal(),1)+' m³ w '+ns+(J.truck.v?' · TIR':J.truck.pending?' · zamów.':'');$('#stackinfo').title=ns+' stosów przy drogach';
+ const ns=J.stacks.filter(q=>q.vol>.05).length;$('#stackinfo').textContent=displayNumber(stackTotal(),1)+' m³ (opał '+displayNumber(stackTotal(q=>q.sort==='opal'),1)+')'+(J.truck.v?' · TIR':J.truck.pending?' · zamów.':'');$('#stackinfo').title=ns+' stosów przy drogach';
  $('#market').textContent='×'+displayNumber(ECO.market,2);
  $('#daily').textContent=zl(dailyCost());
  const crewTxt=C=>{const nt=C.tasks.length+C.cluster.length,held=C.held.length;
@@ -59,21 +59,29 @@ function treeInfo(t){
   return{title:t.burnt?'Spalony pniak':'Pniak — '+sp.name,lines:['Oddział '+st.name+' · '+st.desc,ren?'Odnowione: obok rośnie młode drzewko.':'Nieodnowione — zaplanuj sadzonkę obok (narzędzie 3).'],btns:ren?[]:[['plantnear','Zaplanuj sadzonkę obok']]};
  }
  if(t.age<SAPLING_AGE)return{title:'Sadzonka — '+sp.name,lines:['Oddział '+st.name+(t.uprawa?' · uprawa w grodzeniu':''),'Wiek: '+lat(t.age)+' · wys. ok. '+displayNumber(Math.max(.2,heightM(t)),1)+' m'],btns:[]};
+ const f=sortSplit(t);
  const lines=['Oddział '+st.name+' · '+st.desc,'Wiek: '+lat(t.age)+' · wysokość '+Math.round(heightM(t))+' m','Pierśnica '+Math.round(dbhCm(t))+' cm · miąższość '+displayNumber(volume(t),2)+' m³',
-  'Wartość drewna ok. '+zl(volume(t)*sp.price)+' · koszt ścinki '+zl(COST.fell)];
+  t.qk?'Jakość: '+QUAL[t.q].name:'Jakość: nieoceniona — zleć ocenę drzewostanu',
+  t.qk?'Sortymenty: '+['tart','pap','opal'].filter(k=>f[k]>0).map(k=>SORTS[k].short+' '+Math.round(f[k]*100)+'%').join(', ')+' · wartość ok. '+zl(treeValue(t)):'Wartość drewna zależy od jakości (tartaczne / papierówka / opał).',
+  'Koszt ścinki '+zl(COST.fell)];
  if(t.assigned)lines.push('Ekipa ma je na liście.');
- return{title:sp.name[0].toUpperCase()+sp.name.slice(1),lines,btns:t.assigned?[]:t.age<CUT_AGE?[]:[['mark',t.marked?'Usuń oznaczenie':'Wyznacz do wycinki']]};
+ const btns=t.assigned||t.age<THIN_AGE?[]:[['mark',t.marked?'Usuń oznaczenie':t.age<CUT_AGE||t.q===2&&t.qk?'Wyznacz do trzebieży':'Wyznacz do wycinki']];
+ if(!t.qk&&!assessing(t.x,t.y))btns.push(['assess','Ocena drzewostanu i cechowanie (okolica)']);
+ if(assessing(t.x,t.y))lines.push('Leśniczy ma tu zleconą ocenę drzewostanu.');
+ return{title:sp.name[0].toUpperCase()+sp.name.slice(1),lines,btns};
 }
 function plotInfo(p){
  const st=plotStats(p),spots=p.state==='planting'||p.state==='planted'?0:spotsIn(p.x,p.y,p.w,p.h).length,stName={new:'nowa',queued:'czeka na pług',prepping:'trwa orka',prepared:'gleba przygotowana',planting:'trwa sadzenie',planted:'obsadzona'}[p.state];
- const lines=['Oddział '+p.odd+' · '+displayNumber(areaHa(p),2)+' ha · '+rowsOf(p).length+' rzędów','Stan: '+stName+' · gatunek: '+SP[p.sp].name,
+ const lines=['Oddział '+p.odd+' · '+displayNumber(areaHa(p),2)+' ha · '+rowsOf(p).length+' rzędów','Stan: '+stName+' · skład: '+MIXES[p.mix||mixFor(p.sp)].name,
   'Pniaki: '+st.stumps+(st.slash?' (gałęzie: '+st.slash+')':'')+' · drzewa: '+st.stand+' · sadzonki: '+st.young];
  if(st.stand)lines.push('Stojące drzewa zostaną ominięte — możesz je najpierw wyciąć (narzędzie 2).');
  if(p.state==='planting')lines.push('Posadzono '+p.planted+' z '+p.toPlant+'.');
  const btns=[];
  if(!p.prepared&&p.state==='new')btns.push(['prep','Przygotuj glebę (pług LPz) · '+zl(prepCost(p))]);
- const nur=ECO.nursery&&ECO.nursery.stock>0;
- if(spots&&(p.state==='new'||p.state==='prepared'||p.state==='planted'))btns.push(['plantplot','Sadź w rzędach: '+spots+' szt. · '+zl(spots*(nur?COST.plantNursery:COST.plant))+(nur?' (szkółka)':'')+(p.prepared?'':' (bez orki)')]);
+ // koszt z uwzględnieniem sadzonek ze szkółki (osobno dla każdego gatunku)
+ let fromNur=0;if(spots&&ECO.nursery&&ECO.nursery.sp){const need={};for(const [x,y] of spotsIn(p.x,p.y,p.w,p.h)){const k=mixSp(p,x,y);need[k]=(need[k]||0)+1}for(const k in need)fromNur+=Math.min(need[k],ECO.nursery.sp[k]||0)}
+ if(p.state==='new'||p.state==='prepared')btns.push(['mix','Zmień skład gatunkowy']);
+ if(spots&&(p.state==='new'||p.state==='prepared'||p.state==='planted'))btns.push(['plantplot','Sadź w rzędach: '+spots+' szt. · '+zl(fromNur*COST.plantNursery+(spots-fromNur)*COST.plant)+(fromNur?' ('+fromNur+' ze szkółki)':'')+(p.prepared?'':' (bez orki)')]);
  if(!p.fence)btns.push(['fence','Ogródź siatką · '+zl(fenceCost(p))]);
  if(p.fence!=='done'&&st.young>0&&p.repel!==seasonKey())btns.push(['repel','Repelent na sezon · '+zl(repelCost(p))]);
  if(p.repel===seasonKey()&&p.fence!=='done')lines.push('Repelent naniesiony — chroni do końca tej pory roku.');
@@ -87,13 +95,16 @@ function info(){
  let I;
  if(s.st!==undefined)I=treeInfo(s);
  else if(s.text)I={title:{quad:'Nielegalny wjazd',fire:'Dym nad lasem',intruder:'Nocny intruz',feed:'Paśnik do uzupełnienia',trash:'Śmieci w lesie'}[s.type]||'Zgłoszenie',lines:[s.text,s.type==='feed'?'Karma: '+zl(ECO.feedCost||120)+' + paliwo. Pusty paśnik zimą = większe straty zwierzyny i więcej zgryzania.':'',{new:'Czeka na decyzję.',queued:'W kolejce patrolu.',assigned:'Patrol w drodze.'}[s.status]||''].filter(Boolean),btns:s.status==='new'?[['patrol',s.type==='feed'?'Dowieź karmę':'Wyślij patrol']]:[]};
- else if(s.value!=null&&s.edge&&!s.pos)I={title:'Stos drewna przy drodze — oddz. '+s.odd,lines:['Na stosie: '+displayNumber(s.vol,1)+' m³ · wartość ok. '+zl(Math.round(s.value*ECO.market)),'Cena rynkowa ×'+displayNumber(ECO.market,2)+' (zimą drożej, latem taniej).','Wszystkie stosy: '+displayNumber(stackTotal(),1)+' m³. Przy 16 m³ nadleśnictwo samo przyśle transport.','Sprzedano łącznie: '+displayNumber(J.sold,1)+' m³.'],btns:J.truck.v?[]:[['truck','Zamów wywóz teraz']]};
+ else if(s.value!=null&&s.edge&&!s.pos){const so=s.sort||'tart';I={title:SORTS[so].name[0].toUpperCase()+SORTS[so].name.slice(1)+' — stos przy drodze, oddz. '+s.odd,lines:['Na stosie: '+displayNumber(s.vol,1)+' m³ · wartość ok. '+zl(Math.round(s.value*ECO.market)),
+  so==='opal'?(s.truck===false?'Opał dla ludności: kupują go petenci w kancelarii ('+zl(PRICE.opal)+'/m³) i odbierają spod stosu. Ciężarówka go nie bierze.':'Ciężarówka może zabrać ten opał (taniej niż sprzedaż petentom).'):'Cena rynkowa ×'+displayNumber(ECO.market,2)+' (zimą drożej, latem taniej).',
+  'Do wywozu: '+displayNumber(truckTotal(),1)+' m³ (przy 16 m³ nadleśnictwo samo przyśle transport). Opał przy drogach: '+displayNumber(stackTotal(q=>q.sort==='opal'),1)+' m³.','Sprzedano łącznie: '+displayNumber(J.sold,1)+' m³.'],
+  btns:[...(so==='opal'?[['opaltruck',s.truck===false?'Pozwól zabrać ciężarówce':'Zostaw dla ludności']]:[]),...(J.truck.v?[]:[['truck','Zamów wywóz teraz']])]}}
  else if(s.level!=null&&s.name)I={title:'Paśnik '+s.name,lines:['Karma: '+Math.round(s.level*100)+'%',cal.season()===3?'Zima: zwierzyna wyjada karmę. Przy niskim poziomie pojawi się zadanie.':'Poza zimą paśnik stoi, lizawka solna obok.'],btns:[]};
  else if(s.day!=null&&s.vol!=null&&s.edge)I={title:'Drewno opałowe do odbioru',lines:['Sprzedane w kancelarii: '+displayNumber(s.vol,1)+' m³','Nabywca przyjedzie ciągnikiem z przyczepą.'],btns:[]};
  else if(s.pos)I={title:VSPEC[s.kind].name[0].toUpperCase()+VSPEC[s.kind].name.slice(1),lines:[s.label||'',s.cart?'Ładunek: '+displayNumber(s.load,1)+' / '+s.cap+' m³':'',s.illegal?'Wjazd pojazdów silnikowych do lasu jest zabroniony.':''].filter(Boolean),btns:s.illegal&&s.inc&&s.inc.status==='new'?[['patrol','Wyślij patrol']]:[]};
  else if(s.kind&&ASPEC[s.kind])I={title:s.name||ASPEC[s.kind].name,lines:[{idle:'Odpoczywa / żeruje',walk:'Wędruje',run:'Ucieka!'}[s.state]||'',s.male&&s.kind==='deer'?'Byk z porożem':s.male&&s.kind==='roe'?'Rogacz':s.sow?'Locha prowadząca warchlaki (pod ochroną)':'',FA.pop[s.kind==='piglet'?'boar':s.kind]!=null?'W obwodzie: '+NAMES[s.kind==='piglet'?'boar':s.kind]+' ok. '+FA.pop[s.kind==='piglet'?'boar':s.kind]+' szt.':'',s.kind==='wolf'?'Gatunek chroniony — reguluje liczebność saren i jeleni.':''].filter(Boolean),btns:[]};
  else if(s.look)I={title:s.label?s.label[0].toUpperCase()+s.label.slice(1):'Osoba',lines:[s.kind==='picker'?(s.berry?'Zbiera jagody w borze. Czasem zostawia śmieci…':'Zbiera grzyby. Czasem zostawia śmieci…'):s.kind==='worker'?'Pracownik ekipy leśnej.':s.kind==='lesniczy'?(s.unit&&s.unit!==U[0]?'Podleśniczy: drugi patrol, dyżur w kancelarii.':'Prowadzi leśnictwo. Wyjeżdża na interwencje.'):s.kind==='hunter'?'Koło łowieckie: plan odstrzału '+['roe','deer','boar'].map(k=>FA.culled[k]+'/'+FA.plan[k]).join(', ')+' (sarny, jelenie, dziki).':s.petent?'Petent czeka przed kancelarią.':'Odpoczywa w lesie.'],btns:[]};
- else if(s.logs)I={title:'Kłody — '+SP[s.sp].name,lines:['Miąższość '+displayNumber(s.vol,2)+' m³',s.state==='ground'?'Czeka na zrywkę (ciągnik przyjedzie sam).':'Ciągnik już po nie jedzie.'],btns:[]};
+ else if(s.logs&&s.state)I={title:'Kłody — '+SP[s.sp].name,lines:['Miąższość '+displayNumber(s.vol,2)+' m³: '+Object.entries(pileSorts(s)).filter(([,v])=>v>.01).map(([k,v])=>SORTS[k].short+' '+displayNumber(v,2)).join(', '),s.state==='ground'?'Czeka na zrywkę (ciągnik przyjedzie sam).':'Ciągnik już po nie jedzie.'],btns:[]};
  else if(s.toPlant!==undefined)I=plotInfo(s);
  if(!I){el.style.display='none';return}
  const sig=JSON.stringify(I);if(sig===infoSig)return;infoSig=sig;
@@ -123,12 +134,12 @@ export function renderBase(){
   ${pod?btn('firePod','Zwolnij podleśniczego',false,true):btn('hirePod','Zatrudnij podleśniczego · '+zl(COST.pod)+'/dzień',!BASE.garage)}
   <p class="hint2">Ekipy dzielą zadania po skupiskach. Podleśniczy to drugi patrol i dyżur w kancelarii, gdy jesteś w terenie.</p></div>
  <div class="bsec"><h3>BUDYNKI</h3>
-  ${row('Szkółka leśna',BASE.nursery?'sadzonek: '+ECO.nursery.stock:'—')}${BASE.nursery?meter(ECO.nursery.stock/1200):btn('nursery','Zbuduj szkółkę · '+zl(BUILD.nursery))}
+  ${row('Szkółka leśna',BASE.nursery?'sadzonek: '+ECO.nursery.stock:'—')}${BASE.nursery?meter(ECO.nursery.stock/1200)+row('Zapas',nurseryText())+row('Produkcja',NPLANS[BASE.nplan||0].name)+btn('nplan','Zmień plan szkółki'):btn('nursery','Zbuduj szkółkę · '+zl(BUILD.nursery))}
   ${row('Garaż z magazynem',BASE.garage?'gotowy · karma '+zl(ECO.feedCost):'—')}${BASE.garage?'':btn('garage','Zbuduj garaż z magazynem · '+zl(BUILD.garage))}
   <p class="hint2">Sadzonki ze szkółki: ${zl(COST.plantNursery)} zamiast ${zl(COST.plant)} i lepiej się przyjmują. Garaż: miejsce na drugą terenówkę, tańsza karma.</p></div>
  <div class="bsec"><h3>SPRZĘT</h3>
   ${row('Zrywka',MACH[J.skid.mach].name)}${J.skid.owned?row('Utrzymanie forwardera',zl(COST.fwd)+'/dzień'):btn('fwd','Kup forwarder · '+zl(MACH.forwarder.price))}
-  ${row('Drewno przy drogach',displayNumber(stackTotal(),1)+' m³ · ok. '+zl(Math.round(stackValue()*ECO.market)))}${row('Cena rynkowa','×'+displayNumber(ECO.market,2))}
+  ${row('Drewno przy drogach',displayNumber(stackTotal(),1)+' m³ · ok. '+zl(Math.round(stackValue()*ECO.market)))}${row('w tym opał dla ludności',displayNumber(stackTotal(q=>q.sort==='opal'),1)+' m³')}${row('Cena rynkowa','×'+displayNumber(ECO.market,2))}
   ${J.truck.v?'':btn('truck','Zamów wywóz drewna')}
   ${row('Koszty dzienne razem',zl(dailyCost()))}</div>
  <div class="bsec"><h3>KOŁO ŁOWIECKIE</h3>
@@ -182,6 +193,9 @@ export function bindUI(){
   else if(k==='patrol'){dispatch(s.text?s:s.inc)}
   else if(k==='truck')orderTruck(true);
   else if(k==='fence')orderFence(s);
+  else if(k==='mix')cycleMix(s);
+  else if(k==='opaltruck'){s.truck=s.truck===false;toast(s.truck?'Ten opał może zabrać ciężarówka.':'Opał zostaje dla ludności.')}
+  else if(k==='assess')orderAssess(s.x,s.y);
   else if(k==='repel')orderRepel(s);
   else if(k==='prep')orderPrep(s);else if(k==='plantplot')orderPlant(s);else if(k==='delplot'){removePlot(s);if(!R.plots.includes(s))state.selected=null}
   else if(k==='plantnear'){for(let a=0;a<12;a++){const x=s.x+Math.cos(a)*12,y=s.y+Math.sin(a)*12;const n=J.plants.length;togglePlant(x,y);if(J.plants.length>n)break}}
@@ -189,7 +203,7 @@ export function bindUI(){
  });
  $('#basebtn').addEventListener('click',()=>toggleBase(true));
  $('#basecard').addEventListener('click',e=>{const b=e.target.closest('[data-b]');if(!b)return;const k=b.dataset.b;
-  ({hireB:hireCrewB,fireB:fireCrewB,hirePod:hireDeputy,firePod:fireDeputy,nursery:buildNursery,garage:buildGarage,fwd:buyForwarder,truck:()=>orderTruck(true),reduce:requestReduction})[k]?.();
+  ({nplan:cycleNursery,hireB:hireCrewB,fireB:fireCrewB,hirePod:hireDeputy,firePod:fireDeputy,nursery:buildNursery,garage:buildGarage,fwd:buyForwarder,truck:()=>orderTruck(true),reduce:requestReduction})[k]?.();
   baseSig='';renderBase();hud()});
  setTool('select');
  ECO.onSeason=showReport;

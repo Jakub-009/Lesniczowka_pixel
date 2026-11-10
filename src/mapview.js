@@ -1,7 +1,7 @@
 // Mapa leśnictwa (0.6, klawisz Tab): cały obszar z góry, drzewa w kolorach gatunku albo klasy wieku,
 // drogi, oddziały, powierzchnie odnowieniowe, stosy i pojazdy. Klik przenosi kamerę w to miejsce.
 import {WORLD,camera,VIEW,$} from './core.js';
-import {trees,STAND,STUMP,SAPLING_AGE,crownR} from './forest.js';
+import {trees,STAND,STUMP,SAPLING_AGE,crownR,QUAL} from './forest.js';
 import {NODES,EDGES,STANDS,oddzial,YARD,POLANA,UPRAWA,PLAC} from './map.js';
 import {R} from './renew.js';
 import {J} from './jobs.js';
@@ -36,7 +36,7 @@ function draw(){
   const x=t.x/K,y=t.y/K;
   if(t.st===STUMP){g.fillStyle='#8a5a3a';g.fillRect(x-.5,y-.5,1.5,1.5);continue}
   if(t.st!==STAND)continue;
-  g.fillStyle=mode==='sp'?SPC[t.sp]:ageCol(t.age);const r=t.age<SAPLING_AGE?1:Math.max(2,Math.min(6,crownR(t)*1.6/K));g.fillRect(x-r/2,y-r/2,r,r);
+  g.fillStyle=mode==='sp'?SPC[t.sp]:mode==='q'?(t.qk&&t.age>=SAPLING_AGE?QUAL[t.q].col:'#9aa08a'):ageCol(t.age);const r=t.age<SAPLING_AGE?1:Math.max(2,Math.min(6,crownR(t)*1.6/K));g.fillRect(x-r/2,y-r/2,r,r);
  }
  g.lineWidth=1;
  g.strokeStyle='#c4ccc8';g.strokeRect(UPRAWA.x/K,UPRAWA.y/K,UPRAWA.w/K,UPRAWA.h/K);
@@ -53,7 +53,7 @@ function draw(){
 }
 function legend(){
  const L=$('#maplegend');if(!L)return;
- L.innerHTML=(mode==='sp'?Object.entries(SPC).map(([k,c])=>`<span><i style="background:${c}"></i>${SPN[k]}</span>`).join(''):AGES.map(([,c,n])=>`<span><i style="background:${c}"></i>${n}</span>`).join(''))+
+ L.innerHTML=(mode==='sp'?Object.entries(SPC).map(([k,c])=>`<span><i style="background:${c}"></i>${SPN[k]}</span>`).join(''):mode==='q'?[...QUAL.map(q=>[q.col,q.name]),['#9aa08a','nieoceniona']].map(([c,n])=>`<span><i style="background:${c}"></i>${n}</span>`).join(''):AGES.map(([,c,n])=>`<span><i style="background:${c}"></i>${n}</span>`).join(''))+
   '<span><i style="background:#8a5a3a"></i>pniaki</span><span><i style="background:#8a4a1e"></i>stos</span><span><i style="background:#3a80e0"></i>patrol</span><span><i style="background:#f0a030"></i>ekipa</span>';
  for(const b of document.querySelectorAll('[data-mapmode]'))b.classList.toggle('on',b.dataset.mapmode===mode);
 }

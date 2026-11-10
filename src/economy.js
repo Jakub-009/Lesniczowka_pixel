@@ -47,8 +47,9 @@ export function updateEconomy(dt){
    pay(dailyCost(),'koszty dzienne (utrzymanie, paliwo, pensje)');
    if(state.money<-8000){let cut=[];if(J.crews.length>1&&J.crews[1].phase==='idle'){J.crews[0].tasks.push(...J.crews[1].tasks,...J.crews[1].held);J.crews.pop();cut.push('ekipa B')}if(ECO.staff.pod&&ECO.fireStaff){ECO.fireStaff();cut.push('podleśniczy')}
     if(cut.length)toast('Debet ponad 8 000 zł — nadleśnictwo wstrzymało wydatki: zwolniono '+cut.join(' i ')+'.')}
-   const open=E.incidents.filter(q=>q.status!=='done'&&q.status!=='gone'&&q.type!=='feed').length;
-   if(open)bumpProtect(-3*open);else if(state.protect<74)bumpProtect(1.5);
+   // 0.6.2: najmocniej obniża ochronę zgłoszenie bez reakcji; to w kolejce patrolu — słabiej (patrol już jedzie)
+   const live=E.incidents.filter(q=>q.status!=='done'&&q.status!=='gone'&&q.type!=='feed'&&q.type!=='assess'),fresh=live.filter(q=>q.status==='new').length,queued=live.length-fresh;
+   if(live.length)bumpProtect(-3*fresh-1*queued);else if(state.protect<74)bumpProtect(1.5);
    ECO.damage=Math.max(0,ECO.damage-.4);
   }
  }

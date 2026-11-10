@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.6.1 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.6.2 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -149,3 +149,12 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
 - **Myśliwy szybszy:** celuje kilka sekund i strzela (zasięg do skraju polany), przyjeżdża też o świcie. **Polowanie zbiorowe** jesienią i zimą w sobotę: linia myśliwych, naganka w pomarańczowych kamizelkach, pokot.
 - **Rogi mapy:** kamera wyjeżdża poza krawędź o szerokość paneli; **U** chowa interfejs.
 - Duża mapa a pamięć: ślady (koleiny, bruzdy) i kawałki lasu trzymane są tylko tam, gdzie są potrzebne; dawno niewidziane kawałki lasu są zwalniane.
+
+## Zmiany w 0.6.2 „Gospodarka drzewostanem”
+- **Jakość drzew** (dorodne / przeciętne / wadliwe) jest ukryta, dopóki leśniczy nie oceni drzewostanu. Na karcie drzewa: „Ocena drzewostanu i cechowanie” — leśniczy (albo podleśniczy) obchodzi okolicę, poznaje jakość i oznacza wadliwe drzewa do trzebieży. Przy narzędziu Wycinka oceniona jakość widać jako kolorowe kropki; na mapie leśnictwa jest widok „Jakość”.
+- **Trzebież:** pojedyncze drzewa można wyznaczyć od 12 lat (zaznaczanie obszarem nadal od 25 lat). Drzewa w luźniejszym drzewostanie przyrastają szybciej, dorodne lepiej niż wadliwe.
+- **Sortowanie drewna (samo):** z każdego drzewa powstaje drewno tartaczne, papierówka i opał — według grubości i jakości. Każdy sortyment trafia na osobny stos przy drodze. Ciężarówka bierze tartaczne i papierówkę; opał zostaje dla ludności (petenci kupują go w kancelarii i odbierają spod stosu, jak w Lasach Państwowych). Na karcie stosu opału można pozwolić zabrać go ciężarówce.
+- **Skład gatunkowy nasadzeń:** na karcie powierzchni „Zmień skład gatunkowy” — sosna z domieszką brzozy, sosna z dębem w gniazdach, świerk z bukiem, grąd (buk z dębem) i inne.
+- **Szkółka:** plan produkcji gatunków (panel L); zapas sadzonek liczony osobno dla każdego gatunku.
+- **Poprawki:** rów przy szosie przerwany na wjazdach (przepusty), ślepe drogi połączone w pętle (bez placów nawrotowych), płynne przesuwanie mapy (las malowany zawczasu i trzymany w pamięci karty graficznej).
+- Zapis z 0.6.1 wczytuje się.
