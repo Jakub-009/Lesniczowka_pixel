@@ -1,7 +1,7 @@
 // Malowanie stałego podłoża z danych mapy (raz, przy starcie): ściółka oddziałów, pobocza, drogi, leśniczówka, składnica, polana, uprawa.
 import {WORLD,hash,rect,line,poly,shadow,LIGHT,clamp} from './core.js';
 import {mk,outlinedDraw,text3} from './sprite.js';
-import {NODES,EDGES,roadClearance,oddzial,YARD,HOUSE,CARPORT,WOODSHED,GARDEN,KENNEL,WELL,SKLAD,POLANA,AMBONA,UPRAWA,FENCES,POSTS,BARRIERS,BOARD,inRect,inPolana} from './map.js';
+import {NODES,EDGES,roadClearance,oddzial,YARD,HOUSE,CARPORT,WOODSHED,GARDEN,KENNEL,WELL,PLAC,TURNS,POLANA,AMBONA,UPRAWA,FENCES,POSTS,BARRIERS,BOARD,inRect,inPolana} from './map.js';
 export const [ground,g]=mk(WORLD.w,WORLD.h);
 const DARK='#2a3328';
 const vn=(u,v,z=5)=>{const x=Math.floor(u),y=Math.floor(v),fx=u-x,fy=v-y,sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy);
@@ -9,8 +9,11 @@ const vn=(u,v,z=5)=>{const x=Math.floor(u),y=Math.floor(v),fx=u-x,fy=v-y,sx=fx*f
 const rgb=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
 const mixc=(a,b,t)=>{const A=rgb(a),B=rgb(b);return`rgb(${Math.round(A[0]+(B[0]-A[0])*t)},${Math.round(A[1]+(B[1]-A[1])*t)},${Math.round(A[2]+(B[2]-A[2])*t)})`};
 // Ściółka: sosna — mech i borówki, świerk — ciemne igliwie, dąb/buk — opadłe liście.
-const FLOOR={'101':['#647a45','#7a8a50','#4d6c40'],'102':['#4b6040','#5d6b45','#3c523a'],'103':['#7d6c48','#8e7c52','#68744a'],'104':['#6b7f48','#7d8c52','#59703f'],'105':['#617846','#768650','#4f6a40']};
-const SPECK={'101':['#3f6a3d','#8a7a52','#506f3b','#9a8a5a'],'102':['#6b5a40','#354a35','#7a6a4c'],'103':['#9a7a48','#6e5a3a','#a88a55','#5f7243'],'104':['#8a7a50','#4a6a3c','#9a8a5a'],'105':['#836c48','#47683e','#9a8458']};
+const FLOOR={'101':['#647a45','#7a8a50','#4d6c40'],'102':['#4b6040','#5d6b45','#3c523a'],'103':['#7d6c48','#8e7c52','#68744a'],'104':['#6b7f48','#7d8c52','#59703f'],'105':['#617846','#768650','#4f6a40'],
+ '106':['#485c3e','#58673f','#3a4f38'],'107':['#68804a','#7a8c52','#566e40'],'108':['#6a7c46','#7e8c52','#55703f'],'109':['#7a6a46','#8c7a50','#66724a'],'110':['#72864c','#86955a','#5f7642']};
+const SPECK={'101':['#3f6a3d','#8a7a52','#506f3b','#9a8a5a'],'102':['#6b5a40','#354a35','#7a6a4c'],'103':['#9a7a48','#6e5a3a','#a88a55','#5f7243'],'104':['#8a7a50','#4a6a3c','#9a8a5a'],'105':['#836c48','#47683e','#9a8458'],
+ '106':['#6b5a40','#354a35','#7a6a4c'],'107':['#8a7a50','#4a6a3c','#9a8a5a'],'108':['#3f6a3d','#8a7a52','#506f3b','#9a8a5a'],'109':['#9a7a48','#6e5a3a','#a88a55','#5f7243'],'110':['#8a7a50','#5a7a44','#a09060']};
+const AREA=WORLD.w*WORLD.h/(2400*1800),PINE=new Set(['101','104','107','108','110']),LEAF=new Set(['103','105','109']);
 function paintFloor(){
  const B=4;
  for(let y=0;y<WORLD.h;y+=B)for(let x=0;x<WORLD.w;x+=B){
@@ -21,11 +24,11 @@ function paintFloor(){
   const verge=rc<62?clamp((62-rc)/22,0,1):0;
   g.fillStyle=verge>0?mixc(n<.5?f[2]:f[0],n>.6?'#9aae70':'#89a063',verge):col;g.fillRect(x,y,B,B);
  }
- for(let i=0;i<52000;i++){const x=hash(i,1,31)*WORLD.w|0,y=hash(i,2,31)*WORLD.h|0;if(roadClearance(x,y)<58)continue;const s=SPECK[oddzial(x,y)];rect(g,x,y,1+(i%3===0),1,s[i%s.length])}
+ for(let i=0;i<52000*AREA;i++){const x=hash(i,1,31)*WORLD.w|0,y=hash(i,2,31)*WORLD.h|0;if(roadClearance(x,y)<58)continue;const s=SPECK[oddzial(x,y)];rect(g,x,y,1+(i%3===0),1,s[i%s.length])}
  // borówczyska i kępy paproci w starszych drzewostanach
- for(let i=0;i<900;i++){const x=hash(i,3,31)*WORLD.w,y=hash(i,4,31)*WORLD.h;if(roadClearance(x,y)<70)continue;const o=oddzial(x,y);
-  if(o==='101'||o==='104'){for(let k=0;k<14;k++)rect(g,x+(hash(k,i,5)-.5)*22,y+(hash(k,i,6)-.5)*12,2,2,k%3?'#3f6638':'#577c42')}
-  else if(o==='103'||o==='105'){if(i%3)continue;for(let k=0;k<7;k++){const a=k*.9+hash(i,k)*.4;for(let u=0;u<9;u++)rect(g,x+Math.cos(a)*u,y+Math.sin(a)*u,2,1,u%3?'#5f8a45':'#79a356')}}}
+ for(let i=0;i<900*AREA;i++){const x=hash(i,3,31)*WORLD.w,y=hash(i,4,31)*WORLD.h;if(roadClearance(x,y)<70)continue;const o=oddzial(x,y);
+  if(PINE.has(o)){for(let k=0;k<14;k++)rect(g,x+(hash(k,i,5)-.5)*22,y+(hash(k,i,6)-.5)*12,2,2,k%3?'#3f6638':'#577c42')}
+  else if(LEAF.has(o)){if(i%3)continue;for(let k=0;k<7;k++){const a=k*.9+hash(i,k)*.4;for(let u=0;u<9;u++)rect(g,x+Math.cos(a)*u,y+Math.sin(a)*u,2,1,u%3?'#5f8a45':'#79a356')}}}
 }
 // Drogi leśne: tłuczeń z dwiema koleinami i pasem trawy pośrodku; główna — asfalt z przerywaną osią.
 const edgeRect=(e,add)=>{const A=NODES[e.a],B=NODES[e.b],h=(e.w+add)/2;
@@ -49,17 +52,17 @@ function paintRoads(){
   const [x,y,w,h]=edgeRect(e,0);
   for(let i=0;i<w*h/8;i++){const px=x+hash(i,301,w)*(w-1)|0,py=y+hash(i,302,h)*(h-1)|0;rect(g,px,py,1+(i%5===0),1,['#6c7175','#81868a','#70757a'][i%3])}
   for(let i=0;i<w*h/3600;i++){const px=x+hash(i,310)*(w-14)|0,py=y+hash(i,311)*(h-8)|0;rect(g,px,py,12+(i%4)*6,5+(i%3)*2,i%3?'#727779':'#7d8285')}
-  for(let xx=Math.ceil(x/40)*40;xx<x+w;xx+=40){if(Math.abs(xx+10-820)<42||Math.abs(xx+10-1700)<42)continue;rect(g,xx,1719,22,2,'#e6e4d8')}
+  for(let xx=Math.ceil(x/40)*40;xx<x+w;xx+=40){if([820,1700,2600].some(j=>Math.abs(xx+10-j)<42))continue;rect(g,xx,1719,22,2,'#e6e4d8')}
  }
  // rów przy drodze głównej (po południowej stronie) z wodą w zagłębieniach
  rect(g,0,1764,WORLD.w,9,'#6a8656');rect(g,0,1767,WORLD.w,4,'#56724a');for(let x=0;x<WORLD.w;x+=34)rect(g,x+(hash(x,7)*10|0),1768,8,2,'#7fa3a0');
 }
 // Pobocza: kępy traw, kwiaty, krzewy (leszczyna, kruszyna, jeżyny).
 function paintVerges(){
- for(let i=0;i<9000;i++){const x=hash(i,7,51)*WORLD.w,y=hash(i,8,51)*WORLD.h,rc=roadClearance(x,y);if(rc<3||rc>52)continue;
+ for(let i=0;i<9000*AREA;i++){const x=hash(i,7,51)*WORLD.w,y=hash(i,8,51)*WORLD.h,rc=roadClearance(x,y);if(rc<3||rc>52)continue;
   const k=hash(i,9,51);rect(g,x,y,1,2+(k*2|0),k<.5?'#a4b878':'#6f8d52');if(k>.93)rect(g,x,y-1,2,2,['#e8e2c0','#d7c24a','#b98ad0','#e6a0a0'][i%4])}
- for(let i=0;i<700;i++){const x=hash(i,10,52)*WORLD.w,y=hash(i,11,52)*WORLD.h,rc=roadClearance(x,y);
-  if(rc<14||rc>46||inRect(x,y,YARD,30)||inRect(x,y,SKLAD,20)||inRect(x,y,UPRAWA,10))continue;
+ for(let i=0;i<700*AREA;i++){const x=hash(i,10,52)*WORLD.w,y=hash(i,11,52)*WORLD.h,rc=roadClearance(x,y);
+  if(rc<14||rc>46||inRect(x,y,YARD,30)||inRect(x,y,PLAC,20)||inRect(x,y,UPRAWA,10))continue;
   const r=6+hash(i,12,52)*5,s=i*13,pal=hash(i,13)<.25?['#4a6a3a','#5d7a46','#7a5a5a','#8e4a4a']:['#4a6e4a','#5a8052','#76955c','#8ea870'];
   g.fillStyle='#2a3b2a40';g.beginPath();g.ellipse(x+LIGHT.x*5,y+LIGHT.y*4,r*1.1,r*.7,.5,0,6.28);g.fill();
   outlinedDraw(g,x,y,G=>{for(let k=0;k<3;k++){const a=k*2.1+hash(k,s),d=r*.35;blobPatch(G,Math.cos(a)*d,Math.sin(a)*d,r*.6,pal[0],pal,s+k)}},'#26392a');
@@ -116,15 +119,22 @@ function fence(f){
  const post=(x,y)=>{rect(g,x+2,y+3,4,5,'#2d3b2b55');rect(g,x-2,y-2,4,5,yard?'#5f4329':'#6b563d');rect(g,x-1,y-2,2,1,yard?'#c9a574':'#a08560')};
  for(let t=0;t<=L;t+=step){if(hor)post(Math.min(f.x1,f.x2)+t,f.y1);else post(f.x1,Math.min(f.y1,f.y2)+t)}
 }
-function paintSklad(){
- const S=SKLAD;
+// Plac manewrowy przy leśniczówce (0.6): tłuczeń, ślady kół; tu nocują maszyny zrywkowe.
+function paintPlac(){
+ const S=PLAC;
  rect(g,S.x-4,S.y-4,S.w+8,S.h+8,'#9c9378');rect(g,S.x,S.y,S.w,S.h,'#aea68f');
- for(let i=0;i<3200;i++)rect(g,S.x+hash(i,71)*(S.w-2)|0,S.y+hash(i,72)*(S.h-2)|0,1+(i%3===0),1,['#9b937c','#c2baa2','#8d866f','#b8b098'][i%4]);
- for(let i=0;i<60;i++)rect(g,S.x+hash(i,73)*(S.w-12),S.y+hash(i,74)*(S.h-4),6+(i%3)*3,2,'#8a6c4a');   // kora i trociny
- // ślady kół i plama oleju — tu stoi sprzęt
- for(let k=0;k<3;k++){rect(g,1760+k*70,1520,40,3,'#9b937c');rect(g,1760+k*70,1546,40,3,'#9b937c')}
- g.fillStyle='#4a4a4260';g.beginPath();g.ellipse(1900,1600,14,7,0,0,6.28);g.fill();
- outlinedDraw(g,1756,1480,G=>{rect(G,-1,-4,2,10,'#6b563d');rect(G,-18,-14,36,10,'#2f5a3a');rect(G,-17,-13,34,8,'#3e7048');text3(G,'BAZA',-8,-12,'#f1e6c2')},DARK);
+ for(let i=0;i<2600;i++)rect(g,S.x+hash(i,71)*(S.w-2)|0,S.y+hash(i,72)*(S.h-2)|0,1+(i%3===0),1,['#9b937c','#c2baa2','#8d866f','#b8b098'][i%4]);
+ for(let k=0;k<2;k++){rect(g,S.x+30+k*88,S.y+30,46,3,'#8d866f');rect(g,S.x+30+k*88,S.y+60,46,3,'#8d866f')}
+ g.fillStyle='#4a4a4250';g.beginPath();g.ellipse(S.x+150,S.y+70,10,5,0,0,6.28);g.fill();
+ outlinedDraw(g,S.x+S.w-18,S.y+S.h-6,G=>{rect(G,-1,-4,2,10,'#6b563d');rect(G,-12,-14,24,10,'#2f5a3a');rect(G,-11,-13,22,8,'#3e7048');text3(G,'PLAC',-8,-12,'#f1e6c2')},DARK);
+}
+// Place nawrotowe na końcach ślepych dróg: poszerzenie z tłucznia, na którym zawraca nawet ciągnik siodłowy.
+function paintTurns(){
+ for(const k of TURNS){const [cx,cy]=NODES[k],R=80;
+  for(let y=-R;y<=R;y+=2)for(let x=-R;x<=R;x+=2){const d=Math.hypot(x,y);if(d>R)continue;rect(g,cx+x,cy+y,2,2,d>R-5?'#9d8f70':'#b8a682')}
+  for(let i=0;i<1600;i++){const a=hash(i,k.length,61)*6.283,d=Math.sqrt(hash(i,k.length,62))*(R-6);rect(g,cx+Math.cos(a)*d,cy+Math.sin(a)*d,1+(i%4===0),1,['#a99674','#c7b791','#9a8866','#d2c4a0'][i%4])}
+  for(let a=0;a<6.28;a+=.06){rect(g,cx+Math.cos(a)*(R-30),cy+Math.sin(a)*(R-30),2,2,'#8e7a58')}
+ }
 }
 function paintPolana(){
  const P=POLANA;
@@ -159,26 +169,31 @@ function paintProps(){
   text3(g,p.n[0],p.x+6,p.y-9,'#f1ecd8');text3(g,p.n[1],p.x+6,p.y+3,'#f1ecd8')}
  // szlabany (otwarte, ramię wzdłuż pobocza)
  for(const b of BARRIERS){shadow(g,b.x+22,b.y-4,8,8,14);rect(g,b.x+22,b.y-4,8,8,'#4a4740');rect(g,b.x+23,b.y-3,6,6,'#7a776e');
-  for(let k=0;k<40;k++)rect(g,b.x+25,b.y-4-k,3,1,Math.floor(k/6)%2?'#c8342b':'#f2efe6')}
+  const dir=b.y>1720?1:-1;for(let k=0;k<40;k++)rect(g,b.x+25,dir<0?b.y-4-k:b.y+4+k,3,1,Math.floor(k/6)%2?'#c8342b':'#f2efe6')}
  // tablica informacyjna leśnictwa
  const B=BOARD;shadow(g,B.x,B.y,34,8,18);outlinedDraw(g,B.x+17,B.y,G=>{rect(G,-15,-2,2,8,'#6b563d');rect(G,13,-2,2,8,'#6b563d');rect(G,-18,-14,36,14,'#5a4630');rect(G,-17,-13,34,12,'#3e7048');rect(G,-15,-11,30,2,'#f1e6c2');rect(G,-15,-7,22,1,'#cfe0c2');rect(G,-15,-5,26,1,'#cfe0c2')},DARK);
 }
 export function buildGround(){
- paintFloor();paintPolana();paintUprawa();paintRoads();paintVerges();paintSklad();paintYard();
+ paintFloor();paintPolana();paintUprawa();paintRoads();paintTurns();paintVerges();paintPlac();paintYard();
  for(const f of FENCES)fence(f);
  paintProps();
 }
 
 // ── ślady na podłożu (0.5): koleiny szlaków zrywkowych i bruzdy pługa na osobnej warstwie, która co dzień blednie ──
 // Koleiny znikają po kilku dniach, bruzdy (malowane mocniej) po kilku porach roku. Po wczytaniu zapisu malujemy je ponownie z jasnością wg wieku.
-export const [marks,mg]=mk(WORLD.w,WORLD.h);
+// Warstwa śladów w kawałkach 256 px tworzonych tylko tam, gdzie coś namalowano (duża mapa — oszczędność pamięci).
+const MC=256,MW=Math.ceil(WORLD.w/MC),MH=Math.ceil(WORLD.h/MC);export const markChunks=new Array(MW*MH).fill(null);
 let A=1;export const markAlpha=a=>{A=a};
-export function fadeMarks(k=.12){mg.save();mg.globalCompositeOperation='destination-out';mg.fillStyle=`rgba(0,0,0,${k})`;mg.fillRect(0,0,WORLD.w,WORLD.h);mg.restore()}
+function mchunk(x,y){const i=Math.floor(x/MC),j=Math.floor(y/MC);if(i<0||j<0||i>=MW||j>=MH)return null;let c=markChunks[j*MW+i];if(!c){const [cv,cg]=mk(MC,MC);c=markChunks[j*MW+i]={cv,cg,x:i*MC,y:j*MC}}return c}
+// prostokąt na warstwie śladów (może zahaczyć o sąsiednie kawałki)
+function mrect(x,y,w,h,col){let a=null,b=null;for(const [px,py] of [[x,y],[x+w,y],[x,y+h],[x+w,y+h]]){const c=mchunk(px,py);if(!c||c===a||c===b)continue;if(!a)a=c;else if(!b)b=c;c.cg.globalAlpha=mg.globalAlpha;rect(c.cg,x-c.x,y-c.y,w,h,col)}}
+const mg={globalAlpha:1};
+export function fadeMarks(k=.12){for(const c of markChunks){if(!c)continue;const g2=c.cg;g2.save();g2.globalCompositeOperation='destination-out';g2.fillStyle=`rgba(0,0,0,${k})`;g2.fillRect(0,0,MC,MC);g2.restore()}}
 export function paintRut(x,y,h,hw){
  const c=Math.cos(h),s=Math.sin(h);
  mg.globalAlpha=.55*A;
- for(const side of [-1,1]){const px=x+c*hw*side,py=y+s*hw*side;rect(mg,px-1.5,py-1.5,3,3,'#5c4a34')}
- mg.globalAlpha=.25*A;rect(mg,x-1,y-1,2,2,'#8a7a5a');mg.globalAlpha=1;
+ for(const side of [-1,1]){const px=x+c*hw*side,py=y+s*hw*side;mrect(px-1.5,py-1.5,3,3,'#5c4a34')}
+ mg.globalAlpha=.25*A;mrect(x-1,y-1,2,2,'#8a7a5a');mg.globalAlpha=1;
 }
 export function paintTrail(pts,hw=9){
  for(let i=0;i<pts.length-1;i++){const [ax,ay]=pts[i],[bx,by]=pts[i+1],L=Math.hypot(bx-ax,by-ay),h=Math.atan2(bx-ax,-(by-ay));
@@ -187,7 +202,7 @@ export function paintTrail(pts,hw=9){
 // Bruzda pługa LPz: ciemny pas odsłoniętej gleby z jaśniejszymi skibami po bokach (rzędy co 18 px ≈ 1,5 m).
 export function paintFurrow(x,y,len=3){
  const xx=Math.round(x);mg.globalAlpha=A;
- rect(mg,xx,y-5,len,2,'#a08460');rect(mg,xx,y-3,len,6,'#5e4630');rect(mg,xx,y-1,len,1,'#4e3a28');rect(mg,xx,y+3,len,2,'#9a7e5a');
- if(hash(xx,y,7)<.3)rect(mg,xx,y-2,1,1,'#7a6040');mg.globalAlpha=1;
+ mrect(xx,y-5,len,2,'#a08460');mrect(xx,y-3,len,6,'#5e4630');mrect(xx,y-1,len,1,'#4e3a28');mrect(xx,y+3,len,2,'#9a7e5a');
+ if(hash(xx,y,7)<.3)mrect(xx,y-2,1,1,'#7a6040');mg.globalAlpha=1;
 }
 export function paintFurrowRow(y,x0,x1){for(let x=x0;x<x1;x+=3)paintFurrow(x,y,3)}

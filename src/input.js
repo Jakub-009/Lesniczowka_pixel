@@ -6,6 +6,7 @@ import {E} from './ents.js';
 import {J,toggleMark,togglePlant,dispatchCrew,orderTruck} from './jobs.js';
 import {plotAt,createPlot,planAreaPlants} from './renew.js';
 import {setTool,hud,toggleBase} from './ui.js';
+import {toggleMap,mapOpen} from './mapview.js';
 import {feederAt} from './life/fauna.js';
 import {opalPileAt} from './base.js';
 import {toggleSound,resumeSound} from './sound.js';
@@ -62,12 +63,15 @@ export function bindInput(zoomFn){
  C.addEventListener('wheel',e=>{e.preventDefault();zoomFn(e.deltaY>0?1:-1,toWorld(e))},{passive:false});
  addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
-  if(['arrowup','arrowdown','arrowleft','arrowright',' ','f1','f3'].includes(k))e.preventDefault();
+  if(['arrowup','arrowdown','arrowleft','arrowright',' ','f1','f3','tab'].includes(k))e.preventDefault();
   if(!state.playing){if(k==='enter')$('#start').click();return}
+  if(mapOpen()&&(k==='tab'||k==='escape')){toggleMap(false);return}
   if(state.modal){if(state.panel){if(k==='escape'||k==='l')toggleBase(false)}else if(k==='enter'||k===' '||k==='escape')$('#report-close')?.click();return}
   if(e.repeat&&!['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k))return;
   if(k==='1')setTool('select');else if(k==='2')setTool('mark');else if(k==='3')setTool('plant');else if(k==='4')setTool('plot');
   else if(k==='l')toggleBase(true);
+  else if(k==='tab')toggleMap(true);
+  else if(k==='u'){document.body.classList.toggle('noui');toast(document.body.classList.contains('noui')?'Interfejs schowany (U — pokaż).':'Interfejs widoczny.')}
   else if(k==='e')dispatchCrew();else if(k==='k')orderTruck(true);
   else if(k==='q'){const q=E.incidents.find(x=>x.status==='new');if(q)dispatch(q);else toast('Brak nowych zgłoszeń.')}
   else if(k==='f'){const s=state.selected;state.follow=s&&(s.pos||s.look||s.phase!=null||s.kind)&&s.st===undefined?s:null;if(!state.follow)toast('Wybierz pojazd, osobę albo zwierzę.')}

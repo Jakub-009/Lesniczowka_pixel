@@ -62,3 +62,16 @@
 #base-close{width:100%;padding:11px;font:900 12px ui-monospace,monospace;letter-spacing:.06em;background:#4f6d3f;color:#f1e6c2;border:0;cursor:pointer;box-shadow:0 4px #2a3b2d,0 0 0 2px #14201a;margin-top:12px}
 @media (max-width:700px){.bgrid{grid-template-columns:1fr}}
 #msg{z-index:9}
+
+/* 0.6: chowanie interfejsu (U) i mapa leśnictwa (Tab) */
+body.noui .ui>*:not(#msg){display:none}
+#mapov{position:fixed;inset:0;z-index:7;background:#0d1410b0;display:flex;align-items:center;justify-content:center}
+#mapov.hidden{display:none}
+.mapcard{background:#efe6c8;color:#2a3b2d;padding:12px 14px;box-shadow:0 0 0 3px #14201a,0 8px 0 #0a120d;max-width:96vw;max-height:96vh;display:flex;flex-direction:column;gap:6px}
+.maphead{display:flex;justify-content:space-between;align-items:center;gap:12px;font:800 12px ui-monospace,monospace;letter-spacing:.08em}
+.maphead button{cursor:pointer;border:0;font:800 10px ui-monospace,monospace;background:#c9bd96;color:#2a3b2d;padding:5px 8px;margin-left:5px}
+.maphead button.on{background:#4f6d3f;color:#f1e6c2}
+#mapcv{width:min(900px,92vw);height:auto;max-height:76vh;object-fit:contain;image-rendering:pixelated;cursor:crosshair;background:#d6d2b8}
+#maplegend{display:flex;flex-wrap:wrap;gap:4px 12px;font:600 11px ui-monospace,monospace}
+#maplegend span{display:flex;align-items:center;gap:4px}#maplegend i{display:inline-block;width:10px;height:10px;box-shadow:0 0 0 1px #2a3b2d55}
+.maphint{font:11px ui-monospace,monospace;color:#6a5a3e}

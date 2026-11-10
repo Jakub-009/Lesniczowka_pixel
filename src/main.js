@@ -15,6 +15,7 @@ import {drawWorld} from './render.js';
 import {hud,bindUI,centerOn} from './ui.js';
 import {bindInput} from './input.js';
 import {updateSound,toggleSound,resumeSound} from './sound.js';
+import {toggleMap,updateMap} from './mapview.js';
 import {hasSave,clearSave,saveGame,loadGame} from './save.js';
 
 const STEP=1/60,RATES=[1,3,10],NIGHT_FF=8;
@@ -45,9 +46,11 @@ function step(dt){
  updateSound(dt);
  if(RT.msgT>0){RT.msgT-=dt;if(RT.msgT<=0)$('#msg').style.opacity='0'}
 }
+// 0.6: kamera może wyjechać poza krawędź mapy o szerokość paneli, żeby rogi lasu nie były zasłonięte
 function clampCamera(){
- camera.x=VIEW.w>=WORLD.w?(WORLD.w-VIEW.w)/2:clamp(camera.x,0,WORLD.w-VIEW.w);
- camera.y=VIEW.h>=WORLD.h?(WORLD.h-VIEW.h)/2:clamp(camera.y,0,WORLD.h-VIEW.h);
+ const k=(window.devicePixelRatio||1)/Math.max(1,VIEW.scale),ml=260*k,mr=300*k,mt=120*k,mb=90*k;
+ camera.x=VIEW.w>=WORLD.w+ml+mr?(WORLD.w-VIEW.w)/2:clamp(camera.x,-ml,WORLD.w-VIEW.w+mr);
+ camera.y=VIEW.h>=WORLD.h+mt+mb?(WORLD.h-VIEW.h)/2:clamp(camera.y,-mt,WORLD.h-VIEW.h+mb);
 }
 // Skalowanie całkowite: piksel gry = `scale` pikseli ekranu. Zoom zmienia skalę (oddalenie = mniejsza skala).
 function size(){
@@ -71,7 +74,7 @@ function run(ts){
  RT.acc+=frame;let n=0;while(RT.acc>=STEP&&n<4){step(STEP);RT.acc-=STEP;n++}if(n===4)RT.acc=0;
  clampCamera();
  fpsT+=frame;fpsN++;if(fpsT>=.5){DEBUG.fps=Math.round(fpsN/fpsT);fpsT=0;fpsN=0}
- drawWorld();
+ drawWorld();updateMap(frame);
  RT.hudT+=frame;if(RT.hudT>=.15){RT.hudT=0;hud()}
  RT.saveT=(RT.saveT||0)+frame;if(RT.saveT>=30){RT.saveT=0;saveGame()}
  requestAnimationFrame(run);
@@ -85,6 +88,7 @@ $('#speedbtn').addEventListener('click',()=>{const i=(RATES.indexOf(state.rate)+
 $('#pausebtn').addEventListener('click',()=>{if(!state.playing||state.modal)return;state.paused=!state.paused;$('#pausebtn').textContent=state.paused?'▶':'❚❚';toast(state.paused?'Pauza (P).':'Gra wznowiona.')});
 $('#soundbtn').addEventListener('click',toggleSound);
 $('#helpbtn').addEventListener('click',()=>$('#help').classList.toggle('hidden'));
+$('#mapbtn').addEventListener('click',()=>toggleMap());
 $('#help-close').addEventListener('click',()=>$('#help').classList.add('hidden'));
 const begin=msg=>{state.playing=true;$('#overlay').classList.add('hidden');C.focus();if(state.mute)toggleSound();resumeSound();toast(msg)};
 if(hasSave()){$('#continue').style.display='block';$('#start').textContent='NOWA GRA'}

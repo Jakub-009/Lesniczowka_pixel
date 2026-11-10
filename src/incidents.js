@@ -2,7 +2,7 @@
 // złodziej choinek zimą) i zadania: dowiezienie karmy do paśnika. Patrolują jednostki: leśniczy (zawsze) i podleśniczy (po zatrudnieniu).
 import {state,toast,cal,hash,particle,clamp,zl,DOW} from './core.js';
 import {oddzial,DOOR,YARD,roadClearance,EDGES,POLANA,UPRAWA,inRect} from './map.js';
-import {nearestRoad,goalNode,offMap} from './roads.js';
+import {nearestRoad,goalNode,offMap,ENTRY,exitNode} from './roads.js';
 import {E,NAV} from './ents.js';
 import {Vehicle,Ped,Wild,Group,rand} from './life/agents.js';
 import {pay,bumpProtect,bumpDamage,planProgress,stat,ECO,canAfford} from './economy.js';
@@ -28,7 +28,7 @@ export function addTrash(x,y,kind){
 const forestEdges=()=>EDGES.filter(e=>e.kind==='forest'&&e.a!=='a3'&&e.b!=='l1');
 export function spawnRider(){
  const w=rand()<.5,kind=rand()<.6?'quad':'cross';
- const v=new Vehicle(kind,{from:w?'mW':'mE',to:w?'j1':'j2',s:0,color:['#c23a2b','#2f6a3a','#2a4a8a'][Math.floor(rand()*3)]});
+ const v=new Vehicle(kind,{...ENTRY(w),color:['#c23a2b','#2f6a3a','#2a4a8a'][Math.floor(rand()*3)]});
  v.illegal=true;v.life=95+rand()*50;v.report=5+rand()*5;v.label=kind==='quad'?'quad (nielegalny wjazd)':'motocykl crossowy (nielegalny wjazd)';
  const E2=forestEdges(),e=E2[Math.floor(rand()*E2.length)];
  v.goTo({edge:e,s:40+rand()*(e.len-80)},{onArrive:q=>{q.arrived=false;q.final=false;q.stopS=null;q.route=null;q.roam=['forest']}});
@@ -38,13 +38,13 @@ export function spawnRider(){
 export function spawnSmoke(spring){
  for(let k=0;k<40;k++){
   // wiosną zaczyna się od wypalania traw — przy szosie i na skraju polany; latem w głębi suchego boru
-  const x=spring?100+rand()*2200:300+rand()*1900,y=spring?(rand()<.6?1560+rand()*90:POLANA.y+(rand()-.5)*260):200+rand()*1350;
+  const x=spring?100+rand()*3400:300+rand()*3000,y=spring?(rand()<.6?1580+rand()*300:POLANA.y+(rand()-.5)*260):200+rand()*2300;
   if(roadClearance(x,y)<(spring?20:90)||Math.hypot(x-POLANA.x,y-POLANA.y)<POLANA.r-20)continue;
   const f={x,y,t:0,grow:0,dead:false,fire:true};E.trash.push(f);
   f.inc=report('fire',x,y,(spring?'Ktoś wypala trawy — dym w ':'Dym nad lasem w ')+odd(x,y)+'!',f);return}
 }
 // ───────── nocni intruzi ─────────
-const leave=v=>v.goTo(goalNode(v.pos[0]<1200?'mW':'mE'),{leave:true});
+const leave=v=>v.goTo(goalNode(exitNode(v.pos[0])),{leave:true});
 const INTR={
  poacher:{label:'kłusownik',car:'samochód bez świateł',text:x=>'Nocą w '+x+' stoi samochód bez świateł — możliwe kłusownictwo.'},
  thief:{label:'złodziej drewna',car:'samochód z przyczepką',text:x=>'Nocą przy stosie drewna w '+x+' ktoś ładuje przyczepkę!'},
@@ -58,7 +58,7 @@ export function spawnIntruder(kind){
   if(young.length<2)return;const t0=young[Math.floor(rand()*young.length)];young=young.filter(t=>Math.hypot(t.x-t0.x,t.y-t0.y)<160).slice(0,3);
   const rp=nearestRoad(t0.x,t0.y,['forest'],{margin:60});goal={edge:rp.edge,s:rp.s};
  }else{const E2=forestEdges(),e=E2[Math.floor(rand()*E2.length)];goal={edge:e,s:50+rand()*(e.len-100)}}
- const w=rand()<.5,car=new Vehicle('car',{from:w?'mW':'mE',to:w?'j1':'j2',s:0,color:kind==='thief'?'#5a4a3a':'#3a3d3a'});
+ const w=rand()<.5,car=new Vehicle('car',{...ENTRY(w),color:kind==='thief'?'#5a4a3a':'#3a3d3a'});
  car.dark=kind!=='xmas';car.intruder=kind;car.label=I.car;
  car.goTo(goal,{park:true,onArrive:v=>{
   const h=v.heading,cx=v.pos[0]+Math.cos(h)*18,cy=v.pos[1]+Math.sin(h)*18;v.door=[cx,cy];
@@ -111,9 +111,9 @@ class Unit{
   const c=this.car;this.phase='driving';c.beacon=inc.type!=='feed';c.label=this.name+' jedzie: '+inc.text;
   if(inc.type==='quad'){this.chase(inc);return}
   const rp=nearestRoad(inc.x,inc.y,['main','forest']);
-  c.goTo({edge:rp.edge,s:rp.s},{park:true,onArrive:()=>this.onSite(inc)});
+  c.goTo({edge:rp.edge,s:rp.s},{park:true,pen:400,onArrive:()=>this.onSite(inc)});
  }
- chase(inc){const q=inc.ref,rp=nearestRoad(q.pos[0],q.pos[1],['main','forest']);this.car.goTo({edge:rp.edge,s:rp.s},{park:false,onArrive:()=>{this.chaseT=0}})}
+ chase(inc){const q=inc.ref,rp=nearestRoad(q.pos[0],q.pos[1],['main','forest']);this.car.goTo({edge:rp.edge,s:rp.s},{park:false,pen:250,onArrive:()=>{this.chaseT=0}})}
  onSite(inc){
   this.phase='onsite';this.car.beacon=false;
   if(inc.status==='gone'||(inc.ref&&inc.ref.dead&&inc.type!=='fire'&&inc.type!=='feed')){this.finish(inc,false);return}
@@ -133,7 +133,7 @@ class Unit{
    r.run(steps);
   }else{
    const q=inc.ref;
-   r.run([{go:[tx-10,ty]},{wait:3.5,pose:'talk',face:[tx,ty]},{call:()=>{inc.status='done';q.stopped=false;q.speedMul=.6;q.label='odjeżdża po kontroli';q.goTo(goalNode(q.pos[0]<1200?'mW':'mE'),{leave:true})}},back,done(true)]);
+   r.run([{go:[tx-10,ty]},{wait:3.5,pose:'talk',face:[tx,ty]},{call:()=>{inc.status='done';q.stopped=false;q.speedMul=.6;q.label='odjeżdża po kontroli';q.goTo(goalNode(exitNode(q.pos[0])),{leave:true})}},back,done(true)]);
   }
  }
  finish(inc,ok){
@@ -195,10 +195,10 @@ export function updateIncidents(dt){
   if(v.roam&&!v.stopped&&v.dwell<=0&&rand()<dt*.05){v.dwell=4+rand()*5;v.label=(v.kind==='quad'?'quad':'crossowiec')+' kręci kółka na poboczu'}
   if(v.dwell>0&&rand()<dt*8)particle('dust',v.pos[0]+(rand()-.5)*20,v.pos[1]+(rand()-.5)*20,{col:'#b8a27a',size:2+rand()*3});
   if(v.report!=null){v.report-=dt;if(v.report<=0){v.report=null;if(!v.dead)v.inc=report('quad',v.pos[0],v.pos[1],(v.kind==='quad'?'Quad':'Motocykl crossowy')+' na drodze leśnej, '+odd(v.pos[0],v.pos[1])+'.',v)}}
-  if(v.life<=0&&!v.stopped&&!v.leaving&&v.roam){v.leaving=true;v.goTo(goalNode(v.pos[0]<1200?'mW':'mE'),{leave:true})}
+  if(v.life<=0&&!v.stopped&&!v.leaving&&v.roam){v.leaving=true;v.goTo(goalNode(exitNode(v.pos[0])),{leave:true})}
  }
  for(const t of E.trash){
-  if(t.fire){t.t+=dt;if(!t.dead){t.grow=Math.min(1,t.grow+dt*.0065);if(rand()<dt*14)particle('smoke',t.x+(rand()-.5)*14*(1+t.grow),t.y,{vx:6+rand()*6,vy:-14-rand()*10,life:2.5+rand()*1.5,size:3+rand()*4*(1+t.grow)})}
+  if(t.fire){t.t+=dt;if(!t.dead){t.grow=Math.min(1,t.grow+dt*.0042);if(rand()<dt*14)particle('smoke',t.x+(rand()-.5)*14*(1+t.grow),t.y,{vx:6+rand()*6,vy:-14-rand()*10,life:2.5+rand()*1.5,size:3+rand()*4*(1+t.grow)})}
    if(!t.dead&&t.grow>=1){t.dead=true;burn(t);t.inc.status='gone';stat('ignored');const u=t.inc.unit;if(u&&u.cur===t.inc&&u.phase==='driving'){u.cur=null;u.startNext()}bumpProtect(-7);bumpDamage(6);toast('Pożar w '+odd(t.x,t.y)+' ugasiła straż pożarna. Spłonął fragment drzewostanu.')}continue}
   if(t.dead)continue;t.t+=dt;
   if(!t.inc&&t.t>t.report)t.inc=report('trash',t.x,t.y,t.kind==='snare'?'Spacerowicz znalazł wnyki w '+odd(t.x,t.y)+'.':'Śmieci w lesie, '+odd(t.x,t.y)+'.',t);

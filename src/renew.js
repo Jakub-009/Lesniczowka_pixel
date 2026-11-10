@@ -1,9 +1,9 @@
 // Odnowienie lasu (0.3): powierzchnia odnowieniowa zaznaczana obszarem → przygotowanie gleby pługiem leśnym LPz
 // (bruzdy co ok. 1,5 m, uprzątnięcie gałęzi) → sadzenie w rzędach przez ekipę. Bez przygotowania gleby sadzonki gorzej się przyjmują.
-import {state,toast,cal,clamp,zl,displayNumber,PX_PER_M,rect} from './core.js';
-import {roadClearance,inRect,YARD,SKLAD,pointBlocked,oddzial} from './map.js';
-import {nearestRoad,goalNode} from './roads.js';
-import {E,NAV} from './ents.js';
+import {state,toast,cal,clamp,zl,displayNumber,PX_PER_M,rect,SEASON_DAYS} from './core.js';
+import {roadClearance,inRect,YARD,PLAC,pointBlocked,oddzial} from './map.js';
+import {nearestRoad,goalNode,ENTRY,exitNode} from './roads.js';
+import {E,NAV,rebuildWild} from './ents.js';
 import {Vehicle,cartRear} from './life/agents.js';
 import {trees,treesIn,STAND,STUMP,SAPLING_AGE,crownR,speciesFor,SP,dirtyTree} from './forest.js';
 import {J,addCrewTasks,COST} from './jobs.js';
@@ -18,7 +18,7 @@ export const fenceCost=p=>Math.round(2*(p.w+p.h)/PX_PER_M*FENCE_PER_M);
 export const areaHa=p=>p.w*p.h/(PX_PER_M*PX_PER_M)/10000;
 // Miejsca na sadzonki: w rzędach (w bruzdach), z pominięciem drzew, pniaków, dróg i już zaplanowanych sadzonek.
 function spotOk(x,y){
- if(roadClearance(x,y)<8||inRect(x,y,YARD,8)||inRect(x,y,SKLAD,8)||pointBlocked(x,y,6))return false;
+ if(roadClearance(x,y)<8||inRect(x,y,YARD,8)||inRect(x,y,PLAC,8)||pointBlocked(x,y,6))return false;
  for(const t of treesIn(x-40,y-40,x+40,y+40)){const d=Math.hypot(t.x-x,t.y-y);
   if(t.st===STUMP?d<8:t.age<SAPLING_AGE?d<9:d<Math.max(10,crownR(t)*.45))return false}
  return !J.plants.some(q=>Math.hypot(q.x-x,q.y-y)<9);
@@ -64,7 +64,7 @@ function plowUpdate(){
  const P=R.plow;
  if(P.phase==='idle'&&P.queue.length&&cal.work(7,16)){
   const p=P.cur=P.queue.shift();p.state='prepping';
-  const v=P.v=new Vehicle('plower',{from:'mE',to:'j2',s:0});v.label='ciągnik z pługiem LPz jedzie do P'+p.id;
+  const v=P.v=new Vehicle('plower',ENTRY(false));v.label='ciągnik z pługiem LPz jedzie do P'+p.id;
   const rows=plowPath(p),rp=nearestRoad(rows[0][0],rows[0][1],['main','forest'],{margin:50});
   P.phase='driving';
   v.goTo({edge:rp.edge,s:rp.s},{onArrive:()=>{
@@ -80,7 +80,7 @@ function plowUpdate(){
     const back=nearestRoad(v.pos[0],v.pos[1],['main','forest'],{margin:40});
     let bp=NAV.foot.findPath(v.pos[0],v.pos[1],back.x,back.y);if(!bp||!bp.length)bp=[[back.x,back.y]];
     P.phase='leaving';v.label='ciągnik z pługiem wraca';
-    v.driveOff(bp,{onArrive:()=>{v.rejoin();v.goTo(goalNode('mE'),{leave:true,onArrive:()=>{}});P.v=null;P.cur=null;P.phase='idle'}});
+    v.driveOff(bp,{onArrive:()=>{v.rejoin();v.goTo(goalNode(exitNode(v.pos[0])),{leave:true,onArrive:()=>{}});P.v=null;P.cur=null;P.phase='idle'}});
    }});
    v.off.workSpeed=16;
   }});
@@ -110,9 +110,18 @@ export function orderFence(p){
  pay(c,'grodzenie uprawy siatką');p.fence='building';p.fenceP=0;
  toast('Zlecono grodzenie P'+p.id+' ('+Math.round(2*(p.w+p.h)/PX_PER_M)+' m siatki). Montaż w godzinach pracy.');
 }
+// Repelent (0.6): środek odstraszający na sadzonki — tani, chroni przez bieżącą porę roku (ok. 75% mniej zgryzania).
+export const seasonKey=()=>Math.floor(state.days/SEASON_DAYS);
+export const repelCost=p=>Math.max(60,Math.round(plotStats(p).young*.5));
+export function orderRepel(p){
+ if(p.fence==='done'){toast('Powierzchnia jest ogrodzona — repelent niepotrzebny.');return}
+ if(p.repel===seasonKey()){toast('Repelent już naniesiony w tej porze roku.');return}
+ const c=repelCost(p);if(!canAfford(c))return;
+ pay(c,'repelent na sadzonki');p.repel=seasonKey();toast('Naniesiono repelent na sadzonki w P'+p.id+' — chroni do końca tej pory roku.');
+}
 export function updateRenew(dt){
  plowUpdate();
- if(cal.work(7,16))for(const p of R.plots)if(p.fence==='building'){p.fenceP+=dt*6;if(p.fenceP>=2*(p.w+p.h)){p.fence='done';toast('Grodzenie P'+p.id+' gotowe — sadzonki są bezpieczne od zgryzania.')}}
+ if(cal.work(7,16))for(const p of R.plots)if(p.fence==='building'){p.fenceP+=dt*6;if(p.fenceP>=2*(p.w+p.h)){p.fence='done';rebuildWild();toast('Grodzenie P'+p.id+' gotowe — sadzonki są bezpieczne od zgryzania.')}}
 }
 // Siatka grodzenia (na poziomie gruntu): słupki co ~2,5 m, rysowana do miejsca, gdzie doszli monterzy.
 export function drawFences(g){

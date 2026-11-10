@@ -5,19 +5,29 @@ import {distToSegment,obbCircle} from './geometry.js';
 // ── Graf dróg ──
 // main = droga wojewódzka na dole (asfalt), forest = drogi leśne (tłuczeń, trawa pośrodku), drive = wjazd na podwórze leśniczówki.
 // Węzły mW i mE leżą poza mapą: tam pojazdy pojawiają się i znikają.
-export const NODES={mW:[-140,1720],j1:[820,1720],j2:[1700,1720],mE:[2540,1720],
+export const NODES={mW:[-140,1720],j1:[820,1720],j2:[1700,1720],j3:[2600,1720],mE:[3740,1720],
  a1:[820,1100],a2:[820,560],a3:[820,300],l1:[560,300],yd:[478,300],
- b1:[1700,1100],sk:[1700,1590],b2:[1700,560],e1:[2250,560]};
+ b1:[1700,1100],b2:[1700,560],e1:[2250,560],
+ c1:[2600,1100],c2:[2600,560],c3:[2600,190],d1:[3260,1100],
+ s1:[820,2300],s0:[300,2300],s3:[1700,2300],s4:[2600,2380]};
 const F=(a,b)=>({a,b,kind:'forest',w:40,lane:7});
 export const EDGES=[
- {a:'mW',b:'j1',kind:'main',w:60,lane:15},{a:'j1',b:'j2',kind:'main',w:60,lane:15},{a:'j2',b:'mE',kind:'main',w:60,lane:15},
+ {a:'mW',b:'j1',kind:'main',w:60,lane:15},{a:'j1',b:'j2',kind:'main',w:60,lane:15},{a:'j2',b:'j3',kind:'main',w:60,lane:15},{a:'j3',b:'mE',kind:'main',w:60,lane:15},
  F('j1','a1'),F('a1','a2'),F('a2','a3'),F('a3','l1'),{a:'l1',b:'yd',kind:'drive',w:44,lane:0},
- F('a1','b1'),F('j2','sk'),F('sk','b1'),F('b1','b2'),F('a2','b2'),F('b2','e1')
+ F('a1','b1'),F('j2','b1'),F('b1','b2'),F('a2','b2'),F('b2','e1'),
+ // 0.6: wschód (oddz. 106–107) i południe (108–110)
+ F('e1','c2'),F('c2','c3'),F('c2','c1'),F('c1','j3'),F('c1','d1'),
+ F('j1','s1'),F('s1','s0'),F('s1','s3'),F('s3','j2'),F('j3','s4')
 ];
+// Place nawrotowe na końcach ślepych dróg leśnych: tylko tam (i na skrzyżowaniach) pojazdy zawracają.
+export const TURNS=['c3','d1','s0','s4'];
 for(const e of EDGES){const A=NODES[e.a],B=NODES[e.b];e.len=Math.hypot(B[0]-A[0],B[1]-A[1]);e.id=e.a+'-'+e.b}
 const SEG=EDGES.map(e=>({x1:NODES[e.a][0],y1:NODES[e.a][1],x2:NODES[e.b][0],y2:NODES[e.b][1],w:e.w,kind:e.kind}));
-// Odległość od krawędzi jezdni (ujemna = na jezdni).
-export function roadClearance(x,y,kinds){let m=1e9;for(const s of SEG)if(!kinds||kinds.includes(s.kind))m=Math.min(m,distToSegment(x,y,s.x1,s.y1,s.x2,s.y2)-s.w/2);return m}
+for(const s of SEG){s.bx0=Math.min(s.x1,s.x2);s.bx1=Math.max(s.x1,s.x2);s.by0=Math.min(s.y1,s.y2);s.by1=Math.max(s.y1,s.y2)}
+// Odległość od krawędzi jezdni (ujemna = na jezdni). Odcinki daleko od punktu (po prostokącie) pomijamy — duża mapa.
+export function roadClearance(x,y,kinds){let m=1e9;for(const s of SEG){if(kinds&&!kinds.includes(s.kind))continue;
+ const bx=x<s.bx0?s.bx0-x:x>s.bx1?x-s.bx1:0,by=y<s.by0?s.by0-y:y>s.by1?y-s.by1:0;if(Math.max(bx,by)-s.w/2>=m)continue;
+ m=Math.min(m,distToSegment(x,y,s.x1,s.y1,s.x2,s.y2)-s.w/2)}return m}
 
 // ── Leśniczówka (północny zachód) ──
 export const YARD={x:150,y:150,w:410,h:300,gate:[270,330]};
@@ -32,9 +42,9 @@ export const PARK_YARD=[478,300];
 // Szkółka leśna (budowana w 0.5) — tuż za płotem podwórza, od południa.
 export const NURSERY={x:186,y:470,w:214,h:78};
 
-// ── Baza maszyn przy drodze B (dawna składnica; od 0.5 drewno leży w stosach przy drogach) ──
-export const SKLAD={x:1726,y:1470,w:250,h:190};
-export const STACK={x:1752,y:1500,w:200,h:96};
+// ── Plac manewrowy przy leśniczówce (0.6): tu nocują maszyny zrywkowe i stoi kupiony forwarder ──
+export const PLAC={x:604,y:330,w:196,h:92};
+export const PLAC_SPOTS=[{x:660,y:378,h:Math.PI/2},{x:748,y:378,h:Math.PI/2}];   // h: kierunek jazdy (na wschód)
 
 // ── Polana z amboną, uprawa w grodzeniu ──
 export const POLANA={x:2080,y:1090,r:150};
@@ -47,13 +57,22 @@ export const STANDS={
  '102':{name:'102',desc:'świerczyna z brzozą',mix:{swierk:.55,brzoza:.25,sosna:.2},age:[38,62]},
  '103':{name:'103',desc:'dąbrowa z bukiem',mix:{dab:.46,buk:.4,sosna:.14},age:[82,115]},
  '104':{name:'104',desc:'młodszy bór mieszany',mix:{sosna:.6,dab:.24,brzoza:.16},age:[32,50]},
- '105':{name:'105',desc:'las mieszany',mix:{swierk:.38,buk:.36,brzoza:.26},age:[48,76]}
+ '105':{name:'105',desc:'las mieszany',mix:{swierk:.38,buk:.36,brzoza:.26},age:[48,76]},
+ '106':{name:'106',desc:'stara świerczyna',mix:{swierk:.7,sosna:.15,brzoza:.15},age:[70,96]},
+ '107':{name:'107',desc:'bór sosnowy w średnim wieku',mix:{sosna:.8,brzoza:.12,dab:.08},age:[40,62]},
+ '108':{name:'108',desc:'bór sosnowy przy szosie',mix:{sosna:.72,brzoza:.18,swierk:.1},age:[55,82]},
+ '109':{name:'109',desc:'grąd: dąb, buk, brzoza',mix:{dab:.36,buk:.34,brzoza:.2,sosna:.1},age:[60,92]},
+ '110':{name:'110',desc:'młodnik i drągowina sosnowa',mix:{sosna:.76,brzoza:.24},age:[16,34]}
 };
-export function oddzial(x,y){if(x<820)return y<470?'102':'101';if(y<560)return '102';if(x<1700)return y<1100?'103':'104';return '105'}
+export function oddzial(x,y){
+ if(y>=1720){if(x>=1700)return '110';if(x>=820&&y<2300)return '109';return '108'}
+ if(x>=2600)return y<1100?'106':'107';
+ if(x<820)return y<470?'102':'101';if(y<560)return '102';if(x<1700)return y<1100?'103':'104';return '105'}
 // Słupki oddziałowe na skrzyżowaniach (numery sąsiednich oddziałów).
-export const POSTS=[{x:842,y:1122,n:['103','104']},{x:842,y:582,n:['102','103']},{x:1722,y:1122,n:['104','105']},{x:1722,y:582,n:['102','105']},{x:798,y:1078,n:['101','103']}];
+export const POSTS=[{x:842,y:1122,n:['103','104']},{x:842,y:582,n:['102','103']},{x:1722,y:1122,n:['104','105']},{x:1722,y:582,n:['102','105']},{x:798,y:1078,n:['101','103']},
+ {x:2622,y:1122,n:['106','107']},{x:2578,y:582,n:['105','106']},{x:842,y:2278,n:['108','109']},{x:1722,y:2278,n:['109','110']}];
 // Szlabany na wjazdach z drogi głównej, tablica leśnictwa.
-export const BARRIERS=[{x:820,y:1636},{x:1700,y:1636}];
+export const BARRIERS=[{x:820,y:1636},{x:1700,y:1636},{x:2600,y:1636},{x:820,y:1804},{x:1700,y:1804},{x:2600,y:1804}];
 export const BOARD={x:872,y:1630};
 
 // ── Kolizje (dla pieszych i zwierząt) ──

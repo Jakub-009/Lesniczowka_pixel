@@ -1,20 +1,32 @@
 // Graf dróg: sąsiedztwo, najkrótsze trasy (Dijkstra), najbliższy punkt drogi i plan przejazdu do dowolnego miejsca.
 import {NODES,EDGES} from './map.js';
+import {WORLD} from './core.js';
 const ADJ={};for(const k in NODES)ADJ[k]=[];
 for(const e of EDGES){ADJ[e.a].push({edge:e,to:e.b});ADJ[e.b].push({edge:e,to:e.a})}
 export const neighbours=k=>ADJ[k];
 export const edgeOf=(a,b)=>ADJ[a].find(n=>n.to===b)?.edge;
 export const ALL=['main','forest','drive'];
-export const offMap=k=>{const p=NODES[k];return p[0]<0||p[0]>2400||p[1]<0||p[1]>1800};
+export const offMap=k=>{const p=NODES[k];return p[0]<0||p[0]>WORLD.w||p[1]<0||p[1]>WORLD.h};
+// Wjazd na mapę (zachód / wschód) i najbliższy wyjazd.
+export const ENTRY=w=>w?{from:'mW',to:'j1',s:0}:{from:'mE',to:'j3',s:0};
+export const exitNode=x=>x<WORLD.w/2?'mW':'mE';
+// Zawracanie: na końcu drogi (plac nawrotowy, brama, wyjazd z mapy) bez kosztu, na skrzyżowaniu z kosztem tc
+// (wjazd w boczną drogę i powrót), a na środku odcinka — prawie nigdy (pen w planRoute).
+const live=(k,allow)=>ADJ[k].filter(q=>allow.includes(q.edge.kind)).length;
+const turnCost=(k,allow,tc)=>{const n=live(k,allow);return n<=1?0:n>=3?tc:null};
 
-function dijkstra(src,allow){
- const dist={},prev={},done=new Set();for(const k in NODES)dist[k]=1e9;dist[src]=0;
- for(;;){let u=null,b=1e9;for(const k in dist)if(!done.has(k)&&dist[k]<b){b=dist[k];u=k}
-  if(!u)break;done.add(u);
-  for(const n of ADJ[u]){if(!allow.includes(n.edge.kind))continue;const d=b+n.edge.len;if(d<dist[n.to]){dist[n.to]=d;prev[n.to]=u}}}
+// Dijkstra po stanach (węzeł, skąd przyjechał): nie wolno wrócić tym samym odcinkiem, chyba że to ślepy koniec drogi.
+function dijkstra(src,prevNode,allow,tc){
+ const dist=new Map(),prev=new Map(),done=new Set(),K=(n,p)=>n+'|'+p;dist.set(K(src,prevNode),0);
+ for(;;){let u=null,b=1e9;for(const [k,d] of dist)if(!done.has(k)&&d<b){b=d;u=k}
+  if(!u)break;done.add(u);const [n,p]=u.split('|');
+  for(const q of ADJ[n]){if(!allow.includes(q.edge.kind))continue;let extra=0;if(q.to===p){const t=turnCost(n,allow,tc);if(t==null)continue;extra=t}
+   const k=K(q.to,n),d=b+q.edge.len+extra;if(d<(dist.get(k)??1e9)){dist.set(k,d);prev.set(k,u)}}}
  return{dist,prev};
 }
-const pathTo=(D,t)=>{const p=[t];while(D.prev[p[0]])p.unshift(D.prev[p[0]]);return p};
+// Najlepszy stan w węźle gx, z którego wolno wjechać na odcinek prowadzący do gy.
+function bestAt(D,gx,gy,allow,tc){let best=null;for(const [k,d0] of D.dist){const [n,p]=k.split('|');if(n!==gx)continue;let d=d0;if(p===gy){const t=turnCost(gx,allow,tc);if(t==null)continue;d+=t}if(!best||d<best.d)best={k,d}}return best}
+const pathTo=(D,k)=>{const p=[k];while(D.prev.has(p[0]))p.unshift(D.prev.get(p[0]));return p.map(q=>q.split('|')[0])};
 
 // Punkt na krawędzi: s mierzone od węzła e.a.
 export function pointOn(e,s){const A=NODES[e.a],B=NODES[e.b],t=s/e.len;return[A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t]}
@@ -32,21 +44,25 @@ export function nearestRoad(x,y,allow=ALL,opts={}){
 }
 // Plan przejazdu z bieżącej pozycji (krawędź from→to, s od from) do celu (krawędź + s od e.a).
 // Wynik: {reverse, nodes:[n0,…,Gx,Gy], stopS} — pojazd jedzie przez węzły, na ostatnim odcinku Gx→Gy staje w stopS.
-export function planRoute(from,to,s,goal,allow=ALL){
+// pen — koszt zawracania w miejscu (na środku drogi): małe auta stojące w miejscu zawracają chętniej, ciężkie prawie nigdy.
+export function planRoute(from,to,s,goal,allow=ALL,pen=6000){
+ const tc=pen<3000?120:400;   // zawrócenie na skrzyżowaniu: auto — mały koszt, ciężki sprzęt — większy
  const cur=edgeOf(from,to),L=cur.len,G=goal.edge,sg=goal.s;
- // cel na tym samym odcinku
+ let best=null;
+ // cel na tym samym odcinku przed nami — jedziemy prosto
  if(G===cur){
   const sAlong=G.a===from?sg:G.len-sg;
   if(sAlong>=s-1)return{reverse:false,nodes:[],stopS:sAlong};
-  return{reverse:true,nodes:[],stopS:L-sAlong};
+  best={c:s-sAlong+pen,reverse:true,nodes:[],stopS:L-sAlong};
  }
- let best=null;
- for(const [n0,c0,rev] of [[to,L-s,false],[from,s+40,true]]){
-  const D=dijkstra(n0,allow);
+ for(const [n0,p0,c0,rev] of [[to,from,L-s,false],[from,to,s+pen,true]]){
+  const D=dijkstra(n0,p0,allow,tc);
   for(const [gx,gy,last] of [[G.a,G.b,sg],[G.b,G.a,G.len-sg]]){
-   if(D.dist[gx]>=1e9||!allow.includes(G.kind))continue;
-   const c=c0+D.dist[gx]+last;
-   if(!best||c<best.c)best={c,reverse:rev,nodes:[...pathTo(D,gx),gy],stopS:last};
+   if(!allow.includes(G.kind))continue;
+   // wjazd na odcinek celu z węzła gx: jeśli gx to węzeł startowy, a odcinek to bieżąca droga — zawracanie
+   const B=bestAt(D,gx,gy,allow,tc);if(!B)continue;
+   const c=c0+B.d+last;
+   if(!best||c<best.c)best={c,reverse:rev,nodes:[...pathTo(D,B.k),gy],stopS:last};
   }
  }
  return best;

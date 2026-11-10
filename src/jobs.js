@@ -1,8 +1,8 @@
 // Prace leśne (0.5): wyznaczanie drzew, ekipy pilarzy A i B (ścinka, wyrzynka, sadzenie), zrywka szlakami do stosów przy drogach,
 // ciężarówka z żurawiem (HDS) objeżdżająca stosy. Wszystko jeździ samo — gracz wydaje polecenia i pilnuje budżetu.
 import {state,toast,particle,clamp,zl,displayNumber,ctx,cal,rect} from './core.js';
-import {SKLAD,roadClearance,oddzial,inRect,YARD,UPRAWA,pointBlocked,NODES,EDGES} from './map.js';
-import {nearestRoad,goalNode,edgeOf,pointOn} from './roads.js';
+import {PLAC,PLAC_SPOTS,roadClearance,oddzial,inRect,YARD,UPRAWA,pointBlocked,NODES,EDGES} from './map.js';
+import {nearestRoad,goalNode,edgeOf,pointOn,ENTRY,exitNode} from './roads.js';
 import {paintRut} from './paint.js';
 import {E,NAV} from './ents.js';
 import {Vehicle,Ped,rand,cartRear,cartFront} from './life/agents.js';
@@ -82,7 +82,7 @@ export function dispatchCrew(){
 // Zadania z powierzchni odnowieniowej (sadzenie w rzędach) — przez ten sam podział na ekipy.
 export function addCrewTasks(tasks,msg){launch(distribute(tasks),msg)}
 // Ekipy pracują pon.–sob. 7:00–15:00. Zimą nie sadzą (zamarznięta ziemia), wiosną nie tną w oddz. 103 (okres lęgowy).
-function startCrew(C){C.van=new Vehicle('van',{from:'mE',to:'j2',s:0});C.van.label='ekipa '+C.id;nextCluster(C)}
+function startCrew(C){C.van=new Vehicle('van',ENTRY(rand()<.5));C.van.label='ekipa '+C.id;nextCluster(C)}
 const shiftOn=()=>cal.work(7,15);
 function holdReason(k){if(k.type==='plant'&&cal.season()===3)return 'zima';if(k.type==='fell'&&birdBan(k.t))return 'lęgi';return null}
 function nextCluster(C){
@@ -91,7 +91,7 @@ function nextCluster(C){
  if(!C.tasks.length||!shiftOn()){
   const left=C.tasks.length;C.phase='leaving';v.label=left?'ekipa '+C.id+' — koniec dniówki':'ekipa '+C.id+' wraca do bazy';
   if(left)toast('Ekipa '+C.id+': koniec dniówki, wróci '+cal.nextStart(7,15)+' (zostało zadań: '+left+').');
-  v.goTo(goalNode('mE'),{leave:true,onArrive:()=>{C.phase='idle';C.van=null}});return}
+  v.goTo(goalNode(exitNode(v.pos[0])),{leave:true,onArrive:()=>{C.phase='idle';C.van=null}});return}
  const [vx,vy]=v.pos;C.tasks.sort((a,b)=>{const A=tpos(a),B=tpos(b);return Math.hypot(A[0]-vx,A[1]-vy)-Math.hypot(B[0]-vx,B[1]-vy)});
  const [fx,fy]=tpos(C.tasks[0]),rp=nearestRoad(fx,fy,['main','forest'],{margin:50});
  C.cluster=C.tasks.filter(k=>{const [x,y]=tpos(k);return Math.hypot(x-fx,y-fy)<260});
@@ -169,16 +169,34 @@ export const MACH={
  tractor:{name:'ciągnik z wyciągarką',veh:'tractor',cap:6,reach:150,pull:36,rope:true},
  forwarder:{name:'forwarder z żurawiem',veh:'forwarder',cap:12,reach:95,pull:80,crane:true,price:18000}
 };
-const HOME={edge:edgeOf('sk','b1'),s:180};
-const homeLabel=()=>MACH[J.skid.mach].name+' (w bazie maszyn)';
-function spawnMachine(kind,atHome=true){
+// 0.6: nie ma bazy maszyn. Ciągnik usługowy przyjeżdża z zewnątrz, gdy są kłody do zwiezienia; jeśli praca trwa dłużej,
+// nocuje na placu przy leśniczówce, a po skończonej robocie zjeżdża z lasu. Kupiony forwarder stoi na placu na stałe.
+const PLAC_EDGE=edgeOf('a3','l1');
+const homeLabel=()=>MACH[J.skid.mach].name+' (na placu przy leśniczówce)';
+function parkAtPlac(v,cb){
+ const sp=PLAC_SPOTS[0],sRoad=clamp(NODES.a3[0]-(sp.x+70),20,PLAC_EDGE.len-20);
+ v.goTo({edge:PLAC_EDGE,s:sRoad},{park:false,onArrive:()=>v.driveOff([[sp.x+22,350],[sp.x-14,380]],{onArrive:()=>{v.v=0;v.parked=true;cb&&cb()}})});
+}
+function spawnMachine(kind,toPlac){
  const S=J.skid,M=MACH[kind];S.mach=kind;
- S.trac=atHome?new Vehicle(M.veh,{from:'sk',to:'b1',s:HOME.s}).parkHere():new Vehicle(M.veh,{from:'mE',to:'j2',s:0});
- S.trac.cap=M.cap;S.trac.label=homeLabel();S.phase='idle';S.list=[];S.cur=null;S.watch=0;
- if(!atHome){S.phase='arriving';S.trac.label=M.name+' jedzie do bazy';S.trac.goTo(HOME,{park:true,onArrive:()=>{S.phase='idle';S.trac.label=homeLabel()}})}
+ S.trac=new Vehicle(M.veh,ENTRY(rand()<.5));S.trac.cap=M.cap;S.list=[];S.cur=null;S.watch=0;S.atHome=false;
+ if(toPlac){S.phase='arriving';S.trac.label=M.name+' jedzie na plac przy leśniczówce';parkAtPlac(S.trac,()=>{S.phase='idle';S.atHome=true;S.trac.label=homeLabel()})}
+ else{S.phase='idle';S.trac.label=M.name+' (usługa zrywki) dojeżdża do lasu'}
+}
+export const placeForwarder=()=>spawnMachine('forwarder',true);
+const crewsFelling=()=>J.crews.some(C=>C.tasks.some(k=>k.type==='fell')||C.cluster.some(k=>k.type==='fell'));
+// Koniec pracy albo brak kłód: na plac (forwarder, albo usługa, gdy robota jeszcze trwa) albo zjazd z lasu.
+function goHome(){
+ const S=J.skid,v=S.trac,M=MACH[S.mach];if(!v)return;
+ if(!S.owned&&!crewsFelling()&&!freePiles().length){
+  v.label=M.name+' zjeżdża z lasu — zrywka skończona';v.goTo(goalNode(exitNode(v.pos[0])),{leave:true});
+  S.trac=null;S.phase='idle';S.atHome=false;return}
+ if(S.atHome)return;
+ S.phase='home';v.label=M.name+' jedzie na nocleg na plac przy leśniczówce';
+ parkAtPlac(v,()=>{S.phase='idle';S.atHome=true;v.label=homeLabel()});
 }
 export function initJobs(){
- spawnMachine('tractor');
+ J.skid.trac=null;J.skid.phase='idle';
  // drewno z poprzedniego sezonu: dwa stosy przy drogach
  const a=stackFor(780,1300);addToStack(a,2.6,2.6*250);const b=stackFor(1760,850);addToStack(b,1.8,1.8*300);
 }
@@ -186,10 +204,10 @@ export function buyForwarder(){
  const S=J.skid,M=MACH.forwarder;
  if(S.owned){toast('Forwarder już pracuje w leśnictwie.');return}
  if(!canAfford(M.price))return;
- if(S.phase!=='idle'){toast('Poczekaj, aż ciągnik skończy kurs i wróci do bazy.');return}
+ if(S.trac&&S.phase!=='idle'){toast('Poczekaj, aż ciągnik usługowy skończy kurs.');return}
  pay(M.price,'zakup forwardera');S.owned=true;
- const old=S.trac;old.label='ciągnik odjeżdża (zastąpiony forwarderem)';old.goTo(goalNode('mE'),{leave:true});
- spawnMachine('forwarder',false);toast('Kupiono forwarder: 12 m³ ładunku, żuraw, szybciej w terenie. Utrzymanie '+zl(COST.fwd)+' dziennie.');
+ const old=S.trac;if(old){old.label='ciągnik usługowy odjeżdża (zastąpiony forwarderem)';old.goTo(goalNode(exitNode(old.pos[0])),{leave:true})}
+ spawnMachine('forwarder',true);toast('Kupiono forwarder: 12 m³ ładunku, żuraw, szybciej w terenie. Utrzymanie '+zl(COST.fwd)+' dziennie.');
 }
 const anchor=v=>J.skid.mach==='forwarder'?cartFront(v.cart):cartRear(v.cart);
 export function rutWork(v,step){v.rutAcc=(v.rutAcc||0)+step;if(v.rutAcc>2){v.rutAcc=0;paintRut(v.pos[0],v.pos[1],v.heading,v.spec.hw*.65);if(v.cart){const c=v.cart;paintRut(c.x,c.y,c.angle,12)}}}
@@ -207,18 +225,21 @@ function pathTo(v,tx,ty,stop){
 const freePiles=()=>E.piles.filter(p=>p.state==='ground'&&!p.dead&&!(p.skipT>state.elapsed));
 const reachD=(v,p)=>{const [ax,ay]=anchor(v);return Math.min(Math.hypot(p.x-ax,p.y-ay),Math.hypot(p.x-v.pos[0],p.y-v.pos[1]))};
 function skidUpdate(dt){
- const S=J.skid,v=S.trac,M=MACH[S.mach];if(!v)return;
- if(S.phase!=='idle'&&S.phase!=='arriving')S.watch+=dt;
+ const S=J.skid,M=MACH[S.mach];
+ if(!S.trac){if(!S.owned&&cal.work(7,15)&&freePiles().length)spawnMachine('tractor',false);else if(S.owned)spawnMachine('forwarder',true);return}
+ const v=S.trac;
+ if(S.phase!=='idle'&&S.phase!=='arriving'&&S.phase!=='home')S.watch+=dt;
  if(S.watch>240){   // zabezpieczenie: brak postępu przez 4 godziny gry — odholowanie do bazy
   for(const p of E.piles)if(p.state==='reserved'||p.state==='winch')p.state='ground';
   if(S.target)S.target.skipT=state.elapsed+600;
-  const load=v.load,val=S.val||0;v.dead=true;spawnMachine(S.mach);
-  if(load>0){const st=stackFor(S.trac.pos[0],S.trac.pos[1]);addToStack(st,load,val)}
-  toast(M.name[0].toUpperCase()+M.name.slice(1)+' utknął — odholowano go do bazy, ładunek złożono przy drodze.');return;
+  const load=v.load,val=S.val||0,[px,py]=v.pos;v.dead=true;S.trac=null;S.phase='idle';S.watch=0;
+  if(load>0){const st=stackFor(px,py);addToStack(st,load,val)}
+  if(S.owned)spawnMachine('forwarder',true);
+  toast(M.name[0].toUpperCase()+M.name.slice(1)+' utknął — odholowano go, ładunek złożono przy drodze.'+(S.owned?'':' Przyjedzie inny ciągnik.'));return;
  }
  if(S.phase==='idle'){
-  if(!cal.work(7,17))return;
-  const free=freePiles();if(!free.length){if(!v.parked&&v.arrived===true&&S.atHome!==true){}return}
+  if(!cal.work(7,17)){goHome();return}
+  const free=freePiles();if(!free.length){goHome();return}
   const [vx,vy]=v.pos;free.sort((a,b)=>Math.hypot(a.x-vx,a.y-vy)-Math.hypot(b.x-vx,b.y-vy));
   const p=free[0],rp=nearestRoad(p.x,p.y,['main','forest'],{margin:60});
   S.target=p;S.went=false;S.phase='driving';S.watch=0;S.atHome=false;
@@ -254,7 +275,7 @@ function skidUpdate(dt){
    const d=S.delivered||0;v.load=0;S.val=0;S.delivered=0;S.watch=0;
    if(d>0){pay(Math.round(d*COST.skid),'zrywka');planProgress('cut',d);toast('Przy drodze w oddz. '+st.odd+' złożono '+displayNumber(d,1)+' m³ (stos: '+displayNumber(st.vol,1)+' m³).')}
    if(freePiles().length&&cal.work(7,17)){S.phase='idle';}
-   else{S.phase='home';v.label=M.name+' wraca do bazy';v.goTo(HOME,{park:true,onArrive:()=>{S.phase='idle';S.atHome=true;v.label=homeLabel()}})}
+   else{S.phase='idle';goHome()}
   }
  }
 }
@@ -277,7 +298,7 @@ function goIn(p){
 function comeBack(){
  const S=J.skid,v=S.trac,M=MACH[S.mach];
  const toStack=()=>{
-  if(v.load<=.001){S.phase='home';v.label=M.name+' wraca do bazy';v.goTo(HOME,{park:true,onArrive:()=>{S.phase='idle';S.atHome=true;v.label=homeLabel()}});return}
+  if(v.load<=.001){S.phase='idle';goHome();return}
   const st=S.stack=stackFor(v.pos[0],v.pos[1]);S.phase='tostack';v.label=M.name+' wiezie '+displayNumber(v.load,1)+' m³ na stos przy drodze';
   v.goTo({edge:st.edge,s:st.s},{park:true,onArrive:()=>{S.phase='unload';S.watch=0;v.label='układanie stosu przy drodze'}});
  };
@@ -295,9 +316,9 @@ export function orderTruck(manual=true){
  if(!cal.work(8,15)){T.pending=true;if(manual)toast('Wywóz zamówiony — ciężarówka przyjedzie '+cal.nextStart(8,16)+'.');return}
  T.pending=false;
  // trasa: stosy od największego, potem po kolei najbliższe
- const cand=J.stacks.filter(s=>s.vol>.5).sort((a,b)=>b.vol-a.vol);let cap=30,route=[],pos=[NODES.j2[0],NODES.j2[1]];
+ const cand=J.stacks.filter(s=>s.vol>.5).sort((a,b)=>b.vol-a.vol);let cap=30,route=[],pos=[NODES.j3[0],NODES.j3[1]];
  while(cand.length&&cap>0){cand.sort((a,b)=>Math.hypot(a.x-pos[0],a.y-pos[1])-Math.hypot(b.x-pos[0],b.y-pos[1]));const s=cand.shift();route.push(s);cap-=s.vol;pos=[s.x,s.y]}
- T.route=route;T.v=new Vehicle('truck',{from:'mE',to:'j2',s:0,allow:['main','forest']});T.v.cap=30;T.v.label='ciężarówka po drewno';T.val=0;
+ T.route=route;T.v=new Vehicle('truck',{...ENTRY(false),allow:['main','forest']});T.v.cap=30;T.v.label='ciężarówka po drewno';T.val=0;
  toast((manual?'Ciężarówka jedzie po drewno':'Nadleśnictwo wysłało ciężarówkę')+' — stosów do odbioru: '+route.length+'.');
  nextStop();
 }
@@ -307,7 +328,7 @@ function nextStop(){
   const pay_=Math.round((T.val||0)*ECO.market);T.val=0;
   if(v.load>0){earn(pay_,'sprzedaż drewna');J.sold+=v.load;stat('sold',v.load);toast('Sprzedano '+displayNumber(v.load,1)+' m³ drewna za '+zl(pay_)+' (cena rynkowa ×'+displayNumber(ECO.market,2)+').')}
   for(const s of T.route)if(s.vol<.05)J.stacks=J.stacks.filter(z=>z!==s);T.route=[];
-  T.phase='leaving';v.label='ciężarówka odjeżdża z drewnem';v.goTo(goalNode('mW'),{leave:true});return}
+  T.phase='leaving';v.label='ciężarówka odjeżdża z drewnem';v.goTo(goalNode(exitNode(v.pos[0])),{leave:true});return}
  T.phase='coming';v.label='ciężarówka jedzie do stosu w oddz. '+T.cur.odd;
  v.goTo({edge:T.cur.edge,s:T.cur.s},{park:true,onArrive:()=>{T.phase='load';T.wait=1;v.label='załadunek żurawiem HDS'}});
 }

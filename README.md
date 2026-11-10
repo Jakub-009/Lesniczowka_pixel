@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.5.0 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.6.1 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -41,6 +41,8 @@ Pory roku zmieniają las (jesienne kolory, bezlistne drzewa i śnieg zimą), jes
 | Prawy przycisk | przesuwanie mapy (w podglądzie także lewy) |
 | E | wyślij ekipę |
 | L | Leśniczówka: kadry, budynki, sprzęt, koło łowieckie, paśniki (także klik w dom) |
+| Tab | mapa leśnictwa (gatunki / wiek, klik przenosi kamerę) |
+| U | schowaj / pokaż interfejs |
 | N | przewijanie nocy wł./wył. |
 | K | zamów wywóz drewna |
 | Q | patrol do najstarszego zgłoszenia |
@@ -73,6 +75,7 @@ Gra zapisuje się sama co 30 s (localStorage).
 | `src/renew.js` | powierzchnie odnowieniowe, pług LPz, sadzenie w rzędach | nowe |
 | `src/incidents.js` | zgłoszenia, jednostki patrolu (leśniczy, podleśniczy), intruzi | nowe |
 | `src/economy.js` | wskaźniki, plan na sezon | nowe |
+| `src/mapview.js` | mapa leśnictwa (Tab) | nowe (0.6) |
 | `src/render.js` | kolejność warstw, noc, znaczniki | wzorzec z farmy |
 | `src/ui.js`, `src/input.js` | HUD, mysz i klawiatura | nowe |
 | `src/sound.js` | WebAudio (wiatr, ptaki, dzięcioł, piła, silniki) | wzorzec z farmy |
@@ -92,7 +95,9 @@ Gra zapisuje się sama co 30 s (localStorage).
 | Odbiór opału | pon.–sob. 9–16, ciągnik z przyczepą pod stos |
 | Spacerowicze, rowerzyści | 9–18 / 9–19, w weekend częściej |
 | Ruch na szosie | szczyt rano i po południu, w nocy prawie pusto |
-| Myśliwy (koło łowieckie) | wieczorem na ambonie (bez wiosny); strzela według planu łowieckiego, zabiera zwierzynę |
+| Myśliwy (koło łowieckie) | wieczorem i o świcie na ambonie (bez wiosny); strzela według planu łowieckiego, zabiera zwierzynę |
+| Polowanie zbiorowe | jesień i zima, sobota rano: linia myśliwych przy drodze, naganka, pokot |
+| Zrywka (usługa) | przyjeżdża, gdy leżą kłody; nocuje na placu przy leśniczówce; po robocie odjeżdża |
 | Rykowisko | jesień, o zmierzchu i świcie |
 | Sarny, jelenie, lisy, zające | w dzień leżą w ostojach, o zmierzchu i nocą żerują (część saren także w dzień) |
 | Dziki, wilki | nocą |
@@ -134,3 +139,13 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
 - **Szersza rozstawa** sadzonek w rzędach (ok. 1,3 m), orka 3 zł/m.
 - **Leśniczówka jako baza (L lub klik w dom):** kancelaria (petenci kupują drewno opałowe ze stosów, zezwolenia, sadzonki, zgłaszają śmieci — ktoś musi być w domu), szkółka (5 000 zł, ok. 400 sadzonek na sezon, 1 zł/szt., lepiej się przyjmują), garaż z magazynem (4 500 zł: druga terenówka, tańsza karma), podleśniczy (220 zł/dzień: drugi patrol i dyżur w kancelarii), forwarder (18 000 zł), stan koła łowieckiego i paśników.
 - Zapis z 0.3 wczytuje się (składnica zamienia się w stos przy drodze B).
+
+## Zmiany w 0.6.1 „Większy las” (z poprawkami 0.5.1)
+- **Większa mapa** (ok. 2,25×): nowe oddziały 106–110 — stara świerczyna, bory sosnowe, grąd, młodniki. Nowe drogi leśne, place nawrotowe na końcach ślepych dróg. Zapis z 0.5 się nie wczyta (nowa mapa) — od 0.6.2 zapisy mają przechodzić między wersjami.
+- **Mapa leśnictwa (Tab):** gatunki albo klasy wieku, oddziały, powierzchnie, stosy, ekipy i patrol; klik przenosi kamerę.
+- **Baza maszyn zniknęła** — w jej miejscu rośnie las. Ciągnik usługowy przyjeżdża, gdy leżą kłody, nocuje na placu przy leśniczówce, a po robocie zjeżdża z lasu. Kupiony forwarder stoi na placu.
+- **Pojazdy nie zawracają na siłę:** jadą do najbliższego skrzyżowania albo placu nawrotowego; w miejscu zawraca tylko stojące auto, gdy objazd byłby bardzo długi (i patrol w akcji).
+- **Siatka zatrzymuje zwierzynę:** po ogrodzeniu powierzchni zwierzęta nie wchodzą do środka, a te, które tam były, wychodzą. **Repelent** na sadzonki — tani, chroni przez jedną porę roku (ok. 75% mniej zgryzania).
+- **Myśliwy szybszy:** celuje kilka sekund i strzela (zasięg do skraju polany), przyjeżdża też o świcie. **Polowanie zbiorowe** jesienią i zimą w sobotę: linia myśliwych, naganka w pomarańczowych kamizelkach, pokot.
+- **Rogi mapy:** kamera wyjeżdża poza krawędź o szerokość paneli; **U** chowa interfejs.
+- Duża mapa a pamięć: ślady (koleiny, bruzdy) i kawałki lasu trzymane są tylko tam, gdzie są potrzebne; dawno niewidziane kawałki lasu są zwalniane.

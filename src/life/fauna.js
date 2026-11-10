@@ -8,16 +8,16 @@ import {rand} from './agents.js';
 import {ECO,bumpDamage} from '../economy.js';
 import {sfx} from '../sound.js';
 import {feedTask} from '../incidents.js';
-import {R} from '../renew.js';
+import {R,seasonKey} from '../renew.js';
 
 export const NAMES={roe:'sarny',deer:'jelenie',boar:'dziki',wolf:'wilki',fox:'lisy',hare:'zające'};
 const ONE={roe:'sarnę',deer:'jelenia',boar:'dzika'};
 // docelowe zagęszczenie (przy nim zgryzanie jest „normalne”)
-const TARGET={roe:30,deer:10,boar:14};
-export const FA={pop:{roe:36,deer:13,boar:19,wolf:5,fox:6,hare:18},plan:{roe:6,deer:2,boar:6},culled:{roe:0,deer:0,boar:0},seasonCull:0,
+const TARGET={roe:48,deer:16,boar:22};   // las 0.6 jest ok. 2,25× większy
+export const FA={pop:{roe:58,deer:20,boar:30,wolf:6,fox:9,hare:28},plan:{roe:8,deer:3,boar:8},culled:{roe:0,deer:0,boar:0},seasonCull:0,
  feeders:[],winterT:0,emptyT:0,reduction:false,roarT:0,roarSeason:-1,browsed:0,carcasses:[]};
 export function initFauna(){
- FA.feeders=[{name:'P1 (polana)',x:POLANA.x+40,y:POLANA.y-60,level:.3,task:null},{name:'P2 (oddz. 101)',x:560,y:1060,level:.3,task:null},{name:'P3 (oddz. 105)',x:2050,y:470,level:.3,task:null}];
+ FA.feeders=[{name:'P1 (polana)',x:POLANA.x+40,y:POLANA.y-60,level:.3,task:null},{name:'P2 (oddz. 101)',x:560,y:1060,level:.3,task:null},{name:'P3 (oddz. 106)',x:3050,y:620,level:.3,task:null},{name:'P4 (oddz. 109)',x:1260,y:2040,level:.3,task:null}];
  newPlan(false);
  if(!ECO.seasonHooks.includes(seasonEnd))ECO.seasonHooks.push(seasonEnd);
 }
@@ -66,6 +66,8 @@ export function updateFauna(dt){
 }
 // ── koniec pory roku (wywoływane z raportu) ──
 function fenced(t){if(inRect(t.x,t.y,UPRAWA,-2))return true;return R.plots.some(p=>p.fence==='done'&&inRect(t.x,t.y,p,-1))}
+// repelent naniesiony w kończącej się porze roku
+const repelled=t=>R.plots.some(p=>p.repel===seasonKey()-1&&inRect(t.x,t.y,p,-1));
 function seasonEnd(){
  const se=(cal.season()+3)%4,P=FA.pop,out={};const before={...P};
  // drapieżnictwo wilków (gatunek chroniony — nie poluje się na nie)
@@ -80,7 +82,7 @@ function seasonEnd(){
  // zgryzanie: niegrodzone, młode sadzonki z nasadzeń
  const pr=pressure()*(se===3?1.6:se===0?1.2:.8)*(se===3&&fed<.6?1.4:1);let browsed=0,killed=0;
  if(pr>.35)for(const t of trees){if(t.st!==STAND||!t.planted||t.age>=SAPLING_AGE+3||fenced(t))continue;
-  if(rand()<clamp(.07*pr*pr,0,.55)){browsed++;if(rand()<.35){removeTree(t);killed++}else{t.age=Math.max(1,t.age-2);t.browsed=true;dirtyTree(t)}}}
+  if(rand()<clamp(.07*pr*pr,0,.55)*(repelled(t)?.25:1)){browsed++;if(rand()<.35){removeTree(t);killed++}else{t.age=Math.max(1,t.age-2);t.browsed=true;dirtyTree(t)}}}
  FA.browsed=browsed;if(browsed>30)bumpDamage(Math.min(6,browsed/25));
  out.browsed=browsed;out.browsedKilled=killed;out.pressure=pressure();out.cull=FA.seasonCull;out.popBefore=before;out.pop={...P};
  FA.seasonCull=0;FA.winterT=0;FA.emptyT=0;

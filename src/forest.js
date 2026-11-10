@@ -2,7 +2,7 @@
 // zmiana jednego drzewa (wycinka, wzrost, posadzenie, pora roku) przemalowuje tylko kawałki, które obejmuje.
 import {WORLD,hash,rect,poly,clamp,LIGHT,cal,PX_PER_M,state} from './core.js';
 import {mk,outlinedDraw,crispAlpha} from './sprite.js';
-import {roadClearance,oddzial,STANDS,YARD,SKLAD,POLANA,UPRAWA,inRect,inPolana,inWorld,EDGES,NODES} from './map.js';
+import {roadClearance,oddzial,STANDS,YARD,PLAC,TURNS,POLANA,UPRAWA,inRect,inPolana,inWorld,EDGES,NODES} from './map.js';
 
 export const SP={
  sosna:{name:'sosna zwyczajna',maxR:30,mature:70,h:28,d:42,vol:1.15,price:250,conifer:true,bark:['#9a5b33','#c47c48']},
@@ -26,7 +26,8 @@ export const fallLen=t=>clamp(crownR(t)*4.2,30,170);
 
 // ── generowanie lasu ──
 function pickSpecies(mix,u){let a=0;for(const k in mix){a+=mix[k];if(u<a)return k}return Object.keys(mix)[0]}
-const free=(x,y)=>inWorld(x,y,6)&&!inRect(x,y,YARD,46)&&!inRect(x,y,SKLAD,38)&&!inPolana(x,y,6)&&!inRect(x,y,UPRAWA,22);
+const nearTurn=(x,y)=>TURNS.some(k=>Math.hypot(x-NODES[k][0],y-NODES[k][1])<118);
+const free=(x,y)=>inWorld(x,y,6)&&!nearTurn(x,y)&&!inRect(x,y,YARD,46)&&!inRect(x,y,PLAC,40)&&!inPolana(x,y,6)&&!inRect(x,y,UPRAWA,22);
 function addTree(x,y,sp,age,extra={}){const t={id:trees.length,x,y,sp,age,st:STAND,seed:(hash(x|0,y|0,77)*1e6)|0,marked:false,...extra};t.rI=Math.round(crownR(t));trees.push(t);bucketAdd(t);return t}
 export function generate(){
  const CELL=38;
@@ -129,10 +130,19 @@ export function drawForest(g,cam,vw,vh,layer){
  let budget=layer==='low'?4:0;
  const i0=clamp(Math.floor(cam.x/CH),0,CW-1),i1=clamp(Math.floor((cam.x+vw)/CH),0,CW-1),j0=clamp(Math.floor(cam.y/CH),0,CHH-1),j1=clamp(Math.floor((cam.y+vh)/CH),0,CHH-1);
  for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){
-  const c=chunk(i,j);
+  const c=chunk(i,j);c.used=frame;
   if(layer==='low'&&c.dirty&&(!c.painted||budget-->0))paintChunk(c,i,j);
   g.drawImage(layer==='low'?c.low:c.high,i*CH,j*CH);
  }
+ if(layer==='high'){frame++;if(frame%120===0)evict()}
+}
+// Duża mapa: trzymamy w pamięci najwyżej MAXC kawałków lasu; dawno niewidziane zwalniamy (namalują się ponownie przy powrocie).
+let frame=0;const MAXC=72;
+function evict(){
+ const live=[];for(let k=0;k<chunks.length;k++)if(chunks[k])live.push(k);
+ if(live.length<=MAXC)return;
+ live.sort((a,b)=>chunks[a].used-chunks[b].used);
+ for(let n=0;n<live.length-MAXC;n++){const c=chunks[live[n]];if(frame-c.used<60)break;chunks[live[n]]=null}
 }
 
 // ── malowanie drzew ──

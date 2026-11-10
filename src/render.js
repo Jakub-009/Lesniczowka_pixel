@@ -1,7 +1,7 @@
 // Kolejność warstw: podłoże → las (cienie, pnie, sadzonki) → przedmioty na ziemi → zwierzęta, ludzie, pojazdy →
 // korony → „prześwit” postaci pod koronami → padające drzewa, dym, znaczniki → noc i światła.
 import {ctx,VIEW,camera,state,fx,clamp,cal,DEBUG,rect,SETTINGS,RT,LIGHT} from './core.js';
-import {ground,marks,drawAmbona} from './paint.js';
+import {ground,markChunks,drawAmbona} from './paint.js';
 import {drawForest,trees,crownR,paintCrown,SP,STAND} from './forest.js';
 import {outlinedDraw} from './sprite.js';
 import {E} from './ents.js';
@@ -17,6 +17,7 @@ function blitGround(cv=ground){
  const cx=Math.floor(camera.x),cy=Math.floor(camera.y),sx=Math.max(0,cx),sy=Math.max(0,cy),ex=Math.min(cv.width,cx+VIEW.w),ey=Math.min(cv.height,cy+VIEW.h);
  if(ex>sx&&ey>sy)ctx.drawImage(cv,sx,sy,ex-sx,ey-sy,sx,sy,ex-sx,ey-sy);
 }
+function blitMarks(){for(const c of markChunks)if(c&&vis(c.x+128,c.y+128,190))ctx.drawImage(c.cv,c.x,c.y)}
 function drawTrash(){
  for(const t of E.trash){if(t.dead||t.fire||!vis(t.x,t.y))continue;const x=Math.round(t.x),y=Math.round(t.y);
   if(t.kind==='bag'){rect(ctx,x-4,y-3,9,7,'#20262a');rect(ctx,x-3,y-3,7,6,'#3a4248');rect(ctx,x-1,y-5,3,2,'#3a4248');rect(ctx,x-2,y-2,2,1,'#6a747a')}
@@ -93,7 +94,7 @@ function drawFire(){
 export function drawWorld(){
  ctx.save();ctx.translate(-Math.floor(camera.x),-Math.floor(camera.y));
  ctx.fillStyle='#2b3b2a';ctx.fillRect(Math.floor(camera.x),Math.floor(camera.y),VIEW.w+1,VIEW.h+1);
- blitGround();blitGround(marks);
+ blitGround();blitMarks();
  if(cal.season()===3){ctx.fillStyle='rgba(234,240,246,.5)';ctx.fillRect(Math.floor(camera.x),Math.floor(camera.y),VIEW.w+1,VIEW.h+1)}
  drawForest(ctx,camera,VIEW.w,VIEW.h,'low');
  drawBase(ctx);drawTrash();drawFeeders(ctx);drawFences(ctx);drawGroundItems(ctx);drawLying();

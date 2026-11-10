@@ -1,5 +1,5 @@
 // Wspólne jednostki, stan gry, kalendarz i małe funkcje rysowania (wzorzec z „Polskiej wsi”).
-export const VERSION='0.5.0';
+export const VERSION='0.6.1';
 export const C=document.querySelector('#game');
 export const ctx=C.getContext('2d',{alpha:false});
 export const VIEW={w:640,h:360,scale:2,zoom:1,maxZoom:2};
@@ -15,7 +15,7 @@ export const angDiff=(a,b)=>{let d=(b-a)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;i
 export const LIGHT={x:.84,y:.54};
 export function shadow(g,x,y,w,h,height=45){const dx=LIGHT.x*height,dy=LIGHT.y*height;poly(g,[[x+6,y+6],[x+w+6,y+6],[x+w+dx,y+h+dy],[x+dx,y+h+dy]],'#40564268')}
 
-export const WORLD={w:2400,h:1800};
+export const WORLD={w:3600,h:2700};
 export const PX_PER_M=12;
 
 // ── Kalendarz (0.2) ──

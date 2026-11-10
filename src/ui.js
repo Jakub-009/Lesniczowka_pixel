@@ -3,7 +3,7 @@ import {$,state,cal,SEASONS,DOW,displayNumber,zl,SETTINGS,camera,VIEW,clamp,toas
 import {SP,STAND,STUMP,SAPLING_AGE,CUT_AGE,crownR,heightM,dbhCm,volume,counts,treesIn} from './forest.js';
 import {STANDS,oddzial} from './map.js';
 import {J,COST,PRICE,MACH,pendingCount,toggleMark,dispatchCrew,orderTruck,togglePlant,buyForwarder,stackTotal,stackValue,hireCrewB,fireCrewB} from './jobs.js';
-import {R,plotStats,prepCost,areaHa,spotsIn,orderPrep,orderPlant,removePlot,rowsOf,fenceCost,orderFence} from './renew.js';
+import {R,plotStats,prepCost,areaHa,spotsIn,orderPrep,orderPlant,removePlot,rowsOf,fenceCost,orderFence,orderRepel,repelCost,seasonKey} from './renew.js';
 import {ECO,dailyCost} from './economy.js';
 import {E} from './ents.js';
 import {dispatch,openIncidents,U} from './incidents.js';
@@ -32,10 +32,10 @@ export function hud(){
  $('#market').textContent='×'+displayNumber(ECO.market,2);
  $('#daily').textContent=zl(dailyCost());
  const crewTxt=C=>{const nt=C.tasks.length+C.cluster.length,held=C.held.length;
-  return (C.phase==='idle'&&nt?'czeka · '+cal.nextStart(7,15):({idle:'w bazie',driving:'w drodze',working:'pracuje',leaving:'wraca'}[C.phase]+(nt?' · zadań: '+nt:'')))+(held?' · wstrzym.: '+held:'')};
+  return (C.phase==='idle'&&nt?'czeka · '+cal.nextStart(7,15):({idle:'wolna',driving:'w drodze',working:'pracuje',leaving:'odjeżdża'}[C.phase]+(nt?' · zadań: '+nt:'')))+(held?' · wstrzym.: '+held:'')};
  $('#crewstate').textContent=crewTxt(J.crews[0]);
  $('#crewBrow').style.display=J.crews[1]?'flex':'none';if(J.crews[1])$('#crewBstate').textContent=crewTxt(J.crews[1]);
- $('#skidstate').textContent=(J.skid.mach==='forwarder'?'forwarder: ':'ciągnik: ')+(J.skid.phase==='idle'&&!cal.work(7,17)?'po pracy':{idle:'czeka',arriving:'dojeżdża',driving:'jedzie po drewno',in:'w szlaku',load:'ładuje',out:'wraca na drogę',tostack:'wiezie na stos',unload:'układa stos',home:'wraca do bazy'}[J.skid.phase]||J.skid.phase);
+  $('#skidstate').textContent=!J.skid.trac?(J.skid.owned?'forwarder: w drodze':'usługa: przyjedzie do kłód'):(J.skid.mach==='forwarder'?'forwarder: ':'ciągnik: ')+(J.skid.phase==='idle'&&!cal.work(7,17)?'po pracy':{idle:'czeka',arriving:'dojeżdża',driving:'jedzie po drewno',in:'w szlaku',load:'ładuje',out:'wraca na drogę',tostack:'wiezie na stos',unload:'układa stos',home:'jedzie na plac'}[J.skid.phase]||J.skid.phase);
  const PL=R.plow;$('#plowstate').textContent=PL.phase==='idle'?(PL.queue.length?'czeka · '+cal.nextStart(7,17):'—'):PL.phase==='plowing'?'orze P'+PL.cur.id:'w drodze';
  const uTxt=u=>u.phase==='home'&&u.person.sleeping?'śpi':u.phase==='home'&&u.person.busyOffice?'kancelaria':{home:U.length>1?'w domu':'w leśniczówce',boarding:'wyjeżdża',driving:'w drodze',onsite:'na miejscu',return:'wraca'}[u.phase]+(u.queue.length?' (+'+u.queue.length+')':'');
  $('#patrolstate').textContent=U.map((u,i)=>(U.length>1?(i?'P: ':'L: '):'')+uTxt(u)).join(', ');
@@ -75,6 +75,8 @@ function plotInfo(p){
  const nur=ECO.nursery&&ECO.nursery.stock>0;
  if(spots&&(p.state==='new'||p.state==='prepared'||p.state==='planted'))btns.push(['plantplot','Sadź w rzędach: '+spots+' szt. · '+zl(spots*(nur?COST.plantNursery:COST.plant))+(nur?' (szkółka)':'')+(p.prepared?'':' (bez orki)')]);
  if(!p.fence)btns.push(['fence','Ogródź siatką · '+zl(fenceCost(p))]);
+ if(p.fence!=='done'&&st.young>0&&p.repel!==seasonKey())btns.push(['repel','Repelent na sezon · '+zl(repelCost(p))]);
+ if(p.repel===seasonKey()&&p.fence!=='done')lines.push('Repelent naniesiony — chroni do końca tej pory roku.');
  lines.push(p.fence==='done'?'Ogrodzona — sadzonki bezpieczne od zgryzania.':p.fence==='building'?'Grodzenie: '+Math.round(p.fenceP/(2*(p.w+p.h))*100)+'%':'Bez grodzenia: sarny i jelenie mogą zgryzać sadzonki (presja '+Math.round(pressure()*100)+'%).');
  if(p.state!=='prepping'&&p.state!=='planting'&&p.state!=='queued'&&p.fence!=='building')btns.push(['delplot','Usuń powierzchnię']);
  return{title:'Powierzchnia odnowieniowa P'+p.id,lines,btns};
@@ -180,6 +182,7 @@ export function bindUI(){
   else if(k==='patrol'){dispatch(s.text?s:s.inc)}
   else if(k==='truck')orderTruck(true);
   else if(k==='fence')orderFence(s);
+  else if(k==='repel')orderRepel(s);
   else if(k==='prep')orderPrep(s);else if(k==='plantplot')orderPlant(s);else if(k==='delplot'){removePlot(s);if(!R.plots.includes(s))state.selected=null}
   else if(k==='plantnear'){for(let a=0;a<12;a++){const x=s.x+Math.cos(a)*12,y=s.y+Math.sin(a)*12;const n=J.plants.length;togglePlant(x,y);if(J.plants.length>n)break}}
   infoSig='';hud();

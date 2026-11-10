@@ -43,6 +43,7 @@ export const VSPEC={
 // Jazda (0.3): pojazd goni „marchewkę” — punkt przesuwający się po pasie ruchu (albo po ścieżce w terenie) —
 // i skręta jak prawdziwy pojazd (model rowerowy, skręt kół ograniczony). Nie przesuwa się bokiem i nie obraca w miejscu.
 const MAXSTEER=.72;
+const SMALLV=new Set(['car','patrol','van','quad','cross','bike']);
 export class Vehicle{
  constructor(kind,o={}){
   this.kind=kind;this.spec=VSPEC[kind];this.allow=o.allow||this.spec.allow||['main','forest'];
@@ -91,7 +92,9 @@ export class Vehicle{
  // Jedź do celu {edge,s}. park = zjedź na pobocze; leave = zniknij po dojechaniu.
  goTo(goal,o={}){
   if(this.off)this.rejoin();
-  const plan=planRoute(this.from,this.to,this.s,goal,this.allow);
+  // zawracanie w miejscu: tylko stojące małe auta i tylko gdy objazd byłby dużo dłuższy; ciężki sprzęt jedzie do skrzyżowania albo placu nawrotowego
+  const small=SMALLV.has(this.kind)&&Math.abs(this.v)<3;
+  const plan=planRoute(this.from,this.to,this.s,goal,this.allow,o.pen??(small?2500:6000));
   this.parked=false;this.arrived=false;this.stopped=false;this.park=!!o.park;this.leave=!!o.leave;this.onArrive=o.onArrive||null;this.roam=null;
   if(!plan){this.stopS=this.s;this.final=true;return}
   if(plan.reverse){const s=this.len-this.s;this.setEdge(this.to,this.from);this.s=s}

@@ -2,7 +2,7 @@
 // szkółka leśna, garaż z magazynem, kadry (podleśniczy, druga ekipa) i sprzęt. Panel otwiera klawisz L albo klik w dom.
 import {state,cal,toast,zl,displayNumber,clamp,SEASONS} from './core.js';
 import {DOOR,EDGES,NURSERY,CARPORT,YARD,inRect,oddzial} from './map.js';
-import {goalNode} from './roads.js';
+import {goalNode,ENTRY,exitNode} from './roads.js';
 import {E} from './ents.js';
 import {Vehicle,Ped,rand} from './life/agents.js';
 import {pileTop} from './life/sprites.js';
@@ -53,7 +53,7 @@ function spawnVisitor(){
  const busy=BASE.queue.length+E.people.filter(p=>p.petent&&!p.dead).length;if(busy>=2)return;
  const se=cal.season(),r=rand(),nur=BASE.nursery&&ECO.nursery.stock>=120;
  const kind=r<[.3,.15,.5,.55][se]?'opal':r<.62?'permit':nur&&r<.82?'seed':'report';
- const w=rand()<.5,v=new Vehicle('car',{from:w?'mW':'mE',to:w?'j1':'j2',s:0,color:pickA(CAR_COLS)});v.label='petent jedzie do kancelarii';
+ const w=rand()<.5,v=new Vehicle('car',{...ENTRY(w),color:pickA(CAR_COLS)});v.label='petent jedzie do kancelarii';
  const s=VIS_EDGE.len-36-(E.vehicles.filter(q=>q.petentCar&&!q.dead).length%3)*44;v.petentCar=true;
  v.goTo({edge:VIS_EDGE,s},{park:true,onArrive:car=>{
   const h=car.heading,cx=car.pos[0]+Math.sin(h)*16,cy=car.pos[1]-Math.cos(h)*16;
@@ -65,7 +65,7 @@ function spawnVisitor(){
 }
 function leave(p,msg){
  p.done=true;BASE.queue=BASE.queue.filter(q=>q!==p);if(msg)note(msg);
- p.run([{go:[566,300]},{go:p.car.dead?[600,300]:[p.car.pos[0]+Math.sin(p.car.heading)*16,p.car.pos[1]-Math.cos(p.car.heading)*16]},{call:q=>{q.dead=true;if(!p.car.dead){p.car.label='petent odjeżdża';p.car.goTo(goalNode(rand()<.5?'mW':'mE'),{leave:true})}}}]);
+ p.run([{go:[566,300]},{go:p.car.dead?[600,300]:[p.car.pos[0]+Math.sin(p.car.heading)*16,p.car.pos[1]-Math.cos(p.car.heading)*16]},{call:q=>{q.dead=true;if(!p.car.dead){p.car.label='petent odjeżdża';p.car.goTo(goalNode(exitNode(rand()*3600)),{leave:true})}}}]);
 }
 function serve(u,p){
  const r=u.person;p.serving=u;r.busyOffice=true;r.hidden=false;
@@ -94,12 +94,12 @@ function deal(u,p){
 }
 // Odbiór opału: ciągnik z przyczepą przyjeżdża pod stos i ładuje drewno.
 function pickup(o){
- o.coming=true;const w=rand()<.5,v=new Vehicle('tractor',{from:w?'mW':'mE',to:w?'j1':'j2',s:0});v.cap=6;v.load=0;v.label='odbiór drewna opałowego';
+ o.coming=true;const w=rand()<.5,v=new Vehicle('tractor',ENTRY(w));v.cap=6;v.load=0;v.label='odbiór drewna opałowego';
  v.goTo({edge:o.edge,s:o.s},{park:true,onArrive:car=>{
   const h=car.heading,p=new Ped({kind:'walker',x:car.pos[0]-Math.sin(h)*30,y:car.pos[1]+Math.cos(h)*30,speed:12,coat:'#5a6a4a',cap:'#3a3a3a'});p.label='rolnik ładuje opał';
   car.label='ładowanie drewna opałowego';const v0=o.vol;
   p.run([{go:[o.x-8,o.y]},{wait:28,pose:'kneel',face:[o.x,o.y],tick:(q,dt)=>{const d=Math.min(o.vol,dt*v0/28);o.vol-=d;car.load=Math.min(car.cap,car.load+d*1.4);o.logs=clamp(Math.ceil(o.vol*1.5),0,6)}},
-   {go:[car.pos[0]-Math.sin(h)*30,car.pos[1]+Math.cos(h)*30]},{call:q=>{q.dead=true;o.dead=true;car.label='rolnik odjeżdża z opałem';car.goTo(goalNode(rand()<.5?'mW':'mE'),{leave:true})}}]);
+   {go:[car.pos[0]-Math.sin(h)*30,car.pos[1]+Math.cos(h)*30]},{call:q=>{q.dead=true;o.dead=true;car.label='rolnik odjeżdża z opałem';car.goTo(goalNode(exitNode(rand()*3600)),{leave:true})}}]);
  }});
 }
 const atHome=u=>u.phase==='home'&&!u.person.sleeping&&!u.person.busyOffice&&!u.person.dead;
