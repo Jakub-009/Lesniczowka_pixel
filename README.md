@@ -1,14 +1,9 @@
 # Leśniczówka — symulator leśnictwa
 
-Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.8.3 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa.
+**Wersja 0.8.3**
 
 ## Uruchamianie
-
-### GitHub Pages
-1. Wrzuć **zawartość tego folderu** (nie sam ZIP) do głównego katalogu repozytorium.
-2. `Settings → Pages → Deploy from a branch`, gałąź `main`, folder `/ (root)`.
-3. Otwórz adres Pages.
 
 ### Lokalnie
 ```bash
