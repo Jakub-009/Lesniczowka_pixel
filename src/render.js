@@ -111,8 +111,8 @@ export function drawWorld(){
  drawLodge(ctx,cal.season()===3);
  for(const p of PROPS){if(p.x+p.w<camera.x||p.y+p.h<camera.y||p.x>camera.x+VIEW.w||p.y>camera.y+VIEW.h)continue;ctx.drawImage(p.cv,p.x,p.y)}
  drawMailbox(ctx,unreadMail()>0,cal.season()===3);
- drawForest(ctx,camera,VIEW.w,VIEW.h,'low');
  drawOrder(ctx,cal.season()===3);
+ drawForest(ctx,camera,VIEW.w,VIEW.h,'low');
  drawBase(ctx);drawHealth(ctx);drawTrash();drawFeeders(ctx);drawFences(ctx);drawGroundItems(ctx);drawLying();
  for(const a of E.animals)if(!a.dead)a.draw();
  for(const p of E.people)if(!p.onStand)p.draw();

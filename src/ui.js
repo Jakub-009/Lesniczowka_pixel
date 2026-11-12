@@ -108,7 +108,7 @@ let decSig='';
 const DECTXT={quad:'Złapany kierujący pojazdem w lesie.',intruder:'Zatrzymany sprawca (nocny intruz).'};
 function renderDecide(){
  const el=$('#decide');if(!el)return;
- if(!DEC.inc){if(decSig){decSig='';el.style.display='none'}return}
+ if(!DEC.inc){decSig='';el.style.display='none';return}
  const w=Math.round(DEC.t),sig=DEC.inc.id+DEC.warn;
  if(sig!==decSig){decSig=sig;el.style.display='block';
   el.innerHTML=`<div class="dt">Patrol na miejscu</div><div>${DECTXT[DEC.inc.type]||DEC.inc.text}</div><div class="muted small">${DEC.warn?'To wykroczenie: możesz pouczyć albo wezwać Policję (mandat 250 zł, więcej ochrony, ale wszyscy czekają na radiowóz).':'Tu wchodzi w grę tylko Policja.'}</div><div class="dbtn">${DEC.warn?'<button data-dec="warn">Puść z pouczeniem</button>':''}<button data-dec="police">Wezwij Policję</button></div><div class="dbar"><i id="decbar"></i></div>`}
@@ -271,7 +271,7 @@ export function showReport(r){
 export function bindUI(){
  for(const b of document.querySelectorAll('[data-tool]'))b.addEventListener('click',()=>setTool(b.dataset.tool));
  $('#crewbtn').addEventListener('click',dispatchCrew);$('#cancelbtn').addEventListener('click',clearOrders);$('#sellbtn').addEventListener('click',()=>orderTruck(true));
- $('#decide').addEventListener('click',e=>{const b=e.target.closest('[data-dec]');if(b){decide(b.dataset.dec);decSig='';renderDecide()}});
+ $('#decide').addEventListener('click',e=>{const b=e.target.closest('[data-dec]');if(b){decide(b.dataset.dec);renderDecide()}});
  $('#incidents').addEventListener('click',e=>{
   const b=e.target.closest('[data-inc]');if(b){const q=E.incidents.find(x=>x.id==b.dataset.inc);dispatch(q);incSig='';hud();return}
   const g=e.target.closest('[data-go]');if(g){const q=E.incidents.find(x=>x.id==g.dataset.go);if(q){centerOn(q.x,q.y);state.selected=q;state.follow=null}}
