@@ -11,6 +11,8 @@ import {dispatch,openIncidents,U,orderAssess,assessing,ASSESS} from './incidents
 import {FA,NAMES,pressure,planLeft,requestReduction} from './life/fauna.js';
 import {BASE,BUILD,buildNursery,buildGarage,hireDeputy,fireDeputy,NPLANS,cycleNursery,nurseryText} from './base.js';
 import {VSPEC,ASPEC} from './life/agents.js';
+import {MAIL,mail,unreadMail,stamp} from './mail.js';
+import {oddStats} from './oddcard.js';
 
 export function lat(n){n=Math.round(n);const d=n%10,dd=n%100;return n+(n===1?' rok':(d>=2&&d<=4&&!(dd>=12&&dd<=14))?' lata':' lat')}
 const pct=v=>Math.round(v)+'%';
@@ -52,6 +54,8 @@ export function hud(){
  if(sig!==incSig){incSig=sig;
   $('#incidents').innerHTML=open.length?open.map(q=>`<div class="inc ${q.type}"><span class="go" data-go="${q.id}">${q.text}</span>${q.status==='new'?`<button data-inc="${q.id}">${q.type==='feed'?'Dowieź karmę':'Wyślij patrol'}</button>`:`<i>${q.status==='queued'?'w kolejce':(q.unit&&U.length>1?q.unit.name+' działa':'patrol działa')}</i>`}</div>`).join(''):'<div class="muted">Spokojnie w lesie.</div>';
  }
+  const um=unreadMail();$('#mailn').textContent=um?'('+um+')':'';$('#mailbtn').classList.toggle('hot',um>0);
+ if(state.mailOpen)renderMail();if(state.oddOpen)renderOdd();
  info();
 }
 function treeInfo(t){
@@ -73,6 +77,7 @@ function treeInfo(t){
  if(last)lines.push('Cechowanie w tym miejscu: '+(ago<1?'w tym roku':Math.round(ago)+' lat temu')+(ago<10?' — kolejne za ok. '+Math.max(1,Math.round(10-ago))+' lat.':'.'));
  if((!t.qk||ago==null||ago>=10)&&!assessing(t.x,t.y))btns.push(['assess','Ocena drzewostanu i cechowanie (okolica)']);
  if(assessing(t.x,t.y))lines.push('Leśniczy ma tu zleconą ocenę drzewostanu.');
+ btns.push(['odd','Karta oddziału '+st.name]);
  return{title:sp.name[0].toUpperCase()+sp.name.slice(1),lines,btns};
 }
 function plotInfo(p){
@@ -92,6 +97,7 @@ function plotInfo(p){
  if(p.repel===seasonKey()&&p.fence!=='done')lines.push('Repelent naniesiony — chroni do końca tej pory roku.');
  lines.push(p.fence==='done'?'Ogrodzona — sadzonki bezpieczne od zgryzania.':p.fence==='building'?'Grodzenie: '+Math.round(p.fenceP/perimOf(p)*100)+'%':'Bez grodzenia: sarny i jelenie mogą zgryzać sadzonki (presja '+Math.round(pressure()*100)+'%).');
  if(p.state!=='prepping'&&p.state!=='planting'&&p.state!=='queued'&&p.fence!=='building')btns.push(['delplot','Usuń powierzchnię']);
+ btns.push(['odd','Karta oddziału '+p.odd]);
  return{title:'Powierzchnia odnowieniowa P'+p.id,lines,btns};
 }
 function info(){
@@ -123,6 +129,47 @@ function placeInfo(el,s){
  const sx=r.left+(ax-camera.x)*r.width/VIEW.w,sy=r.top+(ay-camera.y)*r.height/VIEW.h,w=el.offsetWidth||300,h=el.offsetHeight||120;
  let x=sx+24,y=sy-h/2;if(x+w>innerWidth-8)x=sx-24-w;x=clamp(x,8,innerWidth-w-8);y=clamp(y,8,innerHeight-h-8);
  el.style.position='fixed';el.style.left=Math.round(x)+'px';el.style.top=Math.round(y)+'px';el.style.bottom='auto';
+}
+// ── Poczta (C) i skrzynka przy bramie (0.8.1) ──
+let mailSig='',mailFresh=new Set();
+export function toggleMail(open){
+ const el=$('#mailbox');open=open??!state.mailOpen;
+ if(open){state.mailOpen=true;mailFresh=new Set(MAIL.filter(m=>!m.read).map(m=>m.id));for(const m of MAIL)m.read=true;mailSig='';el.style.display='block';renderMail()}
+ else{state.mailOpen=false;el.style.display='none'}
+}
+const KIND={fire:['■','#e0482f'],quad:['■','#e8a32e'],intruder:['■','#e8a32e'],trash:['■','#d8c23a'],beetle:['■','#c9764a'],storm:['■','#8fb4d8'],plan:['✉','#9fd27a'],money:['■','#e0704f'],assess:['✔','#9fd27a']};
+export function renderMail(){
+ for(const m of MAIL)if(!m.read)mailFresh.add(m.id),m.read=true;
+ const sig=MAIL.map(m=>m.id).join()+mailFresh.size;if(sig===mailSig)return;mailSig=sig;
+ const row=m=>{const k=KIND[m.kind]||['■','#9aa587'];return `<div class="mrow ${mailFresh.has(m.id)?'new':''}"><span class="mk" style="color:${k[1]}">${k[0]}</span><div><div class="muted">${stamp(m.day)}</div><span class="${m.x!=null?'go':''}" data-mgo="${m.id}">${m.text}</span></div></div>`};
+ $('#mailbox').innerHTML=`<div class="kick">POCZTA <span class="muted">(C — zamknij)</span></div>`+(MAIL.length?MAIL.map(row).join(''):'<div class="muted">Skrzynka jest pusta. Tu trafiają ważne wiadomości i to, co przy szybkim czasie łatwo przeoczyć.</div>')+`<div class="ibtns"><button id="mailclose">Zamknij</button></div>`;
+ $('#mailclose').onclick=()=>toggleMail(false);
+}
+// ── Karta oddziału (O) ──
+let oddId=null,oddT=0;
+export function toggleOdd(open,id){
+ const el=$('#oddcard');open=open??!state.oddOpen;
+ if(open){const s=state.selected,c=s&&(s.pos||[s.x,s.y]);const px=c?c[0]:camera.x+VIEW.w/2,py=c?c[1]:camera.y+VIEW.h/2;
+  oddId=id||oddzial(px,py);state.oddOpen=true;oddT=0;el.style.display='block';renderOdd(true)}
+ else{state.oddOpen=false;el.style.display='none'}
+}
+export function renderOdd(force){
+ oddT-=.15;if(!force&&oddT>0)return;oddT=1;
+ const S=oddStats(oddId),d=S.def,row=(a,b)=>`<div class="srow"><span>${a}</span><i>${b}</i></div>`;
+ const spl=Object.entries(S.sp).sort((a,b)=>b[1]-a[1]).map(([k,n])=>SP[k].name+' '+Math.round(n/Math.max(1,S.stand)*100)+'%').join(' · ');
+ const ago=S.lastAssess!=null?(state.days-S.lastAssess)/SEASON_DAYS*YEARS_PER_SEASON:null;
+ const q=S.assessed?`${Math.round(S.assessed/Math.max(1,S.aged)*100)}% ocenione: dorodne ${S.q[0]}, przeciętne ${S.q[1]}, wadliwe ${S.q[2]}`:'nieocenione — zleć ocenę drzewostanu';
+ $('#oddcard').innerHTML=`<div class="kick">ODDZIAŁ ${S.id} <span class="muted">(O — zamknij)</span></div><div class="ln">${d.desc}</div>
+  ${row('Drzewa',S.stand+' (w tym sadzonki '+S.sapl+')')}${row('Średni wiek',S.aged?lat(S.age):'—')}${row('Miąższość',displayNumber(S.vol,0)+' m³')}
+  <div class="ln small">${spl||'—'}</div>
+  ${row('Dojrzałe (od '+CUT_AGE+' lat)',S.mature)}${row('Do trzebieży ('+THIN_AGE+'–'+(CUT_AGE-1)+' lat)',S.thin)}
+  ${row('Jakość',q)}${row('Oznaczone do cięcia',S.marked?S.marked+' drz. · '+displayNumber(S.markedVol,0)+' m³':'—')}
+  ${row('Zamierające (kornik, wiatrołomy)',S.sick||'—')}${row('Pniaki / nieodnowione',S.stumps+' / '+S.unren)}
+  ${row('Powierzchnie odnowieniowe',S.plots.length?S.plots.length+' (ogrodzone '+S.fenced+')':'—')}${row('Otwarte zgłoszenia',S.incidents||'—')}
+  ${row('Ostatnie cechowanie',ago==null?'nigdy':ago<1?'w tym roku':Math.round(ago)+' lat temu')}
+  <div class="ibtns"><button id="oddgo">Pokaż środek oddziału</button><button id="oddclose">Zamknij</button></div>`;
+ $('#oddgo').onclick=()=>{centerOn(S.center[0],S.center[1]);state.follow=null};
+ $('#oddclose').onclick=()=>toggleOdd(false);
 }
 // ── panel Leśniczówki (L) ──
 let baseSig='';
@@ -216,12 +263,15 @@ export function bindUI(){
   else if(k==='mix')cycleMix(s);
   else if(k==='opaltruck'){const o=spotOf(s).find(q=>q.sort==='opal')||s;o.truck=o.truck===false;toast(o.truck?'Ten opał może zabrać ciężarówka.':'Opał zostaje dla ludności.')}
   else if(k==='assess')orderAssess(s.x,s.y);
+  else if(k==='odd')toggleOdd(true,oddzial(s.x+(s.w?s.w/2:0),s.y+(s.h?s.h/2:0)));
   else if(k==='repel')orderRepel(s);
   else if(k==='prep')orderPrep(s);else if(k==='plantplot')orderPlant(s);else if(k==='delplot'){removePlot(s);if(!R.plots.includes(s))state.selected=null}
   else if(k==='plantnear'){for(let a=0;a<12;a++){const x=s.x+Math.cos(a)*12,y=s.y+Math.sin(a)*12;const n=J.plants.length;togglePlant(x,y);if(J.plants.length>n)break}}
   infoSig='';hud();
  });
  $('#basebtn').addEventListener('click',()=>toggleBase(true));
+ $('#mailbtn').addEventListener('click',()=>toggleMail());
+ $('#mailbox').addEventListener('click',e=>{const g=e.target.closest('[data-mgo]');if(!g)return;const m=MAIL.find(x=>x.id==g.dataset.mgo);if(m&&m.x!=null){centerOn(m.x,m.y);state.follow=null}});
  $('#basecard').addEventListener('click',e=>{const b=e.target.closest('[data-b]');if(!b)return;const k=b.dataset.b;
   ({nplan:cycleNursery,hireB:hireCrewB,fireB:fireCrewB,hirePod:hireDeputy,firePod:fireDeputy,nursery:buildNursery,garage:buildGarage,fwd:buyForwarder,truck:()=>orderTruck(true),reduce:requestReduction,traps:buyTraps,tower:buildTower,ban:toggleBan})[k]?.();
   baseSig='';renderBase();hud()});

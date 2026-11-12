@@ -110,3 +110,16 @@ export function drawLodge(ctx,winter){
  const cv=winter?(win||(win=build(true))):(sum||(sum=build(false)));
  ctx.drawImage(cv,LODGE_BOX.x,LODGE_BOX.y);
 }
+
+// 0.8.1: skrzynka pocztowa przy bramie — flaga w górze, gdy w poczcie są nieprzeczytane listy. Rysowana na bieżąco (nie jest w buforze).
+export const MAILBOX={x:700,y:1452};
+export function drawMailbox(c,unread,winter){
+ const {x,y}=MAILBOX;
+ rect(c,x-6,y-3,13,4,'#40564255');
+ rect(c,x-1,y-14,3,16,'#6b4a2e');rect(c,x,y-14,1,16,'#8a6a46');
+ rect(c,x-7,y-24,15,10,'#14201a');rect(c,x-6,y-23,13,9,'#2f5f9a');rect(c,x-6,y-23,13,2,'#4b7fbf');rect(c,x-6,y-16,13,2,'#244a78');
+ rect(c,x-4,y-19,9,1,'#0f2238');   // szczelina na listy
+ if(winter){rect(c,x-8,y-26,17,3,'#eef3f8');rect(c,x-7,y-24,15,1,'#c9d4e0')}
+ if(unread){rect(c,x+8,y-30,1,10,'#6b4a2e');rect(c,x+9,y-30,6,4,'#d8402f');rect(c,x+9,y-30,6,1,'#f06a55');rect(c,x-3,y-22,6,4,'#f1e6c2')}   // flaga i list w szczelinie
+ else rect(c,x+8,y-20,5,1,'#8a2f25');
+}

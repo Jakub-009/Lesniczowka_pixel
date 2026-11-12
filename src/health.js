@@ -5,6 +5,7 @@ import {state,cal,toast,zl,clamp,hash,camera,VIEW} from './core.js';
 import {trees,treesIn,STAND,STUMP,dirtyTree,crownR} from './forest.js';
 import {E} from './ents.js';
 import {report} from './incidents.js';
+import {mail} from './mail.js';
 import {pay,canAfford,bumpDamage,ECO} from './economy.js';
 import {EDGES,WETLANDS,STREAM,ptAt,oddzial,YARD,inRect} from './map.js';
 import {nearestRoad} from './roads.js';
@@ -84,7 +85,7 @@ export function strike(){
   rp.edge.blocked=true;HL.blocks.push(b);bl++;
   b.inc=report('block',b.x,b.y,'Drzewa powalone na drodze leśnej w '+odd(b.x,b.y)+' — droga nieprzejezdna.',b)}
  HL.stats.storms++;bumpDamage(Math.min(5,n*.08));
- toast('Wichura! W '+odd(cx,cy)+' powalone lub połamane drzewa: '+n+(bl?', zatarasowane drogi: '+bl:'')+'. Wiatrołomy trzeba szybko uprzątnąć — sprzyjają kornikowi.');
+ mail('storm','Wichura! W '+odd(cx,cy)+' powalone lub połamane drzewa: '+n+(bl?', zatarasowane drogi: '+bl:'')+'. Wiatrołomy trzeba szybko uprzątnąć — sprzyjają kornikowi.',{x:cx,y:cy});
 }
 export function clearBlock(b){
  b.dead=true;HL.blocks=HL.blocks.filter(q=>q!==b);

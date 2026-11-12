@@ -2,10 +2,11 @@
 import {C,$,keys,state,camera,VIEW,SETTINGS,DEBUG,toast,active} from './core.js';
 import {treeAt,STAND,STUMP,CUT_AGE,treesIn,testGrow} from './forest.js';
 import {HOUSE,inRect} from './map.js';
+import {MAILBOX} from './lodge.js';
 import {E} from './ents.js';
 import {J,toggleMark,togglePlant,dispatchCrew,orderTruck,UNDO,cancelCrewTasks,clearOrders} from './jobs.js';
 import {plotAt,createPlot,createPolyPlot,planAreaPlants} from './renew.js';
-import {setTool,hud,toggleBase} from './ui.js';
+import {setTool,hud,toggleBase,toggleMail,toggleOdd} from './ui.js';
 import {toggleMap,mapOpen} from './mapview.js';
 import {feederAt} from './life/fauna.js';
 import {opalPileAt} from './base.js';
@@ -25,6 +26,7 @@ export function pick(x,y){
  if(best)return best;
  const f=feederAt(x,y);if(f)return f;
  const o=opalPileAt(x,y);if(o)return o;
+ if(Math.hypot(x-MAILBOX.x,y-(MAILBOX.y-14))<14)return{isMailbox:true,x:MAILBOX.x,y:MAILBOX.y};
  if(inRect(x,y,HOUSE,2))return{isHouse:true,x:HOUSE.x+HOUSE.w/2,y:HOUSE.y+HOUSE.h/2};
  return treeAt(x,y)||plotAt(x,y);
 }
@@ -73,7 +75,7 @@ export function bindInput(zoomFn){
   else if(state.tool==='plot'){
    if(state.poly){const P=state.poly;if(P.length>=3&&Math.hypot(x-P[0][0],y-P[0][1])<16)finishPoly();else P.push([x,y])}
    else{const p=plotAt(x,y);if(p)state.selected=p;else{state.poly=[[x,y]];toast('Wielokąt: klikaj kolejne narożniki. Enter albo klik w pierwszy punkt kończy, Esc anuluje. (Prostokąt: przeciągnij.)')}}}
-  else{const p=pick(x,y);if(p&&p.isHouse){toggleBase(true);return}state.selected=p;state.follow=null}
+  else{const p=pick(x,y);if(p&&p.isHouse){toggleBase(true);return}if(p&&p.isMailbox){toggleMail(true);return}state.selected=p;state.follow=null}
   hud();
  });
  C.addEventListener('wheel',e=>{e.preventDefault();zoomFn(e.deltaY>0?1:-1,toWorld(e))},{passive:false});
@@ -88,6 +90,8 @@ export function bindInput(zoomFn){
   if(e.repeat&&!['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k))return;
   if(k==='1')setTool('select');else if(k==='2')setTool('mark');else if(k==='3')setTool('plant');else if(k==='4')setTool('plot');
   else if(k==='l')toggleBase(true);
+  else if(k==='c')toggleMail();
+  else if(k==='o')toggleOdd(true);
   else if(k==='tab')toggleMap(true);
   else if(k==='u'){document.body.classList.toggle('noui');toast(document.body.classList.contains('noui')?'Interfejs schowany (U — pokaż).':'Interfejs widoczny.')}
   else if(k==='e')dispatchCrew();else if(k==='x')clearOrders();else if(k==='k')orderTruck(true);
@@ -98,7 +102,7 @@ export function bindInput(zoomFn){
   else if(k==='n'){state.noFF=!state.noFF;toast(state.noFF?'Noc płynie normalnie (N).':'Noc przewija się sama (N).')}
   else if(k==='f3')DEBUG.on=!DEBUG.on;
   else if(k==='f1'||k==='h')$('#help').classList.toggle('hidden');
-  else if(k==='escape'){setTool('select');state.selected=null;state.follow=null;$('#help').classList.add('hidden')}
+  else if(k==='escape'){setTool('select');state.selected=null;state.follow=null;$('#help').classList.add('hidden');toggleMail(false);toggleOdd(false)}
   else if(k==='z')zoomFn(e.shiftKey?-1:1);else if(k==='+'||k==='=')zoomFn(-1);else if(k==='-')zoomFn(1);
   keys.add(k);hud();
  });

@@ -3,6 +3,7 @@ import {state,clamp,cal,toast,zl,SEASONS,YEARS_PER_SEASON} from './core.js';
 import {trees,STUMP,STAND,SAPLING_AGE,coverSum,treesIn,seasonGrow} from './forest.js';
 import {E} from './ents.js';
 import {sfx} from './sound.js';
+import {mail,prio} from './mail.js';
 import {J,COST,MACH} from './jobs.js';
 const blank=()=>({delivered:0,sold:0,earned:0,spent:0,felled:0,planted:0,handled:0,ignored:0,health0:state.health,protect0:state.protect,money0:state.money});
 export const ECO={cover0:1,damage:0,renew:1,stumps:0,renewed:0,unrenewed:0,lastDay:-1,lastSeason:-1,plan:null,log:[],dailyBase:300,st:null,onSeason:null,market:1,seasonHooks:[],staff:{pod:false},nursery:null};
@@ -22,10 +23,11 @@ export function stat(k,n=1){if(ECO.st)ECO.st[k]+=n}
 function newPlan(){
  const se=cal.season();
  ECO.plan={season:se,year:cal.year(),cut:se===3?12:se===1?6:8,plant:se===0?24:se===2?16:se===3?0:8,handle:2,doneCut:0,donePlant:0,doneHandle:0,rewarded:false,reward:2000};
+ const P=ECO.plan;if(state.playing)mail('plan','Pismo z nadleśnictwa: plan na '+SEASONS[se]+' — '+P.cut+' m³ drewna'+(P.plant?', '+P.plant+' sadzonek':'')+', '+P.handle+' zgłoszenia do obsłużenia. Premia '+zl(P.reward)+'.',{quiet:true});
 }
 export function planProgress(kind,n){const P=ECO.plan;if(!P)return;
  if(kind==='cut'){P.doneCut+=n;stat('delivered',n)}else if(kind==='plant'){P.donePlant+=n;stat('planted',n)}else{P.doneHandle+=n;stat('handled',n)}
- if(!P.rewarded&&P.doneCut>=P.cut&&P.donePlant>=(P.season===3?0:P.plant)&&P.doneHandle>=P.handle){P.rewarded=true;earn(P.reward,'premia za plan');toast('Plan na '+SEASONS[P.season]+' wykonany! Premia z nadleśnictwa: '+zl(P.reward)+'.')}}
+ if(!P.rewarded&&P.doneCut>=P.cut&&P.donePlant>=(P.season===3?0:P.plant)&&P.doneHandle>=P.handle){P.rewarded=true;earn(P.reward,'premia za plan');mail('plan','Plan na '+SEASONS[P.season]+' wykonany! Premia z nadleśnictwa: '+zl(P.reward)+'.')}}
 // Koniec pory roku: podsumowanie, skok wzrostu lasu, nowy plan.
 function endSeason(){
  const P=ECO.plan,S=ECO.st,G=seasonGrow(YEARS_PER_SEASON),grown=G.grown;ECO.goneRen=(ECO.goneRen||0)*.92+(G.rotted||0);
@@ -46,10 +48,12 @@ export function updateEconomy(dt){
   for(let i=0;i<n;i++){
    pay(dailyCost(),'koszty dzienne (utrzymanie, paliwo, pensje)');
    if(state.money<-8000){let cut=[];if(J.crews.length>1&&J.crews[1].phase==='idle'){J.crews[0].tasks.push(...J.crews[1].tasks,...J.crews[1].held);J.crews.pop();cut.push('ekipa B')}if(ECO.staff.pod&&ECO.fireStaff){ECO.fireStaff();cut.push('podleśniczy')}
-    if(cut.length)toast('Debet ponad 8 000 zł — nadleśnictwo wstrzymało wydatki: zwolniono '+cut.join(' i ')+'.')}
+    if(cut.length)mail('money','Debet ponad 8 000 zł — nadleśnictwo wstrzymało wydatki: zwolniono '+cut.join(' i ')+'.')}
    // 0.6.2: najmocniej obniża ochronę zgłoszenie bez reakcji; to w kolejce patrolu — słabiej (patrol już jedzie)
-   const live=E.incidents.filter(q=>q.status!=='done'&&q.status!=='gone'&&q.type!=='feed'&&q.type!=='assess'),fresh=live.filter(q=>q.status==='new').length,queued=live.length-fresh;
-   if(live.length)bumpProtect(-3*fresh-1*queued);else if(state.protect<74)bumpProtect(1.5);
+   // 0.8.1: kara zależy od wagi zgłoszenia (drobiazgi ważą mało, propozycje wcale) i ma dzienny sufit, żeby zaległości nie dobijały na wysokim tempie
+   const live=E.incidents.filter(q=>q.status!=='done'&&q.status!=='gone'&&q.type!=='feed'&&q.type!=='assess'&&prio(q)>0);
+   let pen=0;for(const q of live)pen+=q.status==='new'?[0,1,3,3][prio(q)]:(prio(q)>=2?1:0);
+   if(pen>0)bumpProtect(-Math.min(9,pen));else if(state.protect<74&&!live.some(q=>prio(q)>=2))bumpProtect(1.5);
    ECO.damage=Math.max(0,ECO.damage-.4);
   }
  }

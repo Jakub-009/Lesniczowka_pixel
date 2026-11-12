@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.7.4 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.8.1 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -65,6 +65,8 @@ Gra zapisuje się sama co 30 s (localStorage).
 | `src/roads.js` | graf dróg, Dijkstra, trasa do dowolnego punktu | nowe |
 | `src/forest.js` | drzewa jako dane, gatunki, wzrost, wycinka, malowanie w kawałkach 256 px | nowe |
 | `src/paint.js` | podłoże: ściółka, pobocza, drogi, plac | wzorzec `world.js` |
+| `src/mail.js` | poczta (dziennik zdarzeń), priorytety zgłoszeń, zwalnianie czasu | nowe w 0.8.1 |
+| `src/oddcard.js` | statystyki do karty oddziału | nowe w 0.8.1 |
 | `src/lodge.js` | zabudowa leśniczówki na osobnej warstwie (lato/zima) | nowe w 0.7.2 |
 | `src/ents.js` | rejestr obiektów, siatki nawigacji, zagrożenia dla zwierząt | nowe (z `obstacles.js`) |
 | `src/life/agents.js` | pojazdy, piesi ze scenariuszem, zwierzyna | z `life.js` + `tow.js` farmy |
@@ -210,3 +212,12 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
 - **Zlecenia:** przycisk/klawisz **X** anuluje niewysłane oznaczenia i zlecenia, których ekipa jeszcze nie zaczęła; Ctrl+Z cofa też zlecenia wysłane do ekipy, jeśli prace się nie zaczęły.
 - **Pniaki** próchnieją i znikają po 6–10 latach, ale tylko na obszarach już odnowionych; nieodnowione zostają jako sygnał do sadzenia (liczą się nadal do wskaźnika odnowienia).
 - **Siatka:** gdy sadzonki wyrosną (ok. 10 lat), pojawia się zgłoszenie demontażu siatki; zaniedbana siatka po ok. 15 latach niszczeje sama.
+
+## Zmiany w 0.8.1 „Skrzynka i spokój na x10”
+- **Skrzynka pocztowa** przy bramie podwórza: czerwona flaga w górze = nowe listy. Klik w skrzynkę albo **C** otwiera Pocztę (nowe listy podświetlone, klik w treść przenosi kamerę w miejsce zdarzenia). Trafiają tu zdarzenia, które dotąd znikały w komunikacie po 3 s: pożar ugaszony przez straż, ucieczka quada/intruza, wichura, wynik oceny drzewostanu i kornika, pismo z planem na porę roku, wykonanie planu, debet, zbiorcze informacje o wygasłych zgłoszeniach. Poczta jest zapisywana (40 ostatnich listów).
+- **Ochrona przed zawałem na wysokim tempie:**
+  - pilne zgłoszenia (pożar, nielegalny wjazd, nocny intruz) same cofają czas do ×1;
+  - maksymalnie 7 otwartych zgłoszeń; nadmiar drobiazgów (śmieci, propozycje demontażu siatki) odpada — najpierw najmniej pilne i najstarsze;
+  - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
+  - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
+- **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.

@@ -3,6 +3,7 @@ import {C,ctx,VIEW,WORLD,$,clamp,keys,state,camera,RT,fx,DEBUG,DAY_S,SETTINGS,to
 import {buildGround,fadeMarks} from './paint.js';
 import {generate,updateFalls,trees,counts,dirtyAll,seasonGrow} from './forest.js';
 import {buildNavs,E,prune} from './ents.js';
+import {MAIL,mail} from './mail.js';
 import {spawnWildlife,updateVisitors,groups} from './life/populate.js';
 import {updateHealth,HL} from './health.js';
 import {initPatrol,updateIncidents,U,spawnRider,spawnSmoke,spawnIntruder,addTrash,dispatch,hirePod} from './incidents.js';
@@ -100,5 +101,5 @@ addEventListener('beforeunload',saveGame);
 document.addEventListener('visibilitychange',()=>{if(document.hidden){saveGame();if(state.playing&&!state.paused)$('#pausebtn').click()}});
 document.title='Leśniczówka '+VERSION;
 // Diagnostyka do testów
-window.__las={HL,R,createPlot,orderPrep,orderPlant,dirtyAll,seasonGrow,cal,spawnIntruder,saveGame,loadGame,state,E,J,U,FA,BASE,ECO,buildNursery,buildGarage,hireDeputy,hireCrewB,orderTruck,trees,counts,camera,VIEW,centerOn,spawnRider,spawnSmoke,addTrash,dispatch,step:(s)=>{for(let i=0;i<Math.ceil(s*60);i++)sim(STEP)},zoom};
+window.__las={MAIL,mail,HL,R,createPlot,orderPrep,orderPlant,dirtyAll,seasonGrow,cal,spawnIntruder,saveGame,loadGame,state,E,J,U,FA,BASE,ECO,buildNursery,buildGarage,hireDeputy,hireCrewB,orderTruck,trees,counts,camera,VIEW,centerOn,spawnRider,spawnSmoke,addTrash,dispatch,step:(s)=>{for(let i=0;i<Math.ceil(s*60);i++)sim(STEP)},zoom};
 hud();requestAnimationFrame(run);

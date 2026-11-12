@@ -12,7 +12,8 @@ import {drawFeeders} from './life/fauna.js';
 import {birds} from './life/sprites.js';
 import {NODES,EDGES,YARD,HOUSE} from './map.js';
 import {drawPlots,drawFences} from './renew.js';
-import {drawLodge} from './lodge.js';
+import {drawLodge,drawMailbox} from './lodge.js';
+import {unreadMail} from './mail.js';
 
 const vis=(x,y,r=60)=>x>camera.x-r&&x<camera.x+VIEW.w+r&&y>camera.y-r&&y<camera.y+VIEW.h+r;
 function blitGround(cv=ground){
@@ -105,6 +106,7 @@ export function drawWorld(){
  if(cal.season()===3){ctx.fillStyle='rgba(234,240,246,.5)';ctx.fillRect(Math.floor(camera.x),Math.floor(camera.y),VIEW.w+1,VIEW.h+1)}
  drawLodge(ctx,cal.season()===3);
  for(const p of PROPS){if(p.x+p.w<camera.x||p.y+p.h<camera.y||p.x>camera.x+VIEW.w||p.y>camera.y+VIEW.h)continue;ctx.drawImage(p.cv,p.x,p.y)}
+ drawMailbox(ctx,unreadMail()>0,cal.season()===3);
  drawForest(ctx,camera,VIEW.w,VIEW.h,'low');
  drawBase(ctx);drawHealth(ctx);drawTrash();drawFeeders(ctx);drawFences(ctx);drawGroundItems(ctx);drawLying();
  for(const a of E.animals)if(!a.dead)a.draw();

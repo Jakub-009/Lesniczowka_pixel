@@ -17,6 +17,7 @@ import {spawnWildlife} from './life/populate.js';
 import {BASE} from './base.js';
 import {hirePod,ASSESS} from './incidents.js';
 import {saveHealth,loadHealth} from './health.js';
+import {serializeMail,loadMail} from './mail.js';
 const KEY='lesniczowka-save-3';   // 0.6.4: nowy układ map — zapisy sprzed 0.6.4 nie pasują (ostatnie złamanie zapisu)
 const FADE=.88;   // koleiny i bruzdy blakną o 12% dziennie
 export function hasSave(){try{return !!localStorage.getItem(KEY)}catch(e){return false}}
@@ -24,14 +25,14 @@ export function clearSave(){try{localStorage.removeItem(KEY)}catch(e){}}
 export function saveGame(){
  if(!state.playing)return;
  try{
-  const o={v:3,ver:'0.7.4',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
+  const o={v:3,ver:'0.8.1',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
    stacks:J.stacks.filter(s=>s.vol>.05).map(s=>[s.edge.id,Math.round(s.s),+s.vol.toFixed(2),Math.round(s.value),s.sort||'tart',s.truck!==false]),sold:J.sold,
    plants:J.plants.map(p=>[Math.round(p.x),Math.round(p.y),p.sp]),
    piles:E.piles.filter(p=>!p.dead).map(p=>[Math.round(p.x),Math.round(p.y),+p.a.toFixed(2),+p.vol.toFixed(3),p.sp,p.logs,p.bark,p.sorts||null,p.vals||null]),
    eco:{goneRen:ECO.goneRen||0,cover0:ECO.cover0,damage:ECO.damage,plan:ECO.plan,market:ECO.market,pod:ECO.staff.pod,nursery:ECO.nursery,feedCost:ECO.feedCost},burns:E.burns||[],
    plots:R.plots.map(p=>({...p})),nextPlot:R.nextId,trails:J.trails.slice(-160),forwarder:J.skid.owned,crewB:J.crews.length>1,
    base:{nursery:BASE.nursery,garage:BASE.garage,nplan:BASE.nplan||0,stats:BASE.stats,opal:BASE.opalPiles.filter(o=>!o.dead).map(o=>[Math.round(o.x),Math.round(o.y),+o.a.toFixed(2),+o.vol.toFixed(2),o.edge.id,Math.round(o.s),+o.day.toFixed(2),o.odd])},
-   assess:ASSESS.slice(-80),hl:saveHealth(),
+   assess:ASSESS.slice(-80),hl:saveHealth(),mail:serializeMail(),
    fauna:{pop:FA.pop,plan:FA.plan,culled:FA.culled,reduction:FA.reduction,feeders:FA.feeders.map(f=>+f.level.toFixed(3)),winterT:FA.winterT,emptyT:FA.emptyT}};
   localStorage.setItem(KEY,JSON.stringify(o));
  }catch(e){console.warn('Zapis gry nie powiódł się:',e)}
@@ -72,6 +73,7 @@ export function loadGame(){
   // zapis sprzed 0.6.3: węższe pobocza i drogi usunięte w 0.6.3 zarastają lasem (poza powierzchniami gracza i stosami)
   if(!o.ver){const old=[[820,2300,300,2300],[300,2300,300,1720],[2600,1720,2600,2380],[2600,2380,3260,2380],[3260,2380,3260,1720]];
    fillVerges(old,(x,y)=>R.plots.some(p=>inRect(x,y,p,10))||J.stacks.some(s=>Math.hypot(s.x-x,s.y-y)<40))}
+  loadMail(o.mail);
   rebuildWild();spawnWildlife();
   return true;
  }catch(e){console.warn('Wczytanie zapisu nie powiodło się:',e);return false}

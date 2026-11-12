@@ -75,3 +75,10 @@ body.noui .ui>*:not(#msg){display:none}
 #maplegend{display:flex;flex-wrap:wrap;gap:4px 12px;font:600 11px ui-monospace,monospace}
 #maplegend span{display:flex;align-items:center;gap:4px}#maplegend i{display:inline-block;width:10px;height:10px;box-shadow:0 0 0 1px #2a3b2d55}
 .maphint{font:11px ui-monospace,monospace;color:#6a5a3e}
+
+.mailbox,.oddcard{position:absolute;top:140px;width:330px;max-height:62vh;overflow:auto;font-size:10px;line-height:1.45;z-index:3}
+.mailbox{right:320px}.oddcard{left:230px}
+.mrow{display:flex;gap:7px;padding:6px 0;border-top:1px solid #3e523f}.mrow.new{background:#33482f;margin:0 -6px;padding:6px}
+.mrow .mk{font-size:11px;line-height:1.3}.mrow .go{cursor:pointer}.mrow .go:hover{color:#f4d58a;text-decoration:underline}
+.oddcard .srow{display:flex;justify-content:space-between;gap:10px;padding:2px 0;border-top:1px solid #3e523f}.oddcard .srow i{font-style:normal;color:#f4d58a;text-align:right}
+.oddcard .ln{color:#d9d2b4;margin:3px 0}
