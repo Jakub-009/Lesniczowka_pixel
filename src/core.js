@@ -32,10 +32,11 @@ export const cal={
  dow:(d=state.days)=>Math.floor(d)%7,
  weekend:()=>Math.floor(state.days)%7>=5,
  night:()=>{const h=(state.days%1)*24;return h<5.5||h>21.5},
- // dni robocze (pon.–sob.) i godziny pracy
- work:(from,to)=>{const h=(state.days%1)*24;return Math.floor(state.days)%7<6&&h>=from&&h<to},
+ // dni robocze: pon.–pt. pełne godziny, sobota do 13:00, niedziela wolna (0.8.3)
+ limit:(to,d=state.days)=>Math.floor(d)%7===5?Math.min(to,13):to,
+ work:(from,to)=>{const h=(state.days%1)*24;return Math.floor(state.days)%7<6&&h>=from&&h<cal.limit(to)},
  // „dziś o 7:00” / „jutro o 7:00” / „w poniedziałek o 7:00”
- nextStart:(from,to)=>{const h=(state.days%1)*24,today=Math.floor(state.days);let d=today;if(h>=to||Math.floor(d)%7===6)d++;while(d%7===6)d++;
+ nextStart:(from,to)=>{const h=(state.days%1)*24,today=Math.floor(state.days);let d=today;if(h>=cal.limit(to,today)||Math.floor(d)%7===6)d++;while(d%7===6)d++;
   const at=' o '+from+':00';return d===today?'dziś'+at:d===today+1?'jutro'+at:'w '+DOW[d%7].replace('środa','środę').replace('sobota','sobotę').replace('niedziela','niedzielę')+at}
 };
 

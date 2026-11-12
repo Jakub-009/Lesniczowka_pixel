@@ -1,9 +1,14 @@
 # Leśniczówka — symulator leśnictwa
 
-Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa.
-**Wersja 0.8.3**
+Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
+**Wersja 0.8.3 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
+
+### GitHub Pages
+1. Wrzuć **zawartość tego folderu** (nie sam ZIP) do głównego katalogu repozytorium.
+2. `Settings → Pages → Deploy from a branch`, gałąź `main`, folder `/ (root)`.
+3. Otwórz adres Pages.
 
 ### Lokalnie
 ```bash
@@ -83,7 +88,7 @@ Gra zapisuje się sama co 30 s (localStorage).
 
 ## Czas w grze (0.2)
 - **Czas dnia:** 1 minuta gry = 1 sekunda przy ×1 (dzień 6:00–21:30 to ok. 15 minut). Noc przewija się sama ×8 — chyba że trwa interwencja, pali się las albo kręci się kłusownik. Klawisz **N** wyłącza przewijanie nocy.
-- **Tydzień:** pon.–sob. pracują ekipa (7–15), ciągnik (7–17) i transport (8–15). Zlecenie poza godzinami czeka („ekipa przyjedzie jutro o 7:00”). W weekend więcej spacerowiczów, rowerzystów i quadów.
+- **Tydzień:** pon.–pt. pracują ekipa (7–17), ciągnik (7–17) i transport (6–22); w sobotę wszyscy do 13:00, w niedzielę nikt. Zlecenie poza godzinami czeka („ekipa przyjedzie jutro o 7:00”). W weekend więcej spacerowiczów, rowerzystów i quadów.
 - **Czas lasu:** pora roku trwa 3 dni. Przy jej zmianie pojawia się **raport z sezonu** (drewno, sadzenie, zgłoszenia, finanse, plan, ocena nadleśniczego), a las rośnie skokowo o 3 lata.
 
 ## Rozkład dnia
@@ -220,6 +225,7 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
 
 ## Zmiany w 0.8.3 „Poprawki i wędrowne wilki”
+- **Godziny pracy:** ekipy 7–17 (nowe zlecenie do 16:30), zrywka bez zmian (7–17), ciężarówki 6–22; sobota do 13:00, niedziela wolna (dla wszystkich).
 - **Zrywka:** ciągnik i forwarder wracali na plac przy leśniczówce prosto przez las i płoty (droga do leśniczówki ma typ „drive”, którego maszyny nie używają, więc planer nie znajdował trasy). Teraz jadą drogą leśną do skrzyżowania, a dalej po podwórzu.
 - **Ekonomia:** wycinkę można zlecać na debecie do −8 000 zł (żeby z minusu dało się wyjść); koszty dzienne ekipy B i forwardera liczone tylko za dni, w których pracowały; wywóz drewna automatycznie od 10 m³ (było 16); przy ujemnym saldzie list z podpowiedzią o wywozie; po przekroczeniu −8 000 zł nowe zakupy i zlecenia są wstrzymane (bez zwalniania pracowników).
 - **Policja na miejscu zdarzenia:** po złapaniu sprawcy patrol pyta: „Puść z pouczeniem” (tylko wykroczenia: quad, crossowiec; +2% ochrony, bez wpływu) albo „Wezwij Policję” (wszyscy czekają na radiowóz; mandat 250 zł, +7…10% ochrony; kłusownik, złodziej drewna i choinek — tylko Policja). Po 30 s bez wyboru: pouczenie albo Policja tam, gdzie pouczenie nie wchodzi w grę. Zniknęły przyciski „Wezwij Policję” z listy zgłoszeń i kart.

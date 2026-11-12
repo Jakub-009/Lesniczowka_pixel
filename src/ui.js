@@ -37,7 +37,7 @@ export function hud(){
  $('#market').textContent='×'+displayNumber(ECO.market,2);
  $('#daily').textContent=zl(dailyCost());
  const crewTxt=C=>{const nt=C.tasks.length+C.cluster.length,held=C.held.length;
-  return (C.phase==='idle'&&nt?'czeka · '+cal.nextStart(7,15):({idle:'wolna',driving:'w drodze',working:'pracuje',leaving:'odjeżdża'}[C.phase]+(nt?' · zadań: '+nt:'')))+(held?' · wstrzym.: '+held:'')};
+  return (C.phase==='idle'&&nt?'czeka · '+cal.nextStart(7,17):({idle:'wolna',driving:'w drodze',working:'pracuje',leaving:'odjeżdża'}[C.phase]+(nt?' · zadań: '+nt:'')))+(held?' · wstrzym.: '+held:'')};
  $('#crewstate').textContent=crewTxt(J.crews[0]);
  $('#crewBrow').style.display=J.crews[1]?'flex':'none';if(J.crews[1])$('#crewBstate').textContent=crewTxt(J.crews[1]);
   $('#skidstate').textContent=!J.skid.trac?(J.skid.owned?'forwarder: w drodze':'usługa: przyjedzie do kłód'):(J.skid.mach==='forwarder'?'forwarder: ':'ciągnik: ')+(J.skid.phase==='idle'&&!cal.work(7,17)?'po pracy':{idle:'czeka',arriving:'dojeżdża',driving:'jedzie po drewno',in:'w szlaku',load:'ładuje',out:'wraca na drogę',tostack:'wiezie na stos',unload:'układa stos',home:'jedzie na plac'}[J.skid.phase]||J.skid.phase);

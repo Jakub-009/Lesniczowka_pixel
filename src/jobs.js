@@ -68,7 +68,7 @@ function launch(out,msg){
  const parts=[];
  for(const [C,n0] of out){if(!n0)continue;const h=sortHeld(C,true),n=n0-h;
   if(h)parts.push('ekipa '+C.id+': '+h+' czeka ('+(cal.season()===3?'zima — ziemia zamarznięta':'okres lęgowy w 103')+')');if(!n)continue;
-  if(C.phase==='idle'){if(cal.work(7,14.5)){startCrew(C);parts.push('ekipa '+C.id+' wyjeżdża ('+n+')')}else parts.push('ekipa '+C.id+' przyjedzie '+cal.nextStart(7,15)+' ('+n+')')}
+  if(C.phase==='idle'){if(cal.work(7,16.5)){startCrew(C);parts.push('ekipa '+C.id+' wyjeżdża ('+n+')')}else parts.push('ekipa '+C.id+' przyjedzie '+cal.nextStart(7,17)+' ('+n+')')}
   else parts.push('ekipa '+C.id+' ma '+n+' nowych');
  }
  toast(msg+' '+parts.join(', ')+'.');
@@ -106,16 +106,16 @@ export function dispatchCrew(){
 }
 // Zadania z powierzchni odnowieniowej (sadzenie w rzędach) — przez ten sam podział na ekipy.
 export function addCrewTasks(tasks,msg){launch(distribute(tasks),msg)}
-// Ekipy pracują pon.–sob. 7:00–15:00. Zimą nie sadzą (zamarznięta ziemia), wiosną nie tną w oddz. 103 (okres lęgowy).
+// Ekipy pracują pon.–pt. 7:00–17:00 i w sobotę do 13:00 (nowe zlecenie przyjmują do 16:30). Zimą nie sadzą (zamarznięta ziemia), wiosną nie tną w oddz. 103 (okres lęgowy).
 function startCrew(C){C.van=new Vehicle('van',ENTRY(rand()<.5));C.van.label='ekipa '+C.id;nextCluster(C)}
-const shiftOn=()=>cal.work(7,15);
+const shiftOn=()=>cal.work(7,17);
 function holdReason(k){if(k.type==='plant'&&cal.season()===3)return 'zima';if(k.type==='fell'&&birdBan(k.t))return 'lęgi';return null}
 function nextCluster(C){
  const v=C.van;
  sortHeld(C);
  if(!C.tasks.length||!shiftOn()){
   const left=C.tasks.length;C.phase='leaving';v.label=left?'ekipa '+C.id+' — koniec dniówki':'ekipa '+C.id+' wraca do bazy';
-  if(left)toast('Ekipa '+C.id+': koniec dniówki, wróci '+cal.nextStart(7,15)+' (zostało zadań: '+left+').');
+  if(left)toast('Ekipa '+C.id+': koniec dniówki, wróci '+cal.nextStart(7,17)+' (zostało zadań: '+left+').');
   v.goTo(goalNode(exitNode(v.pos[0])),{leave:true,onArrive:()=>{C.phase='idle';C.van=null}});return}
  const [vx,vy]=v.pos;C.tasks.sort((a,b)=>{const A=tpos(a),B=tpos(b);return Math.hypot(A[0]-vx,A[1]-vy)-Math.hypot(B[0]-vx,B[1]-vy)});
  const [fx,fy]=tpos(C.tasks[0]),rp=nearestRoad(fx,fy,['main','forest'],{margin:50});
@@ -368,7 +368,7 @@ export function orderTruck(manual=true){
  const T=J.truck;
  if(T.v){if(manual)toast('Ciężarówka już jest w drodze.');return}
  if(truckTotal()<1){if(manual)toast('Przy drogach prawie nie ma drewna do wywozu ('+displayNumber(truckTotal(),1)+' m³; opał czeka na ludność).');return}
- if(!cal.work(8,15)){T.pending=true;if(manual)toast('Wywóz zamówiony — ciężarówka przyjedzie '+cal.nextStart(8,16)+'.');return}
+ if(!cal.work(6,22)){T.pending=true;if(manual)toast('Wywóz zamówiony — ciężarówka przyjedzie '+cal.nextStart(6,22)+'.');return}
  T.pending=false;
  // trasa: stosy od największego, potem po kolei najbliższe
  const cand=J.stacks.filter(s=>s.vol>.5&&forTruck(s)).sort((a,b)=>b.vol-a.vol);let cap=30,route=[],pos=[NODES.j3[0],NODES.j3[1]];
@@ -389,7 +389,7 @@ function nextStop(){
 }
 function truckUpdate(dt){
  const T=J.truck,v=T.v;
- if(!v){if((T.pending||(J.auto&&truckTotal()>=10))&&cal.work(8,15))orderTruck(T.pending);return}
+ if(!v){if((T.pending||(J.auto&&truckTotal()>=10))&&cal.work(6,22))orderTruck(T.pending);return}
  if(v.dead){T.v=null;T.phase='idle';T.cur=null;return}
  if(T.phase==='load'){
   if(T.wait>0){T.wait-=dt;return}
@@ -403,7 +403,7 @@ export function opalStack(vol){const c=J.stacks.filter(s=>s.sort==='opal'&&s.vol
 export function updateJobs(dt){
  for(const C of J.crews){
   if(C.held.length&&!(cal.season()===3&&C.held.some(k=>k.type==='plant'))){const back=C.held.filter(k=>!holdReason(k));C.held=C.held.filter(k=>holdReason(k));C.tasks.push(...back)}
-  if(C.phase==='idle'&&C.tasks.length&&cal.work(7,14.5)&&(sortHeld(C,true),C.tasks.length))startCrew(C);
+  if(C.phase==='idle'&&C.tasks.length&&cal.work(7,16.5)&&(sortHeld(C,true),C.tasks.length))startCrew(C);
  }
  skidUpdate(dt);truckUpdate(dt);
 }
