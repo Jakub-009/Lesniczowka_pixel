@@ -9,6 +9,7 @@ import * as S from './sprites.js';
 
 const near=(x,y,r=80)=>x>camera.x-r&&x<camera.x+VIEW.w+r&&y>camera.y-r&&y<camera.y+VIEW.h+r;
 let seedN=1;const rnd=()=>hash(seedN++,77,5);
+export const WX={flee:1};   // 0.8.3: gdy w lesie jest wataha, sarny i jelenie są bardziej płochliwe (ustawia fauna.js)
 export const rand=rnd;
 
 // ───────── holowanie (model przyczepy jednoosiowej z tow.js farmy) ─────────
@@ -38,6 +39,7 @@ export const VSPEC={
  truck:{speed:82,forest:.55,acc:20,hw:14,hh:37,wb:44,hitch:34,cart:'log',name:'ciągnik siodłowy z wózkiem do dłużycy'},
  quad:{speed:70,forest:1,acc:40,hw:7,hh:11,wb:16,wild:true,name:'quad'},
  cross:{speed:80,forest:1,acc:45,hw:3,hh:11,wb:16,wild:true,name:'motocykl crossowy'},
+ firetruck:{speed:92,forest:.6,acc:34,hw:13,hh:34,wb:40,name:'wóz strażacki',allow:['main','forest']},
  police:{speed:110,forest:.62,acc:46,hw:10,hh:24,wb:30,name:'radiowóz Policji'},
  waste:{speed:70,forest:.5,acc:20,hw:13,hh:35,wb:42,name:'śmieciarka firmy wywozowej'},
  bike:{speed:28,forest:.9,acc:14,hw:3,hh:9,wb:14,rider:true,name:'rowerzysta'}
@@ -220,6 +222,7 @@ export class Vehicle{
   else if(k==='van')S.vanTop(ctx,x,y,h,t);
   else if(k==='police')S.policeTop(ctx,x,y,h,t,this.beacon);
   else if(k==='waste')S.wasteTop(ctx,x,y,h,t);
+  else if(k==='firetruck')S.fireTop(ctx,x,y,h,t,this.beacon);
   else if(k==='tractor'||k==='plower')S.tractorTop(ctx,x,y,h,t,this.steer);
   else if(k==='forwarder')S.forwarderTop(ctx,x,y,h,t,this.steer);
   else if(k==='truck')S.truckTop(ctx,x,y,h,t,this.cap?this.load/this.cap:0);
@@ -329,7 +332,7 @@ export class Wild{
  update(dt){
   this.phase+=dt;
   if(this.flee&&this.state!=='run'){
-   const th=nearestThreat(this.x,this.y,this.flee);
+   const th=nearestThreat(this.x,this.y,this.flee*((this.kind==='roe'||this.kind==='deer')?WX.flee:1));
    if(th)this.escape(th.x,th.y);
    else if(this.kind==='roe'||this.kind==='deer'||this.kind==='hare'){for(const w of E.animals)if(w.kind==='wolf'&&Math.hypot(w.x-this.x,w.y-this.y)<150){this.escape(w.x,w.y);break}}
   }

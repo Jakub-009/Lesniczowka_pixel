@@ -116,7 +116,7 @@ export const inWater=(x,y,m=0)=>inWetland(x,y,m)||streamDist(x,y)<8+m;
 // paśniki: stałe miejsca (0.6.4 — wszystkie 4; od 0.9 gra zaczyna od jednego, resztę się dokupuje)
 export const FEEDERS=[{name:'P1 (polana)',x:POLANA.x+40,y:POLANA.y-60},{name:'P2 (mokradło SE)',x:3340,y:2560},{name:'P3 (mokradło przy leśniczówce)',x:548,y:1092},{name:'P4 (skraj puszczy)',x:2695,y:790}];
 // miejsca zarezerwowane na kolejne wersje: parking leśny przy szosie (0.8), ścieżka przyrodnicza (0.9), drogi pożarowe z tablicami (0.7)
-export const RESERVED=[{id:'parking',x:2010,y:1630,w:150,h:56},{id:'sciezka',x:2840,y:1280,w:120,h:90}];
+export const RESERVED=[{id:'sciezka',x:2840,y:1280,w:120,h:90}];
 export const FIRE_SIGNS=[{x:842,y:1250,n:1},{x:1740,y:1330,n:2},{x:2625,y:1390,n:3},{x:3280,y:1420,n:4}];
 
 // ── Oddziały: regularna siatka przesiek (wąskie proste linie podziału, trawa i słupki; dla pieszych i zwierząt, nie dla aut) ──
@@ -147,7 +147,7 @@ export const POSTS=[...GX.flatMap((x,i)=>[{x:x+14,y:GY+14,n:[st(0,i)+' '+st(0,i+
 // Szlabany na wjazdach z szosy w dukty i tablica leśnictwa.
 export const BARRIERS=[];{   // 0.7.2: słup na poboczu dukty, ramię wzdłuż drogi (otwarte); pozycja liczona z geometrii dukty
  const fe=EDGES.filter(e=>e.kind==='forest'),near=(x,y)=>{let b=null;for(const e of fe)for(let s=0;s<=e.len;s+=6){const p=ptAt(e,s),d=Math.hypot(p[0]-x,p[1]-y);if(!b||d<b.d)b={d,x:p[0],y:p[1],tx:p[2],ty:p[3]}}return b};
- for(const k of ['j1','j2','j3','j4'])for(const sg of [-1,1]){if(k==='j3'&&sg>0)continue;const x=HX[k],y=hy(x)+84*sg,b=near(x,y);
+ for(const k of ['j1','j2','j3','j4'])for(const sg of [-1,1]){if(k==='j3'&&sg>0)continue;const x=HX[k],y=hy(x)+(k==='j2'&&sg<0?205:84)*sg,b=near(x,y);   // 0.8.3: szlaban przy j2 dalej od szosy — przed nim jest zatoka parkingowa
   let nx=-b.ty,ny=b.tx;if(nx<0||(Math.abs(nx)<.2&&ny<0)){nx=-nx;ny=-ny}
   const a=b.ty*(b.y-hy(b.x))>0?1:-1;BARRIERS.push({x:b.x+nx*32,y:b.y+ny*32,bx:b.tx*a,by:b.ty*a})}
 }

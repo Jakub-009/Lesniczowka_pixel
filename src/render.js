@@ -71,7 +71,7 @@ function drawMarkers(){
  if(state.tool==='mark')for(const t of treesIn(camera.x,camera.y,camera.x+VIEW.w,camera.y+VIEW.h)){if(!t.qk||t.st!==STAND||t.marked||t.assigned||t.falling||t.lying||t.age<SAPLING_AGE)continue;rect(ctx,t.x-2,t.y-2,5,5,'#1a2a20');rect(ctx,t.x-1,t.y-1,3,3,QUAL[t.q].col)}
  // zgłoszenia: pinezka z wykrzyknikiem
  for(const q of E.incidents){if(q.status==='done'||q.status==='gone')continue;
-  const x=Math.round(q.x),y=Math.round(q.y)-18-Math.round(pulse*3),col=q.type==='fire'?'#e0482f':q.type==='quad'||q.type==='intruder'?'#e8a32e':q.type==='feed'?'#8ac0e0':'#d8c23a';
+  const x=Math.round(q.x),y=Math.round(q.y)-18-Math.round(pulse*3),col=q.type==='fire'?'#e0482f':q.type==='quad'||q.type==='intruder'?'#e8a32e':q.type==='feed'?'#8ac0e0':q.type==='carcass'?'#b89a6a':'#d8c23a';
   rect(ctx,x-6,y-7,13,13,'#1d2b24');rect(ctx,x-5,y-6,11,11,col);rect(ctx,x-1,y-4,3,5,'#1d2b24');rect(ctx,x-1,y+2,3,2,'#1d2b24');rect(ctx,x,y+6,1,6,'#1d2b24');
   if(q.status!=='new')ring(q.x,q.y,10+pulse*3,'#f1e6c2',1,[2,2]);
   if(state.selected===q)ring(q.x,q.y-12,16,'#ffffff',1);
@@ -111,8 +111,8 @@ export function drawWorld(){
  drawLodge(ctx,cal.season()===3);
  for(const p of PROPS){if(p.x+p.w<camera.x||p.y+p.h<camera.y||p.x>camera.x+VIEW.w||p.y>camera.y+VIEW.h)continue;ctx.drawImage(p.cv,p.x,p.y)}
  drawMailbox(ctx,unreadMail()>0,cal.season()===3);
- drawOrder(ctx,cal.season()===3);
  drawForest(ctx,camera,VIEW.w,VIEW.h,'low');
+ drawOrder(ctx,cal.season()===3);
  drawBase(ctx);drawHealth(ctx);drawTrash();drawFeeders(ctx);drawFences(ctx);drawGroundItems(ctx);drawLying();
  for(const a of E.animals)if(!a.dead)a.draw();
  for(const p of E.people)if(!p.onStand)p.draw();

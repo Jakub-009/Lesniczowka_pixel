@@ -4,7 +4,8 @@ import {buildGround,fadeMarks} from './paint.js';
 import {generate,updateFalls,trees,counts,dirtyAll,seasonGrow} from './forest.js';
 import {buildNavs,E,prune} from './ents.js';
 import {MAIL,mail} from './mail.js';
-import {updateOrder,spawnDump,callPolice,buyCams,toggleBarriers,buyParking} from './order.js';
+import {updateCrossing,startCrossing} from './crossing.js';
+import {updateOrder,spawnDump,dispatchPolice,buyCams,toggleBarriers,buyParking} from './order.js';
 import {spawnWildlife,updateVisitors,groups} from './life/populate.js';
 import {updateHealth,HL} from './health.js';
 import {initPatrol,updateIncidents,U,spawnRider,spawnSmoke,spawnIntruder,addTrash,dispatch,hirePod} from './incidents.js';
@@ -30,7 +31,7 @@ function sim(dt){
  for(const a of E.animals)a.update(dt);
  for(const p of E.people)p.update(dt);
  for(const v of E.vehicles)v.update(dt);
- updateVisitors(dt);updateIncidents(dt);updateJobs(dt);updateRenew(dt);updateFauna(dt);updateBase(dt);updateOrder(dt);updateHealth();updateEconomy(dt);
+ updateVisitors(dt);updateIncidents(dt);updateJobs(dt);updateRenew(dt);updateFauna(dt);updateBase(dt);updateOrder(dt);updateCrossing(dt);updateHealth();updateEconomy(dt);
  for(let i=fx.length-1;i>=0;i--){const p=fx[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.life<=0)fx.splice(i,1)}
  prune();
 }
@@ -102,5 +103,5 @@ addEventListener('beforeunload',saveGame);
 document.addEventListener('visibilitychange',()=>{if(document.hidden){saveGame();if(state.playing&&!state.paused)$('#pausebtn').click()}});
 document.title='Leśniczówka '+VERSION;
 // Diagnostyka do testów
-window.__las={callPolice,buyCams,toggleBarriers,buyParking,spawnDump,MAIL,mail,HL,R,createPlot,orderPrep,orderPlant,dirtyAll,seasonGrow,cal,spawnIntruder,saveGame,loadGame,state,E,J,U,FA,BASE,ECO,buildNursery,buildGarage,hireDeputy,hireCrewB,orderTruck,trees,counts,camera,VIEW,centerOn,spawnRider,spawnSmoke,addTrash,dispatch,step:(s)=>{for(let i=0;i<Math.ceil(s*60);i++)sim(STEP)},zoom};
+window.__las={startCrossing,dispatchPolice,buyCams,toggleBarriers,buyParking,spawnDump,MAIL,mail,HL,R,createPlot,orderPrep,orderPlant,dirtyAll,seasonGrow,cal,spawnIntruder,saveGame,loadGame,state,E,J,U,FA,BASE,ECO,buildNursery,buildGarage,hireDeputy,hireCrewB,orderTruck,trees,counts,camera,VIEW,centerOn,spawnRider,spawnSmoke,addTrash,dispatch,step:(s)=>{for(let i=0;i<Math.ceil(s*60);i++)sim(STEP)},zoom};
 hud();requestAnimationFrame(run);

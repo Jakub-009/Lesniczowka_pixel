@@ -52,6 +52,19 @@ export function policeTop(g,x,y,h,travel=0,beacon=false){
   const on=beacon&&Math.floor(RT.frame/10)%2;rect(s,-5,-4,4,3,beacon?(on?'#4a8aff':'#1f3a7a'):'#1f3a7a');rect(s,1,-4,4,3,beacon?(on?'#1f3a7a':'#ff4a3a'):'#7a2a24');
  });
 }
+// Wóz strażacki (0.8.3): czerwony z białym pasem, drabiną i kogutem.
+export function fireTop(g,x,y,h,travel=0,beacon=false){
+ orientedShadow(g,x,y,h,[[12,32,0]],13);
+ drawRotated(g,x,y,h,s=>{
+  wheels(s,[-10,10],[-22,10,22],5,10,travel);
+  rect(s,-12,-32,24,17,'#7a1d17');rect(s,-11,-33,22,16,'#c8352a');rect(s,-9,-29,18,7,'#5d8790');rect(s,-8,-28,16,3,'#a8c2c6');
+  rect(s,-13,-14,26,48,'#7a1d17');rect(s,-12,-15,24,47,'#c8352a');rect(s,-12,-15,24,2,'#e6564a');
+  rect(s,-12,2,24,3,'#eef0f2');rect(s,-10,-10,20,2,'#a9231b');rect(s,-10,10,20,2,'#a9231b');rect(s,-10,20,20,2,'#a9231b');
+  rect(s,-3,-12,6,44,'#b7bcc0');for(let k=-10;k<30;k+=4)rect(s,-3,k,6,1,'#8a9094');
+  rect(s,-9,-35,4,2,'#ecddb6');rect(s,5,-35,4,2,'#ecddb6');rect(s,-10,32,4,2,'#d4a21e');rect(s,6,32,4,2,'#d4a21e');
+  const on=beacon&&Math.floor(RT.frame/10)%2;rect(s,-8,-17,4,3,beacon?(on?'#4a8aff':'#1f3a7a'):'#1f3a7a');rect(s,4,-17,4,3,beacon?(on?'#1f3a7a':'#4a8aff'):'#1f3a7a');
+ });
+}
 // Śmieciarka firmy wywozowej: zielona kabina i biała zabudowa.
 export function wasteTop(g,x,y,h,travel=0){
  orientedShadow(g,x,y,h,[[13,34,0]],14);

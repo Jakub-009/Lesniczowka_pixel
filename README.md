@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.8.2 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.8.3 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -26,7 +26,7 @@ Potem `http://localhost:8000/`. Nie otwieraj `index.html` dwuklikiem (`file://`)
 - **Plan na sezon** z nadleśnictwa: drewno zerwane do dróg, sadzonki, zgłoszenia → premia 2000 zł.
 
 ## Życie w lesie
-Sarny, jelenie (byk z łaniami), dziki z warchlakami, lisy, wataha wilków (płoszy sarny i jelenie), zające, ptaki. Na ekranie widać tylko część zwierzyny — jej liczba idzie za populacją w obwodzie.
+Sarny, jelenie (byk z łaniami), dziki z warchlakami, lisy, wędrowna wataha wilków (przychodzi na kilka dni gry; sarny i jelenie są wtedy płochliwsze), zające, ptaki. Na ekranie widać tylko część zwierzyny — jej liczba idzie za populacją w obwodzie.
 Zbieracze jagód (lato) i grzybiarze (jesień) przyjeżdżają autem i chodzą z wiaderkami i koszykami, spacerowicze z psami, rowerzyści, myśliwy wieczorem na ambonie, ruch na szosie.
 Leśniczy chodzi po podwórzu z jamnikiem. Zwierzęta uciekają przed ludźmi i pojazdami; auta hamują przed zwierzyną.
 Pory roku zmieniają las (jesienne kolory, bezlistne drzewa i śnieg zimą), jest dzień i noc z reflektorami.
@@ -66,7 +66,8 @@ Gra zapisuje się sama co 30 s (localStorage).
 | `src/forest.js` | drzewa jako dane, gatunki, wzrost, wycinka, malowanie w kawałkach 256 px | nowe |
 | `src/paint.js` | podłoże: ściółka, pobocza, drogi, plac | wzorzec `world.js` |
 | `src/mail.js` | poczta (dziennik zdarzeń), priorytety zgłoszeń, zwalnianie czasu | nowe w 0.8.1 |
-| `src/order.js` | dzikie wysypiska, firma wywozowa, Policja, fotopułapki, szlabany, parking | nowe w 0.8.2 |
+| `src/order.js` | dzikie wysypiska, firma wywozowa, Policja (na miejscu), fotopułapki, szlabany (rura na zawiasie), zatoka parkingowa | nowe w 0.8.2, przerobione w 0.8.3 |
+| `src/crossing.js` | zwierzyna na szosie, potrącenia, padlina, myśliwy z psem | nowe w 0.8.3 |
 | `src/oddcard.js` | statystyki do karty oddziału | nowe w 0.8.1 |
 | `src/lodge.js` | zabudowa leśniczówki na osobnej warstwie (lato/zima) | nowe w 0.7.2 |
 | `src/ents.js` | rejestr obiektów, siatki nawigacji, zagrożenia dla zwierząt | nowe (z `obstacles.js`) |
@@ -222,6 +223,16 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
+
+## Zmiany w 0.8.3 „Poprawki i wędrowne wilki”
+- **Zrywka:** ciągnik i forwarder wracali na plac przy leśniczówce prosto przez las i płoty (droga do leśniczówki ma typ „drive”, którego maszyny nie używają, więc planer nie znajdował trasy). Teraz jadą drogą leśną do skrzyżowania, a dalej po podwórzu.
+- **Ekonomia:** wycinkę można zlecać na debecie do −8 000 zł (żeby z minusu dało się wyjść); koszty dzienne ekipy B i forwardera liczone tylko za dni, w których pracowały; wywóz drewna automatycznie od 10 m³ (było 16); przy ujemnym saldzie list z podpowiedzią o wywozie; po przekroczeniu −8 000 zł nowe zakupy i zlecenia są wstrzymane (bez zwalniania pracowników).
+- **Policja na miejscu zdarzenia:** po złapaniu sprawcy patrol pyta: „Puść z pouczeniem” (tylko wykroczenia: quad, crossowiec; +2% ochrony, bez wpływu) albo „Wezwij Policję” (wszyscy czekają na radiowóz; mandat 250 zł, +7…10% ochrony; kłusownik, złodziej drewna i choinek — tylko Policja). Po 30 s bez wyboru: pouczenie albo Policja tam, gdzie pouczenie nie wchodzi w grę. Zniknęły przyciski „Wezwij Policję” z listy zgłoszeń i kart.
+- **Pożar:** wieża przeciwpożarowa wzywa straż pożarną od razu. Bez wieży jedzie leśniczy: małe zarzewie gasi sam, większe — wzywa straż z miejsca. Wypalony obszar zależy od wielkości pożaru w chwili ugaszenia. Nowy wóz strażacki.
+- **Szlabany** rysowane na bieżąco: dwa słupki i czerwono-biała rura na zawiasie (otwarta leży wzdłuż drogi, zamknięta w poprzek, na kłódkę). Szlaban przy szosie na północ od skrzyżowania j2 stoi dalej od szosy.
+- **Parking** jako żwirowa zatoka przy drodze leśnej tuż za szosą (kłody, znak P, kosz, stół z ławami); odwiedzający naprawdę w niej parkują (dwa miejsca).
+- **Wilki wędrowne** zamiast stałej populacji: wataha (2–5 osobników) pojawia się średnio raz na kilka lat, zostaje 3–8 dni gry, potem odchodzi i wraca najwcześniej po roku. W tym czasie zgryzanie jest mniejsze (do −25%), sarny i jelenie płochliwsze (+40% dystansu ucieczki), koło łowieckie pozyskuje o 30% mniej, a wilki zjadają część saren i jeleni. Listy przy pojawieniu i odejściu; fotopułapka może nagrać wilka. Stare zapisy: brak watahy.
+- **Zwierzyna na szosie:** o zmierzchu i jesienią sarna, jeleń albo dzik przebiega przez szosę przed samochodem (zwykle auto tylko hamuje). Rzadko dochodzi do potrącenia: zwierzę leży przy jezdni (zgłoszenie „padlina”, zabiera patrol albo po dobie koło łowieckie), ucieka ranne (myśliwy z psem tropi je w lesie) albo zabiera je kierowca (sam list). Znaki ostrzegawcze i odstraszacze — w 0.9.
 
 ## Zmiany w 0.8.2 „Porządek w lesie”
 - **Dzikie wysypiska:** wieczorem lub nocą (średnio co kilka dni, rzadziej zimą) samochód z przyczepą zostawia w lesie stos odpadów. Zgłoszenie „Zleć wywóz · 700 zł” wysyła śmieciarkę firmy wywozowej (jedzie w godzinach 7–16, ładowacze zbierają odpady). Nieusunięte wysypisko liczy się w stanie lasu jak kilka worków śmieci i ciąży na ochronie terenu. Patrol sam wysypiska nie sprząta.

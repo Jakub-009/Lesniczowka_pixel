@@ -13,6 +13,7 @@ import {EDGES} from './map.js';
 import {ECO} from './economy.js';
 import {E,rebuildWild} from './ents.js';
 import {FA} from './life/fauna.js';
+import {WX} from './life/agents.js';
 import {spawnWildlife} from './life/populate.js';
 import {BASE} from './base.js';
 import {hirePod,ASSESS} from './incidents.js';
@@ -25,7 +26,7 @@ export function clearSave(){try{localStorage.removeItem(KEY)}catch(e){}}
 export function saveGame(){
  if(!state.playing)return;
  try{
-  const o={v:3,ver:'0.8.2',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
+  const o={v:3,ver:'0.8.3',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
    stacks:J.stacks.filter(s=>s.vol>.05).map(s=>[s.edge.id,Math.round(s.s),+s.vol.toFixed(2),Math.round(s.value),s.sort||'tart',s.truck!==false]),sold:J.sold,
    plants:J.plants.map(p=>[Math.round(p.x),Math.round(p.y),p.sp]),
    piles:E.piles.filter(p=>!p.dead).map(p=>[Math.round(p.x),Math.round(p.y),+p.a.toFixed(2),+p.vol.toFixed(3),p.sp,p.logs,p.bark,p.sorts||null,p.vals||null]),
@@ -33,7 +34,7 @@ export function saveGame(){
    plots:R.plots.map(p=>({...p})),nextPlot:R.nextId,trails:J.trails.slice(-160),forwarder:J.skid.owned,crewB:J.crews.length>1,
    base:{nursery:BASE.nursery,garage:BASE.garage,nplan:BASE.nplan||0,stats:BASE.stats,opal:BASE.opalPiles.filter(o=>!o.dead).map(o=>[Math.round(o.x),Math.round(o.y),+o.a.toFixed(2),+o.vol.toFixed(2),o.edge.id,Math.round(o.s),+o.day.toFixed(2),o.odd])},
    assess:ASSESS.slice(-80),hl:saveHealth(),mail:serializeMail(),
-   fauna:{pop:FA.pop,plan:FA.plan,culled:FA.culled,reduction:FA.reduction,feeders:FA.feeders.map(f=>+f.level.toFixed(3)),winterT:FA.winterT,emptyT:FA.emptyT}};
+   fauna:{wolf:{...FA.wolf},pop:FA.pop,plan:FA.plan,culled:FA.culled,reduction:FA.reduction,feeders:FA.feeders.map(f=>+f.level.toFixed(3)),winterT:FA.winterT,emptyT:FA.emptyT}};
   localStorage.setItem(KEY,JSON.stringify(o));
  }catch(e){console.warn('Zapis gry nie powiódł się:',e)}
 }
@@ -68,7 +69,7 @@ export function loadGame(){
   if(o.base){BASE.nursery=!!o.base.nursery;BASE.garage=!!o.base.garage;BASE.nplan=o.base.nplan||0;Object.assign(BASE.stats,o.base.stats||{});
    BASE.opalPiles=(o.base.opal||[]).map(([x,y,a,vol,eid,s,day,odd])=>({x,y,a,vol,edge:EDGES.find(e=>e.id===eid)||EDGES[4],s,day,odd,logs:Math.max(2,Math.min(6,Math.round(vol*1.5))),bark:'#7a5a3e',sp:'sosna'}))}
   if(ec.pod&&!ECO.staff.pod){ECO.staff.pod=true;hirePod()}
-  if(o.fauna){const F=o.fauna;Object.assign(FA.pop,F.pop);Object.assign(FA.plan,F.plan);Object.assign(FA.culled,F.culled);FA.reduction=!!F.reduction;FA.winterT=F.winterT||0;FA.emptyT=F.emptyT||0;
+  if(o.fauna){const F=o.fauna;Object.assign(FA.pop,F.pop);delete FA.pop.wolf;FA.wolf=F.wolf?{present:!!F.wolf.present,size:F.wolf.size||0,until:F.wolf.until||0,cool:F.wolf.cool??state.days+8,days:F.wolf.days||0,total:F.wolf.total||0}:{present:false,size:0,until:0,cool:state.days+8,days:0,total:0};WX.flee=FA.wolf.present?1.4:1;Object.assign(FA.plan,F.plan);Object.assign(FA.culled,F.culled);FA.reduction=!!F.reduction;FA.winterT=F.winterT||0;FA.emptyT=F.emptyT||0;
    (F.feeders||[]).forEach((l,i)=>{if(FA.feeders[i])FA.feeders[i].level=l})}
   ASSESS.length=0;ASSESS.push(...(o.assess||[]));
   // zapis sprzed 0.6.3: węższe pobocza i drogi usunięte w 0.6.3 zarastają lasem (poza powierzchniami gracza i stosami)

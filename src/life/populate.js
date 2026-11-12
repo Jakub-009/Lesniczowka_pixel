@@ -8,7 +8,7 @@ import {Vehicle,Ped,Wild,Group,rand} from './agents.js';
 import {addTrash,U} from '../incidents.js';
 import {bumpProtect,ECO} from '../economy.js';
 import {sfx} from '../sound.js';
-import {FA,cull,planLeft,likesNow} from './fauna.js';
+import {FA,FH,cull,planLeft,likesNow} from './fauna.js';
 
 const CAR_COLS=['#8c9b95','#a4684f','#6f86a0','#b9a56a','#7a8f6f','#a8a6a0','#5a5f6a','#9a4a3a'];
 const pick=a=>a[Math.floor(rand()*a.length)];
@@ -30,24 +30,34 @@ export function spawnWildlife(){
   if(P.boar>=11)add('boar',x+30,y+10,G,{male:true});
   if(sow.sow)for(let i=0;i<clamp(Math.round(P.boar/10),2,4);i++)add('piglet',x,y,G,{follow:sow,flee:110})}
  for(const [x,y] of [[300,800],[2900,2300]].slice(0,P.fox>=6?2:1)){if(P.fox<3)break;const G=g(x,y,{range:[300,700],kind:'fox'});add('fox',x,y,G)}
- const wolfN=clamp(Math.round(P.wolf/2.5),0,3);
- if(wolfN){const G=g(3150,500,{range:[600,1200],kind:'wolf'});const lead=add('wolf',3150,500,G);for(let i=1;i<wolfN;i++)add('wolf',3150,500,G,{follow:lead,leash:90})}
+ if(FA.wolf.present)addPack(g,add);
  for(const [x,y] of [[2000,1150],[600,700],[1400,2450]].slice(0,P.hare>=20?3:P.hare>=10?2:1)){const G=g(x,y,{range:[100,260],kind:'hare'});add('hare',x,y,G)}
 }
 
+// Wataha wędrowna (0.8.3): pojawia się i znika razem ze stanem FA.wolf
+function addPack(g,add){const n=FA.wolf.size,x=3250,y=520+rand()*600,G=g(x,y,{range:[700,1300],kind:'wolf'});const lead=add('wolf',x,y,G);for(let i=1;i<n;i++)add('wolf',x,y,G,{follow:lead,leash:90})}
+FH.wolves=()=>{
+ for(const a of E.animals)if(a.kind==='wolf')a.dead=true;
+ if(!FA.wolf.present)return;
+ let seed=900+Math.floor(state.days)*5;const g=(x,y,o)=>{const G=new Group(x,y,seed+=13,o);groups.push(G);return G};
+ addPack(g,(kind,x,y,G,o={})=>new Wild({kind,x:x+(rand()-.5)*40,y:y+(rand()-.5)*40,seed:seed++,group:G,...o}));
+};
 // ───────── goście w lesie ─────────
+export const HK2={free:()=>-1,edge:null,approach:()=>0,park:null,reserve:null};   // ustawiane przez order.js (bez cyklu importów)
 const T={car:3,pick:6,walk:14,bike:20,hunt:0,huntDay:-1};
 const forestEdges=()=>EDGES.filter(e=>e.kind==='forest'&&e.b!=='l1'&&e.a!=='l1');
 function sideSpot(v,dist){const h=v.heading,sgn=rand()<.5?1:1;return[v.pos[0]+Math.cos(h)*dist*sgn,v.pos[1]+Math.sin(h)*dist*sgn]}
 function spawnFrom(kind,o={}){const w=rand()<.5;return new Vehicle(kind,{...ENTRY(w),...o})}
 function leaveMap(v){v.goTo(goalNode(exitNode(v.pos[0]+(rand()-.5)*1200)),{leave:true})}
 // Grzybiarze: przyjeżdżają autem, parkują na poboczu, chodzą z koszykiem po lesie i wracają (czasem zostawiają śmieci).
-function spawnPickers(berry){
+export function spawnPickers(berry){
  // jagody: bory sosnowe (101, 104, 107, 108); grzyby: wszędzie
- const E2=berry?EDGES.filter(e=>['a3-a1','a1-b1','j1-s2','s2-se','c1-j3'].includes(e.id)):forestEdges(),e=pick(E2),s=60+rand()*(e.len-120),who=berry?'zbieracze jagód':'grzybiarze';
- const car=spawnFrom('car',{color:pick(CAR_COLS)});car.label=who;
- car.goTo({edge:e,s},{park:true,onArrive:v=>{
-  const n=1+(rand()<.55?1:0),[cx,cy]=sideSpot(v,18);let back=0;
+ const E2=berry?EDGES.filter(e=>['a3-a1','a1-b1','j1-s2','s2-se','c1-j3'].includes(e.id)):forestEdges(),who=berry?'zbieracze jagód':'grzybiarze';
+ const bay=rand()<.6?HK2.free():-1;   // 0.8.3: część odwiedzających parkuje w zatoce przy drodze (gdy jest zbudowana)
+ const e=bay>=0?HK2.edge():pick(E2),s=bay>=0?HK2.approach():60+rand()*(e.len-120);
+ const car=spawnFrom('car',{color:pick(CAR_COLS)});car.label=who;if(bay>=0)HK2.reserve(bay,car);
+ const walk=(v,cx,cy)=>{
+  const n=1+(rand()<.55?1:0);let back=0;
   for(let i=0;i<n;i++){
    const p=new Ped({kind:'picker',x:cx+i*6,y:cy,prop:berry?'bucket':'basket',berry,speed:13+rand()*3,coat:pick(['#8a6a4a','#5a6a8a','#7a3a3a','#4a6a4a','#9a8a5a']),cap:pick(['#c84a3a','#d8b23a','#3a4a6a','#e8e4dc'])});
    p.label=berry?'zbieracz jagód':'grzybiarz';
@@ -56,6 +66,10 @@ function spawnPickers(berry){
     q.hidden=true;q.dead=true;if(++back>=n){v.label=who+' — odjeżdżają';leaveMap(v)}}}]);
   }
   v.label=who+' (zaparkowani)';
+ };
+ car.goTo({edge:e,s},{park:bay<0,onArrive:v=>{
+  if(bay>=0)HK2.park(v,bay,([cx,cy])=>walk(v,cx,cy));
+  else{const [cx,cy]=sideSpot(v,18);walk(v,cx,cy)}
  }});
 }
 // Spacerowicze: idą poboczem drogi leśnej od szosy i wracają; czasem z psem.
@@ -94,7 +108,7 @@ function spawnHunter(dawn){
     if(q.kill){const c=q.kill;q.label='myśliwy zabiera pozyskaną zwierzynę';
      q.run([{go:[c.x-8,c.y]},{wait:6,pose:'kneel',face:[c.x,c.y]},{call:()=>{c.dead=true;q.prop='bag'}},...leave]);return}
     // bez strzału na polanie — czasem pozyskanie gdzie indziej w obwodzie
-    const left=GAME.filter(k=>FA.culled[k]<FA.plan[k]);if(left.length&&rand()<.35)cull(left[Math.floor(rand()*left.length)],false);
+    const left=GAME.filter(k=>FA.culled[k]<FA.plan[k]);if(left.length&&rand()<.35*(FA.wolf.present?.7:1))cull(left[Math.floor(rand()*left.length)],false);
     q.run(leave)}}]);
  }});
 }
@@ -140,7 +154,7 @@ function updateDrive(){
   st.end=true;
   // pokot: zabrane zwierzęta, reszta „przeszła bokiem”, czasem dodatkowe pozyskanie na skraju oddziału
   for(const c of st.kills)c.dead=true;for(const a of st.temp)if(!a.dead)a.dead=true;
-  const left=GAME.filter(k=>FA.culled[k]<FA.plan[k]);let extra=0;if(left.length&&rand()<.6){cull(left[Math.floor(rand()*left.length)],false);extra=1}
+  const left=GAME.filter(k=>FA.culled[k]<FA.plan[k]);let extra=0;if(left.length&&rand()<.6*(FA.wolf.present?.7:1)){cull(left[Math.floor(rand()*left.length)],false);extra=1}
   const n=st.kills.length+extra,names={roe:'sarny',deer:'jelenie',boar:'dziki'},by={};for(const c of st.kills)by[c.kind]=(by[c.kind]||0)+1;
   toast('Pokot po polowaniu zbiorowym w oddz. '+st.odd+': '+(n?n+' szt.'+(st.kills.length?' ('+Object.entries(by).map(([k,v])=>names[k]+' '+v).join(', ')+')':''):'bez pozyskania')+'.');
  }

@@ -1,6 +1,6 @@
-// Porządek w lesie (0.8.2): dzikie wysypiska i firma wywozowa, Policja, fotopułapki przy wjazdach, szlabany i parking z koszem.
-import {state,toast,cal,clamp,rect,line,DAY_S,zl} from './core.js';
-import {EDGES,BARRIERS,RESERVED,oddzial,roadClearance} from './map.js';
+// Porządek w lesie (0.8.2, przerobiony w 0.8.3): dzikie wysypiska i firma wywozowa, Policja wzywana na miejscu zdarzenia, fotopułapki, szlabany z rury i zatoka parkingowa.
+import {state,toast,cal,clamp,rect,line,DAY_S,zl,hash,camera,VIEW} from './core.js';
+import {EDGES,BARRIERS,oddzial,roadClearance,ptAt,hy} from './map.js';
 import {ENTRY,exitNode,goalNode,nearestRoad,pointOn} from './roads.js';
 import {E,NAV} from './ents.js';
 import {Vehicle,Ped,rand} from './life/agents.js';
@@ -9,6 +9,7 @@ import {report,U,HK} from './incidents.js';
 import {mail} from './mail.js';
 import {removeTree,treesIn} from './forest.js';
 import {J} from './jobs.js';
+import {HK2} from './life/populate.js';
 
 export const COSTS={waste:700,cams:2400,camsDay:25,parking:3500,parkingDay:15};
 const open_=q=>q.status!=='done'&&q.status!=='gone';
@@ -19,7 +20,16 @@ export const barClosed=()=>!!ECO.ord.bar;
 export const parkingOn=()=>!!ECO.ord.parking;
 // ogólny mnożnik nielegalnych wjazdów: zamknięte szlabany odstraszają co najmniej połowę
 export const illegalFactor=()=>ECO.ord.bar?.5:1;
-export const PARKING=RESERVED.find(r=>r.id==='parking');
+// Zatoka parkingowa (0.8.3): przy drodze leśnej j2–b1, tuż za szosą i przed szlabanem. Współrzędne lokalne (v — w bok od osi drogi na wschód, s — wzdłuż drogi od szosy).
+const LBE=EDGES.find(e=>e.id==='j2-b1');
+const lb=(v,s)=>{const p=ptAt(LBE,s);return[p[0]-p[3]*v,p[1]+p[2]*v]};
+export const LAYBY={e:LBE,slots:[{v:42,s:126,car:null},{v:42,s:178,car:null}],approach:62,poly:[[20,58],[74,84],[74,196],[20,222]]};
+// wolne miejsce dla odwiedzającego (albo -1)
+export const freeSlot=()=>{if(!ECO.ord.parking)return -1;const f=LAYBY.slots.map((q,i)=>(!q.car||q.car.dead||q.car.leave)?i:-1).filter(i=>i>=0);return f.length?f[Math.floor(rand()*f.length)]:-1};
+export function parkInBay(v,i,cb){
+ const q=LAYBY.slots[i];q.car=v;const [x0,y0]=lb(16,LAYBY.approach+10),[x1,y1]=lb(q.v,Math.min(q.s-32,96)),[x2,y2]=lb(q.v,q.s);
+ v.driveOff([[x0,y0],[x1,y1],[x2,y2]],{onArrive:()=>{v.v=0;v.parked=true;cb&&cb(lb(q.v+26,q.s))}});
+}
 // fotopułapki wiszą na słupkach szlabanów przy czterech wjazdach
 export const CAM_SPOTS=[0,2,4,5].map(i=>BARRIERS[i]).filter(Boolean);
 
@@ -65,50 +75,38 @@ function startWaste(inc){
 }
 
 // ───────── Policja ─────────
+// 0.8.3: Policję wzywa się na miejscu zdarzenia (karta decyzji po złapaniu sprawcy). Radiowóz dojeżdża, wszyscy czekają,
+// funkcjonariusze załatwiają sprawę (mandat, wpływ i ochrona liczone w incidents.js → finish), po czym Policja odjeżdża,
+// a patrol i sprawca jadą dalej.
 const POL=[];
-export function canPolice(inc){return(inc.type==='quad'||inc.type==='intruder')&&open_(inc)&&!inc.police&&inc.ref&&!inc.ref.dead}
-export function callPolice(inc){
- if(!canPolice(inc))return;
- inc.police=1;POL.push({inc,wait:20+rand()*20,car:null,t:0,done:false});
- toast('Wezwano Policję — radiowóz dojedzie za kilkadziesiąt minut.');
+export function dispatchPolice(inc,cb){
+ POL.push({inc,wait:10+rand()*10,car:null,t:0,done:false,cb,at:null});
+ toast('Wezwano Policję — wszyscy czekają na miejscu, radiowóz jest w drodze.');
 }
-function policeLeave(p,why){
- p.done=true;if(why)toast(why);
+function policeDone(p,why){
+ if(p.done)return;p.done=true;if(why)toast(why);
  if(p.car&&!p.car.dead){p.car.beacon=false;p.car.stopped=false;p.car.label='radiowóz odjeżdża';p.car.goTo(goalNode(exitNode(p.car.pos[0])),{leave:true})}
-}
-function policeResolve(p){
- const inc=p.inc,v=inc.ref;
- if(!open_(inc)||v.dead)return policeLeave(p,'Policja odjechała: sprawca już się oddalił albo sprawę zakończył patrol.');
- const u=inc.unit;
- if(u&&u.cur===inc&&u.phase==='onsite')return policeLeave(p,'Policja odjechała: patrol zajął się już sprawcą.');
- inc.status='done';
- if(u&&u.cur===inc){u.cur=null;u.startNext()}
- for(const x of U)x.queue=x.queue.filter(q=>q!==inc);
- v.stopped=true;v.label='zatrzymany przez Policję';
- const quad=inc.type==='quad';
-if(!quad){const m=v.man;if(m&&!m.dead)m.label=m.label+' — zatrzymany';
-  if(v.intruder==='thief'&&v.stolen){const d=v.door||v.pos,st=J.stacks.find(s=>Math.hypot(s.x-d[0],s.y-d[1])<120);if(st){st.vol+=v.stolen;st.value+=v.stolenVal||0}}}
- bumpProtect(quad?7:10);planProgress('handle',1);earn(250,'mandat i grzywna');
- mail(quad?'quad':'intruder',(quad?'Policja zatrzymała kierującego pojazdem w lesie':'Policja zatrzymała sprawcę (nocny intruz)')+' w '+odd(v.pos[0],v.pos[1])+'. Mandat i sprawa w sądzie, wpływ 250 zł.',{x:v.pos[0],y:v.pos[1]});
- p.rel=8;p.car.stopped=true;p.car.label='Policja — interwencja';
+ p.cb&&p.cb();p.cb=null;
 }
 function updatePolice(dt){
  for(const p of POL){
   if(p.done)continue;
-  const inc=p.inc;
+  const inc=p.inc,v=inc.ref;
+  if(!open_(inc)||!v||v.dead){policeDone(p);continue}
   if(!p.car){
    p.wait-=dt;if(p.wait>0)continue;
-   if(!open_(inc)||inc.ref.dead){p.done=true;continue}
    p.car=new Vehicle('police',{...ENTRY(rand()<.5)});p.car.beacon=true;p.car.label='radiowóz jedzie na interwencję';p.t=0;continue;
   }
-  if(p.rel!=null){p.rel-=dt;if(p.rel<=0){const v=inc.ref;if(!v.dead){v.stopped=false;v.label='odjeżdża po interwencji';v.speedMul=.7;if(inc.type==='quad')v.goTo(goalNode(exitNode(v.pos[0])),{leave:true});else{const m=v.man;if(m){m.dead=true;v.man=null}v.goTo(goalNode(exitNode(v.pos[0])),{leave:true})}}policeLeave(p);p.rel=null}continue}
-  const v=inc.ref,[cx,cy]=p.car.pos;
-  if(!open_(inc)||v.dead){policeLeave(p,'Policja odjechała: sprawca już się oddalił albo sprawę zakończył patrol.');continue}
-  const d=Math.hypot(cx-v.pos[0],cy-v.pos[1]);
-  if(d<105){policeResolve(p);continue}
+  if(p.at!=null){
+   p.at-=dt;
+   if(p.at<=0){p.car.label='Policja — sprawa załatwiona';policeDone(p)}
+   continue;
+  }
+  const [cx,cy]=p.car.pos,d=Math.hypot(cx-v.pos[0],cy-v.pos[1]);
+  if(d<105){p.at=8;p.car.stopped=true;p.car.v=0;p.car.label='Policja — interwencja';v.label='zatrzymany przez Policję';const m=v.man;if(m&&!m.dead)m.label=m.label+' — zatrzymany';continue}
   p.t-=dt;if(p.t<=0||p.car.arrived){p.t=2.5;const rp=nearestRoad(v.pos[0],v.pos[1],['main','forest']);p.car.goTo({edge:rp.edge,s:rp.s},{park:false,pen:250})}
  }
- for(let i=POL.length-1;i>=0;i--)if(POL[i].done&&(!POL[i].car||POL[i].car.dead||POL[i].rel==null&&POL[i].car.leaving||true))POL.splice(i,1);
+ for(let i=POL.length-1;i>=0;i--)if(POL[i].done)POL.splice(i,1);
 }
 
 // ───────── fotopułapki, szlabany, parking ─────────
@@ -124,8 +122,9 @@ export function toggleBarriers(){
 export function buyParking(){
  if(parkingOn()){toast('Parking leśny już stoi.');return}
  if(!canAfford(COSTS.parking))return;pay(COSTS.parking,'parking leśny z koszem');ECO.ord.parking=true;
- const P=PARKING;for(const t of treesIn(P.x-14,P.y-14,P.x+P.w+14,P.y+P.h+14).slice())if(t.x>P.x-8&&t.x<P.x+P.w+8&&t.y>P.y-8&&t.y<P.y+P.h+8)removeTree(t);
- toast('Parking leśny z koszem gotowy przy szosie: odwiedzający zostawiają mniej śmieci, a przy zamkniętych szlabanach nadal mają gdzie zaparkować ('+zl(COSTS.parkingDay)+' dziennie za wywóz kosza).');
+ {const pts=LAYBY.poly.flatMap(([v,t])=>[lb(v,t),lb(v+34,t)]),x0=Math.min(...pts.map(q=>q[0]))-16,x1=Math.max(...pts.map(q=>q[0]))+16,y0=Math.min(...pts.map(q=>q[1]))-16,y1=Math.max(...pts.map(q=>q[1]))+16;
+  for(const t of treesIn(x0,y0,x1,y1).slice())if(t.x>x0&&t.x<x1&&t.y>y0&&t.y<y1)removeTree(t)}
+ toast('Zatoka parkingowa z koszem i stołem gotowa przy drodze leśnej tuż za szosą: odwiedzający zostawiają mniej śmieci, a przy zamkniętych szlabanach nadal mają gdzie zaparkować ('+zl(COSTS.parkingDay)+' dziennie za wywóz kosza).');
 }
 export const ordDaily=()=>(ECO.ord.cams?COSTS.camsDay:0)+(ECO.ord.parking?COSTS.parkingDay:0);
 
@@ -142,32 +141,64 @@ export function updateOrder(dt){
  if(!W.cur&&W.q.length&&cal.work(7,16)){const inc=W.q.shift();if(inc.status==='queued'&&!inc.ref.dead)startWaste(inc)}
  if(W.cur&&(W.cur.truck.dead)){W.cur.inc.status='new';W.cur=null}
  updatePolice(dt);
+ const tg=ECO.ord.bar?1:0;swing=swing==null?tg:swing+clamp(tg-swing,-dt*.45,dt*.45);
 }
-HK.waste=orderWaste;
+HK.waste=orderWaste;HK.police=dispatchPolice;HK2.free=freeSlot;HK2.edge=()=>LAYBY.e;HK2.approach=()=>LAYBY.approach;HK2.park=parkInBay;HK2.reserve=(i,v)=>{LAYBY.slots[i].car=v};
 
 // ───────── rysowanie ─────────
-const armCache=new Map();
-function closedArm(b){
- let a=armCache.get(b);
- if(!a){const rp=nearestRoad(b.x,b.y,['forest']),c=pointOn(rp.edge,rp.s),dx=c[0]-b.x,dy=c[1]-b.y,d=Math.hypot(dx,dy)||1;a={x2:b.x+dx/d*(d+22),y2:b.y+dy/d*(d+22)};armCache.set(b,a)}
- return a;
+// ── szlabany: dwa słupki przy dukcie i czerwono-biała rura na zawiasie (otwarty: wzdłuż drogi, zamknięty: w poprzek, na kłódkę) ──
+const geoC=new Map();
+function barGeo(b){
+ let g=geoC.get(b);
+ if(!g){
+  const rp=nearestRoad(b.x,b.y,['forest']),c=pointOn(rp.edge,rp.s),tg=ptAt(rp.edge,rp.s);
+  let dx=b.x-c[0],dy=b.y-c[1];const d=Math.hypot(dx,dy)||1;dx/=d;dy/=d;
+  let tx=tg[2],ty=tg[3];if(tx*(c[0]-c[0])+ty*(c[1]-hy(c[0]))<0){tx=-tx;ty=-ty}   // otwarty szlaban leży w stronę od szosy
+  g={A:[b.x,b.y],B:[c[0]-dx*d,c[1]-dy*d],a0:Math.atan2(ty,tx),a1:Math.atan2(-dy,-dx),L:2*d+8};
+  let df=g.a1-g.a0;while(df>Math.PI)df-=2*Math.PI;while(df<-Math.PI)df+=2*Math.PI;g.df=df;geoC.set(b,g);
+ }
+ return g;
+}
+let swing=null;
+const vis_=(x,y,m=90)=>x>camera.x-m&&y>camera.y-m&&x<camera.x+VIEW.w+m&&y<camera.y+VIEW.h+m;
+function post(c,x,y,cap){x=Math.round(x);y=Math.round(y);c.fillStyle='#00000030';c.fillRect(x-2,y-1,9,9);rect(c,x-3,y-3,7,7,'#3e3b35');rect(c,x-2,y-2,5,5,'#8a867b');rect(c,x-2,y-2,5,1,'#b7b3a6');if(cap)rect(c,x-1,y-1,3,3,cap)}
+function drawBarrier(c,b){
+ const g=barGeo(b),k=swing??(ECO.ord.bar?1:0),th=g.a0+g.df*k,[ax,ay]=g.A,[bx,by]=g.B,ex=ax+Math.cos(th)*g.L,ey=ay+Math.sin(th)*g.L;
+ post(c,bx,by,'#5a4a30');post(c,ax,ay,'#c8a24a');
+ // cień rury, potem rura w czerwono-białe pasy
+ line(c,ax+3,ay+4,ex+3,ey+4,'#0000002e',5);
+ const n=Math.max(2,Math.round(g.L/7));
+ for(let i=0;i<n;i++){const t0=i/n,t1=(i+1)/n,col=i%2?'#c8342b':'#f2efe6';line(c,ax+(ex-ax)*t0,ay+(ey-ay)*t0-2,ax+(ex-ax)*t1,ay+(ey-ay)*t1-2,col,5)}
+ line(c,ax,ay-4,ex,ey-4,'#ffffff40',1);
+ rect(c,ex-1,ey-4,3,5,'#7a1d17');
+ if(k>.97){rect(c,ex-2,ey-1,5,5,'#2c2a26');rect(c,ex-1,ey,3,3,'#d4b24a')}   // kłódka
 }
 export function drawOrder(c,winter){
- if(ECO.ord.bar)for(const b of BARRIERS){
-  const a=closedArm(b);line(c,b.x,b.y-3,a.x2,a.y2-3,'#e9e7de',4);
-  const L=Math.hypot(a.x2-b.x,a.y2-b.y),n=Math.max(1,Math.floor(L/6));
-  for(let k=0;k<n;k+=2){const t0=k/n,t1=Math.min(1,(k+1)/n);line(c,b.x+(a.x2-b.x)*t0,b.y-3+(a.y2-b.y)*t0,b.x+(a.x2-b.x)*t1,b.y-3+(a.y2-b.y)*t1,'#c2362b',4)}
- }
+ for(const b of BARRIERS)if(vis_(b.x,b.y))drawBarrier(c,b);
  if(ECO.ord.cams)for(const b of CAM_SPOTS){
   const x=Math.round(b.x),y=Math.round(b.y)-4;rect(c,x-1,y-10,3,12,'#2c3a32');rect(c,x-5,y-18,11,8,'#14201a');rect(c,x-4,y-17,9,6,'#7d8a82');rect(c,x-4,y-17,9,1,'#a9b5ad');rect(c,x-1,y-15,4,3,'#14201a');rect(c,x,y-14,2,1,'#5d8790');
   if(Math.floor(performance.now()/700)%2)rect(c,x+3,y-17,2,2,'#ff4a3a');
  }
  if(ECO.ord.parking){
-  const P=PARKING;rect(c,P.x,P.y,P.w,P.h,'#8b826c');rect(c,P.x+2,P.y+2,P.w-4,P.h-4,'#a39a82');
-  for(let x=P.x+10;x<P.x+P.w-34;x+=26){rect(c,x,P.y+8,1,28,'#e9e7de')}rect(c,P.x+P.w-34,P.y+8,1,28,'#e9e7de');
-  rect(c,P.x+P.w-22,P.y+P.h-20,14,12,'#14201a');rect(c,P.x+P.w-21,P.y+P.h-19,12,10,'#3f8a52');rect(c,P.x+P.w-21,P.y+P.h-19,12,2,'#5fae72');   // kosz
-  rect(c,P.x+4,P.y-14,12,12,'#14201a');rect(c,P.x+5,P.y-13,10,10,'#2f5ea8');rect(c,P.x+9,P.y-11,2,6,'#f1e6c2');rect(c,P.x+9,P.y-11,4,2,'#f1e6c2');rect(c,P.x+9,P.y-8,4,2,'#f1e6c2');rect(c,P.x+10,P.y-2,1,4,'#14201a');
-  if(winter){rect(c,P.x,P.y,P.w,P.h,'#eaf0f655')}
+  const [mx,my]=lb(40,140);if(!vis_(mx,my,150))return;
+  // żwir
+  const poly=(pts,col)=>{c.fillStyle=col;c.beginPath();pts.forEach(([v,s],i)=>{const [x,y]=lb(v,s);i?c.lineTo(Math.round(x),Math.round(y)):c.moveTo(Math.round(x),Math.round(y))});c.closePath();c.fill()};
+  const P=LAYBY.poly;poly(P.map(([v,s])=>[v-2,s]),'#7d7461');poly([[22,61],[72,86],[72,194],[22,219]],'#a39a82');poly([[26,68],[68,90],[68,190],[26,213]],'#aea58c');
+  for(let i=0;i<70;i++){const v=24+hash(i,3,9)*46,s=70+hash(i,7,2)*140,[x,y]=lb(v,s);rect(c,x,y,1+(i%3===0),1,i%2?'#c2b99f':'#8f866f')}
+  for(const q of LAYBY.slots){const [x,y]=lb(q.v+1,q.s);c.globalAlpha=.16;rect(c,x-12,y-26,3,52,'#4a4332');rect(c,x+9,y-26,3,52,'#4a4332');c.globalAlpha=1}   // koleiny
+  // bale: rząd kłód wzdłuż skraju i na końcach
+  const log=(v,s,len,ang)=>{const [x,y]=lb(v,s),dx=Math.cos(ang)*len/2,dy=Math.sin(ang)*len/2;line(c,x-dx+2,y-dy+3,x+dx+2,y+dy+3,'#0000002e',6);line(c,x-dx,y-dy,x+dx,y+dy,'#5c4630',6);line(c,x-dx,y-dy-1,x+dx,y+dy-1,'#7a5e40',3);rect(c,x+dx-1,y+dy-2,3,5,'#c9a878')};
+  const ang=Math.atan2(ptAt(LBE,120)[3],ptAt(LBE,120)[2]);
+  for(let s=92;s<=196;s+=26)log(78,s,24,ang);
+  log(72,82,14,ang+.7);log(72,206,14,ang-.7);
+  // kosz na śmieci
+  {const [x,y]=lb(66,190);c.fillStyle='#00000030';c.fillRect(Math.round(x)-3,Math.round(y)-1,10,10);rect(c,x-3,y-5,8,9,'#14201a');rect(c,x-2,y-4,6,7,'#3f8a52');rect(c,x-2,y-4,6,2,'#5fae72')}
+  // znak „P” na słupku przy wjeździe
+  {const [x,y]=lb(66,66);rect(c,x,y-2,2,12,'#4a4a46');c.fillStyle='#00000030';c.fillRect(Math.round(x)-4,Math.round(y)+8,12,3);rect(c,x-6,y-14,14,13,'#14201a');rect(c,x-5,y-13,12,11,'#2f5ea8');rect(c,x-2,y-11,2,7,'#f1e6c2');rect(c,x-2,y-11,5,2,'#f1e6c2');rect(c,x-2,y-8,5,2,'#f1e6c2');rect(c,x+2,y-10,1,3,'#f1e6c2')}
+  // stół z ławami za bali
+  {const [x,y]=lb(94,140),A=ang;c.save();c.translate(Math.round(x),Math.round(y));c.rotate(A);
+   c.fillStyle='#00000030';c.fillRect(-4,-9,12,20);rect(c,-3,-9,6,18,'#6b5238');rect(c,-2,-9,4,18,'#8b6c48');rect(c,-8,-8,3,16,'#6b5238');rect(c,-7,-8,1,16,'#8b6c48');rect(c,5,-8,3,16,'#6b5238');rect(c,5,-8,1,16,'#8b6c48');c.restore()}
+  if(winter){const pts=LAYBY.poly;c.globalAlpha=.6;poly(pts,'#e8eef2');c.globalAlpha=1}
  }
 }
 export const CAM_COUNT=CAM_SPOTS.length;

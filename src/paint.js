@@ -189,7 +189,6 @@ const boardDraw=g=>{const B=BOARD;shadow(g,B.x,B.y,34,8,18);outlinedDraw(g,B.x+1
 const signDraw=(g,f)=>outlinedDraw(g,f.x+28,f.y,G=>{rect(G,-1,-4,2,10,'#6b563d');rect(G,-13,-14,26,10,'#a8342b');rect(G,-12,-13,24,8,'#c8453a');text3(G,'DP '+f.n,-8,-12,'#f6efe0')},DARK);
 function bakeProps(){
  for(const p of POSTS)bakeProp(p.x-8,p.y-16,90,p.n.length*12+22,c=>postDraw(c,p));
- for(const b of BARRIERS){const x2=b.x+b.bx*46,y2=b.y+b.by*46,x0=Math.min(b.x,x2)-10,y0=Math.min(b.y,y2)-10;bakeProp(x0,y0,Math.abs(x2-b.x)+22,Math.abs(y2-b.y)+22,c=>barrierDraw(c,b))}
  {const B=BOARD;bakeProp(B.x-8,B.y-22,60,40,c=>boardDraw(c))}
  for(const f of FIRE_SIGNS)bakeProp(f.x+28-20,f.y-22,44,34,c=>signDraw(c,f));
 }

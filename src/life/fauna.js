@@ -4,7 +4,8 @@ import {state,cal,toast,clamp,zl,SEASONS,displayNumber} from '../core.js';
 import {POLANA,FEEDERS,inRect,roadClearance} from '../map.js';
 import {trees,STAND,removeTree,dirtyTree,SAPLING_AGE} from '../forest.js';
 import {E} from '../ents.js';
-import {rand} from './agents.js';
+import {rand,WX} from './agents.js';
+import {mail} from '../mail.js';
 import {ECO,bumpDamage} from '../economy.js';
 import {sfx} from '../sound.js';
 import {feedTask} from '../incidents.js';
@@ -14,7 +15,9 @@ export const NAMES={roe:'sarny',deer:'jelenie',boar:'dziki',wolf:'wilki',fox:'li
 const ONE={roe:'sarnę',deer:'jelenia',boar:'dzika'};
 // docelowe zagęszczenie (przy nim zgryzanie jest „normalne”)
 const TARGET={roe:48,deer:16,boar:22};   // las 0.6 jest ok. 2,25× większy
-export const FA={pop:{roe:58,deer:20,boar:30,wolf:6,fox:9,hare:28},plan:{roe:8,deer:3,boar:8},culled:{roe:0,deer:0,boar:0},seasonCull:0,
+// 0.8.3: wilki nie mieszkają w lesie na stałe — wędrowna wataha przychodzi na kilka dni gry i idzie dalej (FA.wolf)
+export const FH={wolves:null};   // ustawiane przez populate.js (bez cyklu importów)
+export const FA={wolf:{present:false,size:0,until:0,cool:5,days:0,total:0},pop:{roe:58,deer:20,boar:30,fox:9,hare:28},plan:{roe:8,deer:3,boar:8},culled:{roe:0,deer:0,boar:0},seasonCull:0,
  feeders:[],winterT:0,emptyT:0,reduction:false,roarT:0,roarSeason:-1,browsed:0,carcasses:[]};
 export function initFauna(){
  FA.feeders=FEEDERS.map(f=>({name:f.name,x:f.x,y:f.y,level:.3,task:null}));
@@ -45,6 +48,7 @@ export function visibleCount(kind){
  return {roe:clamp(Math.round(p/12),0,3),deer:clamp(Math.round(p/4),0,4),boar:clamp(Math.round(p/9),0,3),wolf:clamp(Math.round(p/2),0,3),fox:clamp(Math.round(p/4),0,2),hare:clamp(Math.round(p/8),0,2)}[kind];
 }
 const winter=()=>cal.season()===3;
+const SD=3;   // dni w porze roku
 // Paśniki: kiedy groupy wolą odwiedzać (zimą ciągną do paśników z karmą)
 export function likesNow(base){if(!winter())return base;const f=FA.feeders.filter(q=>q.level>.08).map(q=>[q.x,q.y-24]);return f.length?f:base}
 // ── co klatkę ──
@@ -62,7 +66,31 @@ export function updateFauna(dt){
   FA.roarT-=dt;if(FA.roarT<=0){FA.roarT=25+rand()*70;sfx('roar');
    if(FA.roarSeason!==cal.year()){FA.roarSeason=cal.year();toast('Rykowisko! O zmierzchu w lesie ryczą byki jeleni.')}}
  }
- fT+=dt;if(fT>1){fT=0;FA.carcasses=FA.carcasses.filter(c=>!c.dead)}
+  fT+=dt;if(fT>1){fT=0;FA.carcasses=FA.carcasses.filter(c=>!c.dead)}
+ wolfDaily();
+}
+// ── wilki wędrowne ──
+const OS=n=>n+(n>=5?' osobników':' osobniki');
+let wDay=-1;
+function wolfDaily(){
+ const d=Math.floor(state.days);if(d===wDay)return;
+ const first=wDay<0;wDay=d;const W=FA.wolf;
+ if(W.present){
+  W.days++;W.total++;
+  if(state.days>=W.until){
+   W.present=false;W.cool=state.days+12+rand()*12;WX.flee=1;FH.wolves&&FH.wolves();
+   mail('wolf','Wataha wilków przeszła dalej, na tereny sąsiedniego nadleśnictwa.',{quiet:false});
+  }
+  return;
+ }
+ if(first||state.days<W.cool)return;
+ // ok. 25% szans na rok gry (rok = 12 dni): wilk wybiera spokojne, zasobne lasy
+ if(rand()<.25/12*(FA.pop.roe+FA.pop.deer>30?1.25:.7)){
+  const r=rand(),n=r<.25?2:r<.65?3:r<.9?4:5;
+  W.present=true;W.size=n;W.until=state.days+3+rand()*5;W.days=0;WX.flee=1.4;FH.wolves&&FH.wolves();
+  mail('wolf','W Twoim lesie pojawiła się wataha wilków ('+OS(n)+'). Wilki wybierają spokojne lasy z dużą ilością zwierzyny, a polując na sarny i jelenie mogą zmniejszać zgryzanie upraw. Zwierzyna będzie bardziej płochliwa. Wilk jest pod ścisłą ochroną — nie wolno go płoszyć ani na niego polować.');
+  if(ECO.ord&&ECO.ord.cams)mail('wolf','Fotopułapka przy wjeździe nagrała wilka — to potwierdzenie obecności watahy.',{quiet:true});
+ }
 }
 // ── koniec pory roku (wywoływane z raportu) ──
 function fenced(t){return R.plots.some(p=>p.fence==='done'&&inShape(p,t.x,t.y,-1))}
@@ -71,21 +99,19 @@ const repelled=t=>R.plots.some(p=>p.repel===seasonKey()-1&&inShape(p,t.x,t.y,-1)
 function seasonEnd(){
  const se=(cal.season()+3)%4,P=FA.pop,out={};const before={...P};
  // drapieżnictwo wilków (gatunek chroniony — nie poluje się na nie)
- const eaten=P.wolf*.6*(.7+rand()*.6);P.roe=Math.max(4,P.roe-Math.round(eaten*.75));P.deer=Math.max(3,P.deer-Math.round(eaten*.15));P.boar=Math.max(3,P.boar-Math.round(eaten*.1));
+ const wd=FA.wolf.days||0,eaten=FA.wolf.size*.25*Math.min(wd,SD)*(.7+rand()*.6)*(wd?1:0);out.wolfDays=wd;P.roe=Math.max(4,P.roe-Math.round(eaten*.75));P.deer=Math.max(3,P.deer-Math.round(eaten*.15));P.boar=Math.max(3,P.boar-Math.round(eaten*.1));
  // zima: straty zależne od dokarmiania
  let fed=1;if(se===3){fed=FA.winterT>0?1-FA.emptyT/FA.winterT:1;const loss=(1-fed)*.18+.02;P.roe=Math.round(P.roe*(1-loss));P.deer=Math.round(P.deer*(1-loss*.7));P.boar=Math.round(P.boar*(1-loss*.6));P.hare=Math.round(P.hare*(1-loss));out.fed=fed}
  // wiosna: rozród
- if(se===0){P.roe=Math.round(P.roe*1.38);P.deer=Math.round(P.deer*1.28);P.boar=Math.round(P.boar*1.65);P.hare=Math.round(P.hare*1.5);P.fox+=rand()<.6?1:0;if(P.wolf>=2)P.wolf+=1+(rand()<.4?1:0)}
+ if(se===0){P.roe=Math.round(P.roe*1.38);P.deer=Math.round(P.deer*1.28);P.boar=Math.round(P.boar*1.65);P.hare=Math.round(P.hare*1.5);P.fox+=rand()<.6?1:0;}
  else{P.boar=Math.round(P.boar*.97);P.hare=Math.round(P.hare*.93)}
- // wilki: watahy migrują, liczebność się wyrównuje
- if(P.wolf>7)P.wolf-=2;if(P.wolf<3&&rand()<.4)P.wolf++;
  // zgryzanie: niegrodzone, młode sadzonki z nasadzeń
- const pr=pressure()*(se===3?1.6:se===0?1.2:.8)*(se===3&&fed<.6?1.4:1);let browsed=0,killed=0;
+ const pr=pressure()*(se===3?1.6:se===0?1.2:.8)*(se===3&&fed<.6?1.4:1)*(1-.25*clamp(wd/SD,0,1));let browsed=0,killed=0;
  if(pr>.35)for(const t of trees){if(t.st!==STAND||!t.planted||t.age>=SAPLING_AGE+3||fenced(t))continue;
   if(rand()<clamp(.07*pr*pr,0,.55)*(repelled(t)?.25:1)){browsed++;if(rand()<.35){removeTree(t);killed++}else{t.age=Math.max(1,t.age-2);t.browsed=true;dirtyTree(t)}}}
  FA.browsed=browsed;if(browsed>30)bumpDamage(Math.min(6,browsed/25));
  out.browsed=browsed;out.browsedKilled=killed;out.pressure=pressure();out.cull=FA.seasonCull;out.popBefore=before;out.pop={...P};
- FA.seasonCull=0;FA.winterT=0;FA.emptyT=0;
+ FA.seasonCull=0;FA.winterT=0;FA.emptyT=0;FA.wolf.days=0;
  // nowy rok łowiecki od wiosny
  if(cal.season()===0)newPlan();
  // jesień → zima: koło łowieckie napełnia paśniki „na start”
@@ -111,4 +137,4 @@ export function drawFeeders(g){
   g.restore();}
 }
 export const feederAt=(x,y)=>FA.feeders.find(f=>Math.abs(f.x-x)<18&&Math.abs(f.y-y)<14);
-export function faunaSummary(){return ['roe','deer','boar','wolf','fox','hare'].map(k=>NAMES[k]+' '+FA.pop[k]).join(' · ')}
+export function faunaSummary(){return ['roe','deer','boar','fox','hare'].map(k=>NAMES[k]+' '+FA.pop[k]).join(' · ')+(FA.wolf.present?' · wilki (wataha '+FA.wolf.size+')':'')}

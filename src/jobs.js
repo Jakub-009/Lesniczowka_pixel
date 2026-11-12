@@ -98,7 +98,7 @@ export function clearOrders(){
 export function dispatchCrew(){
  const fell=trees.filter(t=>t.marked&&!t.assigned),pl=J.plants.filter(p=>!p.assigned);
  if(!fell.length&&!pl.length){toast('Brak zadań: wyznacz drzewa (klawisz 2) albo miejsca sadzenia (3).');return}
- if(!canAfford(fell.length?COST.fell:COST.plant*5))return;
+ if(!canAfford(fell.length?COST.fell*Math.min(fell.length,8):COST.plant*5,!!fell.length))return;
  const tasks=[];
  for(const t of fell){t.assigned=true;tasks.push({type:'fell',t})}
  for(const p of pl){p.assigned=true;tasks.push({type:'plant',p})}
@@ -219,11 +219,13 @@ export const MACH={
 };
 // 0.6: nie ma bazy maszyn. Ciągnik usługowy przyjeżdża z zewnątrz, gdy są kłody do zwiezienia; jeśli praca trwa dłużej,
 // nocuje na placu przy leśniczówce, a po skończonej robocie zjeżdża z lasu. Kupiony forwarder stoi na placu na stałe.
-const PLAC_EDGE=EDGES.find(e=>e.a==='l1'&&e.b==='yd');
+// 0.8.3: droga l1–yd jest typu 'drive' (poza dozwolonymi dla ciągnika/forwardera) — planer nie znajdował trasy i maszyna jechała
+// na plac prosto przez las. Teraz dojeżdża drogą leśną a3–l1 do węzła l1, a dalej jedzie po podwórzu (bez lasu i płotów).
 const homeLabel=()=>MACH[J.skid.mach].name+' (na placu przy leśniczówce)';
+const PLAC_EDGE=EDGES.find(e=>e.a==='a3'&&e.b==='l1');
 function parkAtPlac(v,cb){
- const sp=PLAC_SPOTS[0],sRoad=clamp(NODES.l1[0]-(sp.x+22),10,PLAC_EDGE.len-10);
- v.goTo({edge:PLAC_EDGE,s:sRoad},{park:false,onArrive:()=>v.driveOff([[sp.x+22,sp.y-28],[sp.x-14,sp.y+2]],{onArrive:()=>{v.v=0;v.parked=true;cb&&cb()}})});
+ const sp=PLAC_SPOTS[0],yy=NODES.l1[1];
+ v.goTo({edge:PLAC_EDGE,s:PLAC_EDGE.len},{park:false,onArrive:()=>v.driveOff([[sp.x+22,yy],[sp.x+22,sp.y-28],[sp.x-14,sp.y+2]],{onArrive:()=>{v.v=0;v.parked=true;cb&&cb()}})});
 }
 function spawnMachine(kind,toPlac){
  const S=J.skid,M=MACH[kind];S.mach=kind;
@@ -387,7 +389,7 @@ function nextStop(){
 }
 function truckUpdate(dt){
  const T=J.truck,v=T.v;
- if(!v){if((T.pending||(J.auto&&truckTotal()>=16))&&cal.work(8,15))orderTruck(T.pending);return}
+ if(!v){if((T.pending||(J.auto&&truckTotal()>=10))&&cal.work(8,15))orderTruck(T.pending);return}
  if(v.dead){T.v=null;T.phase='idle';T.cur=null;return}
  if(T.phase==='load'){
   if(T.wait>0){T.wait-=dt;return}

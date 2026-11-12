@@ -9,9 +9,9 @@ import {pay,earn,bumpProtect,bumpDamage,planProgress,stat,ECO,canAfford} from '.
 import {treesIn,STAND,STUMP,dirtyTree,crownR,trees,removeTree,SAPLING_AGE,THIN_AGE,QUAL} from './forest.js';
 import {sfx} from './sound.js';
 import {J,takeFromStack} from './jobs.js';
-import {fireMult,fireSpeed,sanitaryMark,clearBlock} from './health.js';
+import {fireMult,fireSpeed,sanitaryMark,clearBlock,HL} from './health.js';
 import {mail,PRIO,prio,MAXOPEN,TTL,slowDown} from './mail.js';
-export const HK={waste:null};   // ustawiane przez order.js (bez cyklu importów)
+export const HK={waste:null,police:null};   // ustawiane przez order.js (bez cyklu importów)
 
 let nextId=1;
 const odd=(x,y)=>'oddz. '+oddzial(x,y);
@@ -47,10 +47,49 @@ export function spawnSmoke(spring){
   const x=spring?100+rand()*3400:300+rand()*3000,y=spring?(rand()<.6?1580+rand()*300:POLANA.y+(rand()-.5)*260):200+rand()*2300;
   if(roadClearance(x,y)<(spring?20:90)||Math.hypot(x-POLANA.x,y-POLANA.y)<POLANA.r-20)continue;
   const f={x,y,t:0,grow:0,dead:false,fire:true};E.trash.push(f);
-  f.inc=report('fire',x,y,(spring?'Ktoś wypala trawy — dym w ':'Dym nad lasem w ')+odd(x,y)+'!',f);return}
+  f.inc=report('fire',x,y,(spring?'Ktoś wypala trawy — dym w ':'Dym nad lasem w ')+odd(x,y)+'!',f);
+  if(HL.tower)callFire(f.inc,'Dyżurny z wieży przeciwpożarowej zauważył dym w '+odd(x,y)+' i od razu wezwał straż pożarną.');return}
+}
+// ───────── straż pożarna (0.8.3) ─────────
+// Wieża przeciwpożarowa wzywa straż od razu. Bez wieży jedzie leśniczy: małe zarzewie gasi sam, większe — wzywa straż z miejsca.
+// Wielkość spalonego fragmentu zależy od tego, jak rozwinął się pożar w chwili ugaszenia.
+const FT=[];
+function callFire(inc,msg){
+ if(!inc||inc.ft||!open_(inc))return;
+ const f=inc.ref;inc.ft={f,inc,wait:6+rand()*6,car:null,at:null,done:false};FT.push(inc.ft);
+ toast(msg||'Wezwano straż pożarną.');
+}
+function extinguish(f,by){
+ if(f.dead)return;f.dead=true;const g=Math.max(f.peak||0,f.grow),inc=f.inc;
+ const rad=g<.12?0:Math.round(18+52*g);let n=0;
+ if(rad)n=burn(f,rad);
+ if(g>=.12){bumpDamage(Math.round(6*g*10)/10);if(g>.45)bumpProtect(-Math.round(7*g))}
+ if(inc){inc.status='done';const u=inc.unit;if(u&&u.cur===inc&&u.phase==='driving'){u.cur=null;u.startNext()}}
+ mail('fire',g<.12?'Pożar w '+odd(f.x,f.y)+' ugaszony w zarodku ('+by+').':'Pożar w '+odd(f.x,f.y)+' ugaszony ('+by+'). '+(n?'Spłonęło '+n+' drzew.':'Straty niewielkie.'),{x:f.x,y:f.y});
+ if(inc&&inc.ft){const t=inc.ft;t.done=true;if(t.car&&!t.car.dead){t.car.beacon=false;t.car.stopped=false;t.car.label='wóz strażacki wraca do remizy';t.car.goTo(goalNode(exitNode(t.car.pos[0])),{leave:true})}}
+}
+function updateFire(dt){
+ for(const t of FT){
+  if(t.done)continue;
+  const f=t.f;
+  if(f.dead){t.done=true;continue}
+  if(!t.car){t.wait-=dt;if(t.wait>0)continue;
+   t.car=new Vehicle('firetruck',{...ENTRY(rand()<.5)});t.car.beacon=true;t.car.label='wóz strażacki jedzie do pożaru';t.rt=0;continue}
+  if(t.at!=null){f.grow=Math.max(0,f.grow-dt*.12);t.at-=dt;if(rand()<dt*10)particle('dust',f.x+(rand()-.5)*30,f.y+(rand()-.5)*30,{col:'#c9d8e0',size:3+rand()*3});
+   if(t.at<=0||f.grow<=0)extinguish(f,'straż pożarna');continue}
+  const d=Math.hypot(t.car.pos[0]-f.x,t.car.pos[1]-f.y);
+  if(d<150||(t.car.arrived&&t.rt>5)){t.at=9;t.car.stopped=true;t.car.v=0;t.car.label='straż gasi pożar';continue}
+  t.rt-=dt;if(t.rt<=0||t.car.arrived){t.rt=2.5;const rp=nearestRoad(f.x,f.y,['main','forest']);t.car.goTo({edge:rp.edge,s:rp.s},{park:true,pen:600})}
+ }
+ for(let i=FT.length-1;i>=0;i--)if(FT[i].done)FT.splice(i,1);
 }
 // ───────── nocni intruzi ─────────
 const leave=v=>v.goTo(goalNode(exitNode(v.pos[0])),{leave:true});
+// 0.8.3: decyzja na miejscu zdarzenia — pouczenie albo wezwanie Policji. Po 30 s bez wyboru: pouczenie (a gdzie wolno tylko Policja — Policja).
+export const DEC={inc:null,t:0,warn:false,cb:null};
+function askDec(inc,canWarn,cb){DEC.inc=inc;DEC.t=30;DEC.warn=canWarn;DEC.cb=cb;slowDown()}
+export function decide(ch){if(!DEC.inc)return;const cb=DEC.cb;DEC.inc=null;DEC.cb=null;cb&&cb(ch)}
+const callPol=inc=>{inc.dec='police';inc.polDone=false;HK.police?HK.police(inc,()=>{inc.polDone=true}):inc.polDone=true};
 const INTR={
  poacher:{label:'kłusownik',car:'samochód bez świateł',text:x=>'Nocą w '+x+' stoi samochód bez świateł — możliwe kłusownictwo.'},
  thief:{label:'złodziej drewna',car:'samochód z przyczepką',text:x=>'Nocą przy stosie drewna w '+x+' ktoś ładuje przyczepkę!'},
@@ -145,22 +184,35 @@ class Unit{
    r.run([...steps,{call:q=>{q.label=this.name}},back,done(true)]);
   }
   else if(inc.type==='feed')r.run([{go:[tx-14,ty+8]},{wait:4,pose:'kneel',face:[tx,ty]},{call:()=>{inc.ref.level=1;inc.ref.task=null;pay(ECO.feedCost||120,'karma dla zwierzyny')}},back,done(true)]);
-  else if(inc.type==='fire')r.run([{go:[tx-10,ty+6]},{wait:5,pose:'saw',face:[tx,ty],tick:(q,dt)=>{inc.ref.grow=Math.max(0,inc.ref.grow-dt*.3)}},{call:()=>{inc.ref.dead=true}},back,done(true)]);
+  else if(inc.type==='fire'){
+   const f=inc.ref;
+   r.run([{go:[tx-10,ty+6]},
+    {call:()=>{if(!f.dead&&f.grow>=.3&&!inc.ft)callFire(inc,this.name+' ocenia, że pożar jest za duży — wzywa straż pożarną z miejsca.')}},
+    {wait:600,pose:'saw',face:[tx,ty],until:()=>f.dead||inc.status==='done'||(!inc.ft&&f.grow<=0),tick:(q,dt)=>{f.grow=Math.max(0,f.grow-dt*(inc.ft?.003:.3));if(!inc.ft&&f.grow<=.01&&!f.dead)extinguish(f,this.name)}},
+    {call:()=>{if(!f.dead)extinguish(f,this.name)}},back,done(true)]);
+  }
   else if(inc.type==='beetle')r.run([{go:[tx-12,ty+8]},{wait:5,pose:'kneel',face:[tx,ty]},{call:()=>{const n=sanitaryMark(inc.ref);inc.ref.found=n}},back,done(true)]);
+  else if(inc.type==='carcass'){const c=inc.ref;
+   r.run([{go:[tx-12,ty-6]},{wait:5,pose:'kneel',face:[tx,ty]},{call:()=>{c.dead=true}},back,done(true)]);
+  }
   else if(inc.type==='fence')r.run([{go:[tx-14,ty+8]},{wait:7,pose:'saw',face:[tx,ty]},{call:()=>{dismantleFence(inc.ref)}},back,done(true)]);
   else if(inc.type==='block')r.run([{go:[tx-14,ty+8]},{wait:7,pose:'saw',face:[tx,ty]},{call:()=>{clearBlock(inc.ref)}},back,done(true)]);
   else if(inc.type==='intruder'){
    const v=inc.ref,m=v.man,door=v.door||v.pos;
    if(m&&!m.dead){m.run([{go:door},{wait:999,pose:'stand',until:()=>false}]);m.label=m.label+' — zatrzymany'}
-   const steps=[{go:[door[0]-8,door[1]]},{wait:40,pose:'stand',face:door,until:()=>!m||m.dead||Math.hypot(m.x-door[0],m.y-door[1])<14},{wait:4,pose:'talk',face:door}];
+   const steps=[{go:[door[0]-8,door[1]]},{wait:40,pose:'stand',face:door,until:()=>!m||m.dead||Math.hypot(m.x-door[0],m.y-door[1])<14},{wait:4,pose:'talk',face:door},
+    {call:()=>askDec(inc,false,()=>callPol(inc))},{wait:600,pose:'talk',face:door,until:()=>inc.polDone||inc.status==='gone'}];
    for(const sn of (m&&m.snares)||[])if(!sn.dead)steps.push({go:[sn.x-6,sn.y]},{wait:2,pose:'kneel',face:[sn.x,sn.y]},{call:()=>{sn.dead=true}});
    steps.push({call:()=>{inc.status='done';if(m){m.dead=true;v.man=null}
     if(v.intruder==='thief'&&v.stolen){const st=J.stacks.find(s=>Math.hypot(s.x-door[0],s.y-door[1])<120);if(st){st.vol+=v.stolen;st.value+=v.stolenVal||0}}
-    v.label='odjeżdża — sprawa trafi na policję';leave(v)}},back,done(true));
+    v.label='odjeżdża po interwencji Policji';leave(v)}},back,done(true));
    r.run(steps);
   }else{
    const q=inc.ref;
-   r.run([{go:[tx-10,ty]},{wait:3.5,pose:'talk',face:[tx,ty]},{call:()=>{inc.status='done';q.stopped=false;q.speedMul=.6;q.label='odjeżdża po kontroli';q.goTo(goalNode(exitNode(q.pos[0])),{leave:true})}},back,done(true)]);
+   r.run([{go:[tx-10,ty]},{wait:3.5,pose:'talk',face:[tx,ty]},
+    {call:()=>askDec(inc,true,ch=>{if(ch==='police')callPol(inc);else{inc.dec='warn';inc.polDone=true}})},
+    {wait:600,pose:'talk',face:[tx,ty],until:()=>inc.polDone||inc.status==='gone'},
+    {call:()=>{inc.status='done';q.stopped=false;q.speedMul=.6;q.label=inc.dec==='police'?'odjeżdża po interwencji':'odjeżdża po pouczeniu';q.goTo(goalNode(exitNode(q.pos[0])),{leave:true})}},back,done(true)]);
   }
  }
  finish(inc,ok){
@@ -169,9 +221,11 @@ class Unit{
    const k=inc.type==='intruder'?inc.ref.intruder:inc.type,snare=inc.type==='trash'&&inc.ref.kind==='snare';
    if(k==='assess'){const A=inc.ref;selectThinning(A);mail('assess','Ocena drzewostanu (oddz. '+oddzial(A.x,A.y)+'): dorodne '+A.n[0]+', przeciętne '+A.n[1]+', wadliwe '+A.n[2]+'. '+(A.marked?'Do trzebieży oznaczono '+A.marked+' drzew — E: wyślij ekipę.':'Bez cechowania: '+A.why+'.'),{x:A.x,y:A.y});this.startNext();return}
    if(k==='beetle'){const n=inc.ref.n;mail('beetle',n?'Kornik potwierdzony ('+odd(inc.x,inc.y)+'): do cięcia sanitarnego oznaczono '+n+' drzew — E: wyślij ekipę. Im szybciej, tym mniejsza strata.':'Patrol nie znalazł zasiedlonych drzew — fałszywy alarm albo już uprzątnięte.',{x:inc.x,y:inc.y});bumpProtect(1);planProgress('handle',1);this.startNext();return}
-   const gain={block:4,quad:6,poacher:9,thief:7,xmas:5,fire:5,feed:1}[k]??(snare?3:2);bumpProtect(gain);
-   if(ECO.ord&&ECO.ord.cams&&['quad','poacher','thief','xmas'].includes(k)){earn(150,'mandat z nagrania fotopułapki');mail('quad','Mandat z nagrania fotopułapki: +150 zł.',{quiet:true})}planProgress('handle',1);
-   toast({quad:'Kontrola zakończona: kierujący ukarany mandatem.',poacher:'Kłusownik zatrzymany, wnyki zebrane.',thief:'Złodziej drewna zatrzymany, drewno wróciło na stos.',xmas:'Złodziej choinek zatrzymany.',fire:'Zarzewie ugaszone.',block:'Droga udrożniona.',feed:'Paśnik uzupełniony karmą.'}[k]||(snare?'Wnyki usunięte.':'Śmieci zebrane.'));
+   const pol=inc.dec==='police',warn=inc.dec==='warn';
+   const gain=warn?2:pol?{quad:8,poacher:10,thief:10,xmas:8}[k]??8:{block:4,quad:6,poacher:9,thief:7,xmas:5,fire:5,feed:1}[k]??(snare?3:2);bumpProtect(gain);
+   if(pol&&['quad','poacher','thief','xmas'].includes(k)){earn(250,'mandat i grzywna (Policja)');mail(inc.type==='intruder'?'intruder':'quad','Policja przejęła sprawę w '+odd(inc.x,inc.y)+': mandat i sprawa w sądzie, wpływ 250 zł.',{x:inc.x,y:inc.y,quiet:true})}
+   if(pol&&ECO.ord&&ECO.ord.cams&&['quad','poacher','thief','xmas'].includes(k)){earn(150,'mandat z nagrania fotopułapki');mail('quad','Mandat z nagrania fotopułapki: +150 zł.',{quiet:true})}planProgress('handle',1);
+   toast({quad:warn?'Kierujący pouczony i odjechał.':'Policja ukarała kierującego mandatem.',poacher:'Kłusownik zatrzymany, wnyki zebrane.',thief:'Złodziej drewna zatrzymany, drewno wróciło na stos.',xmas:'Złodziej choinek zatrzymany.',fire:'Zarzewie ugaszone.',block:'Droga udrożniona.',carcass:'Padlina zabrana z pobocza.',feed:'Paśnik uzupełniony karmą.'}[k]||(snare?'Wnyki usunięte.':'Śmieci zebrane.'));
   }
   this.startNext();
  }
@@ -230,8 +284,11 @@ export function updateIncidents(dt){
  }
  for(const t of E.trash){
   if(t.kind==='dump')continue;
-  if(t.fire){t.t+=dt;if(!t.dead){t.grow=Math.min(1,t.grow+dt*.0042*fireSpeed());if(rand()<dt*14)particle('smoke',t.x+(rand()-.5)*14*(1+t.grow),t.y,{vx:6+rand()*6,vy:-14-rand()*10,life:2.5+rand()*1.5,size:3+rand()*4*(1+t.grow)})}
-   if(!t.dead&&t.grow>=1){t.dead=true;burn(t);t.inc.status='gone';stat('ignored');const u=t.inc.unit;if(u&&u.cur===t.inc&&u.phase==='driving'){u.cur=null;u.startNext()}bumpProtect(-7);bumpDamage(6);mail('fire','Pożar w '+odd(t.x,t.y)+' ugasiła straż pożarna. Spłonął fragment drzewostanu.',{x:t.x,y:t.y})}continue}
+  if(t.fire){t.t+=dt;if(!t.dead){t.grow=Math.min(1,t.grow+dt*.0042*fireSpeed());t.peak=Math.max(t.peak||0,t.grow);if(rand()<dt*14)particle('smoke',t.x+(rand()-.5)*14*(1+t.grow),t.y,{vx:6+rand()*6,vy:-14-rand()*10,life:2.5+rand()*1.5,size:3+rand()*4*(1+t.grow)})}
+   if(!t.dead&&t.inc&&!t.inc.ft&&(HL.tower||t.grow>=1)&&open_(t.inc)){
+    if(t.grow>=1&&!HL.tower){stat('ignored');bumpProtect(-3);callFire(t.inc,'Pożar rozprzestrzenił się — straż pożarną wezwali okoliczni mieszkańcy.')}
+    else callFire(t.inc,'Dyżurny z wieży wezwał straż pożarną.')}
+   continue}
   if(t.dead)continue;t.t+=dt;
   if(!t.inc&&t.t>t.report)t.inc=report('trash',t.x,t.y,t.kind==='snare'?'Spacerowicz znalazł wnyki w '+odd(t.x,t.y)+'.':'Śmieci w lesie, '+odd(t.x,t.y)+'.',t);
  }
@@ -253,6 +310,8 @@ export function updateIncidents(dt){
    mail('intruder',k==='thief'?'Złodziej odjechał z drewnem ('+(inc.ref.stolen||0).toFixed(1).replace('.',',')+' m³).':k==='xmas'?'Złodziej choinek odjechał — wycięto '+(inc.ref.stolen||0)+' młodych drzewek.':'Samochód bez świateł odjechał. W lesie mogły zostać wnyki.',{x:inc.x,y:inc.y});
    if(u&&u.cur===inc&&u.phase==='driving'){u.cur=null;u.startNext()}}
  }
+ if(DEC.inc){if(!open_(DEC.inc)){DEC.inc=null;DEC.cb=null}else{DEC.t-=dt;if(DEC.t<=0)decide(DEC.warn?'warn':'police')}}
+ updateFire(dt);
  expireStale();
  E.incidents=E.incidents.filter(q=>!(!open_(q)&&(q.doneT=(q.doneT||0)+dt)>6));
 }
@@ -272,9 +331,10 @@ function expireStale(){
  // jeden list zbiorczy co najwyżej raz na dzień gry, żeby poczta nie tonęła w powtórkach
  if(STALE.n&&state.days-STALE.last>=1){mail('trash','Wygasło niepilnych zgłoszeń: '+STALE.n+' (śmieci i propozycje, którymi nikt się nie zajął). Śmieci nadal leżą w lesie i wrócą do zgłoszeń.',{quiet:true});STALE.n=0;STALE.last=state.days}
 }
-function burn(f){
- for(const t of treesIn(f.x-70,f.y-70,f.x+70,f.y+70)){if(t.st!==STAND||Math.hypot(t.x-f.x,t.y-f.y)>70)continue;t.stumpR=clamp(crownR(t)*.2,3,8);t.st=STUMP;t.stumpAge=20;t.burnt=true;t.marked=false;dirtyTree(t)}
- E.burns=E.burns||[];E.burns.push({x:f.x,y:f.y,r:80});
+function burn(f,R=70){
+ let n=0;
+ for(const t of treesIn(f.x-R,f.y-R,f.x+R,f.y+R)){if(t.st!==STAND||Math.hypot(t.x-f.x,t.y-f.y)>R)continue;t.stumpR=clamp(crownR(t)*.2,3,8);t.st=STUMP;t.stumpAge=20;t.burnt=true;t.marked=false;dirtyTree(t);n++}
+ E.burns=E.burns||[];E.burns.push({x:f.x,y:f.y,r:Math.round(R*1.15)});return n;
 }
 export const openIncidents=()=>E.incidents.filter(open_);
 // Zadanie „dowieź karmę” (paśniki zimą) — zgłasza moduł zwierzyny.
