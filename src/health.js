@@ -35,7 +35,7 @@ export function seedOutbreak(){
  for(let k=0;k<500;k++){const t=trees[(rand()*trees.length)|0];
   if(!t||t.st!==STAND||t.sp!=='swierk'||t.age<20||t.kb||inRect(t.x,t.y,YARD,80))continue;
   const nb=treesIn(t.x-80,t.y-80,t.x+80,t.y+80).filter(q=>q.st===STAND&&q.sp==='swierk'&&q.age>=20&&!q.kb);
-  if(nb.length<3)continue;infect(t);for(const q of nb.slice(0,3))infect(q);HL.stats.outbreaks++;return}
+  if(nb.length<3)continue;infect(t);for(const q of nb.slice(0,4))infect(q);HL.stats.outbreaks++;return}
 }
 function beetleTick(){
  const se=cal.season(),sub=1/8,trap=trapsOn(),now=state.days;
@@ -46,11 +46,11 @@ function beetleTick(){
   if(t.st!==STAND||!t.kb||t.kb>=4)continue;
   const age=now-t.kbT;
   if(t.kb===1&&age>(trap?.4:.8)){t.kb=2;dirtyTree(t);
-   if(!E.incidents.some(q=>q.type==='beetle'&&open_(q)&&Math.hypot(q.x-t.x,q.y-t.y)<420))
-    report('beetle',t.x,t.y,(trap?'Pułapki feromonowe wykazały nalot kornika — ':'Zamierające świerki — podejrzenie kornika w ')+odd(t.x,t.y)+'.',{x:t.x,y:t.y,r:340,n:0})}
+   if(!E.incidents.some(q=>q.type==='beetle'&&open_(q)&&Math.hypot(q.x-t.x,q.y-t.y)<320))
+    report('beetle',t.x,t.y,(trap?'Pułapki feromonowe wykazały nalot kornika — ':'Zamierające świerki — podejrzenie kornika w ')+odd(t.x,t.y)+'.',{x:t.x,y:t.y,r:260,n:0})}
   if(t.kb===2&&age>2.6){t.kb=3;dirtyTree(t)}
   if(t.kb===3&&age>7){stump(t);continue}
-  if(t.kb<3&&rand()<.16*(1+HL.dry*1.2)*(trap?.45:1)*sub){
+  if(t.kb<3&&rand()<.25*(1+HL.dry*1.5)*(trap?.45:1)*sub){
    const nb=treesIn(t.x-110,t.y-110,t.x+110,t.y+110).filter(q=>q.st===STAND&&!q.kb&&q.age>=20&&(q.sp==='swierk'||(q.sp==='sosna'&&q.age>50&&rand()<.2)));
    if(nb.length)infect(nb[(rand()*nb.length)|0])}
   if(t.kb===3)dead++;

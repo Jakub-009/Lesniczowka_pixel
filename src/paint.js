@@ -186,7 +186,7 @@ function paintProps(){
  const B=BOARD;shadow(g,B.x,B.y,34,8,18);outlinedDraw(g,B.x+17,B.y,G=>{rect(G,-15,-2,2,8,'#6b563d');rect(G,13,-2,2,8,'#6b563d');rect(G,-18,-14,36,14,'#5a4630');rect(G,-17,-13,34,12,'#3e7048');rect(G,-15,-11,30,2,'#f1e6c2');rect(G,-15,-7,22,1,'#cfe0c2');rect(G,-15,-5,26,1,'#cfe0c2')},DARK);
 }
 export function buildGround(){
- paintFloor();paintPolana();paintWater();paintPrzesieki();paintRoads();paintTurns();paintVerges();paintPlac();paintYard();paintSigns();
+ paintFloor();paintPolana();paintWater();paintRoads();paintTurns();paintVerges();paintPlac();paintYard();paintSigns();
  for(const f of FENCES)fence(f);
  paintProps();
 }

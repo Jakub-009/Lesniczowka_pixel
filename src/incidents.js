@@ -1,7 +1,7 @@
 // Interwencje (0.5): quad/cross, śmieci, dym (latem i przy wiosennym wypalaniu traw), nocni intruzi (kłusownik, złodziej drewna ze stosu,
 // złodziej choinek zimą) i zadania: dowiezienie karmy do paśnika. Patrolują jednostki: leśniczy (zawsze) i podleśniczy (po zatrudnieniu).
 import {state,toast,cal,hash,particle,clamp,zl,DOW,SEASON_DAYS} from './core.js';
-import {oddzial,DOOR,YARD,roadClearance,EDGES,POLANA} from './map.js';
+import {oddzial,DOOR,YARD,LDY,roadClearance,EDGES,POLANA} from './map.js';
 import {nearestRoad,goalNode,offMap,ENTRY,exitNode} from './roads.js';
 import {E,NAV} from './ents.js';
 import {Vehicle,Ped,Wild,Group,rand} from './life/agents.js';
@@ -81,10 +81,10 @@ export function spawnIntruder(kind){
 const CAR_EDGE=EDGES.find(e=>e.a==='l1'&&e.b==='yd');
 const yardIdle=[
  r=>[{go:[DOOR[0],DOOR[1]+10]},{wait:5+rand()*6,pose:'stand',face:[DOOR[0],DOOR[1]-10]}],
- r=>[{go:[226,402]},{wait:5+rand()*4,pose:'kneel'}],
- r=>[{go:[330,436]},{wait:6+rand()*5,pose:'kneel',face:[330,400]}],
- r=>[{go:[490,384]},{wait:3+rand()*3,pose:'stand',face:[500,404]}],
- r=>[{go:[540,300]},{wait:4+rand()*6,pose:'stand',face:[640,300]}]
+ r=>[{go:[245,1514]},{wait:5+rand()*4,pose:'kneel'}],
+ r=>[{go:[330,1538]},{wait:6+rand()*5,pose:'kneel',face:[330,1500]}],
+ r=>[{go:[490,1484]},{wait:3+rand()*3,pose:'stand',face:[500,1504]}],
+ r=>[{go:[YARD.x+YARD.w-24,(YARD.gate[0]+YARD.gate[1])/2]},{wait:4+rand()*6,pose:'stand',face:[YARD.x+YARD.w+90,(YARD.gate[0]+YARD.gate[1])/2]}]
 ];
 class Unit{
  constructor(name,kind,s,coat){
@@ -180,7 +180,7 @@ export const U=[];export let P=null;
 export function initPatrol(){
  P=new Unit('leśniczy (Ty)',0,CAR_EDGE.len-2);U.push(P);
  P.ranger=P.person;
- P.dog=new Wild({kind:'dog',x:340,y:330,seed:4242,nav:'yard',group:new Group(340,330,3,{fixed:true}),follow:P.person,leash:70,col:'#3a2e26',col2:'#9a6a3a',flee:0,idleMin:1,idleVar:3});
+ P.dog=new Wild({kind:'dog',x:340,y:330+LDY,seed:4242,nav:'yard',group:new Group(340,330+LDY,3,{fixed:true}),follow:P.person,leash:70,col:'#3a2e26',col2:'#9a6a3a',flee:0,idleMin:1,idleVar:3});
  P.dog.name='Brzoza (jamnik leśniczego)';
 }
 export function hirePod(){const u=new Unit('podleśniczy',1,CAR_EDGE.len-46,'#6a7a4a');U.push(u);return u}

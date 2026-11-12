@@ -58,12 +58,12 @@ export function fillVerges(oldSegs,skip){
  }
  dirtyAll();return n;
 }
-export function generate(){
+function genCells(i0,i1,j0,j1,keep){
  const CELL=38;
- for(let j=0;j*CELL<WORLD.h+CELL;j++)for(let i=0;i*CELL<WORLD.w+CELL;i++){
+ for(let j=j0;j<j1;j++)for(let i=i0;i<i1;i++){
   if(hash(i,j,1)<.07)continue;                                   // luki w drzewostanie
   const x=i*CELL+8+(hash(i,j,2)-.5)*30,y=j*CELL+8+(hash(i,j,3)-.5)*30;
-  if(!free(x,y))continue;
+  if(!free(x,y)||(keep&&!keep(x,y)))continue;
   const st=STANDS[oddzial(x,y)],sp=pickSpecies(st.mix,hash(i,j,4));
   const age=st.age[0]+(st.age[1]-st.age[0])*hash(i,j,5)+(hash(i,j,6)<.12?-18:0);
   const r=SP[sp].maxR*(.1+.9*clamp(age/SP[sp].mature,0,1)**.75);
@@ -72,6 +72,12 @@ export function generate(){
   if(rf<Math.max(28+hash(i,j,7)*14,r*.72+6)||rm<Math.max(46,r+10))continue;
   addTree(x,y,sp,Math.max(12,age));
  }
+}
+// 0.7.3: wczytany zapis zawierał regularny zagajnik po dawnej „Uprawie” — zastępujemy go zwykłym drzewostanem oddziału
+export function refillArea(x,y,w,h){const C=38;genCells(Math.floor(x/C),Math.ceil((x+w)/C)+1,Math.floor(y/C),Math.ceil((y+h)/C)+1,(px,py)=>px>=x&&px<x+w&&py>=y&&py<y+h);dirtyAll()}
+export function generate(){
+ const CELL=38;
+ genCells(0,Math.ceil(WORLD.w/CELL)+1,0,Math.ceil(WORLD.h/CELL)+1);
  // młode drzewka na skraju pobocza (brzozy i sosny samosiejki)
  for(const e of EDGES){if(e.kind!=='forest')continue;
   const A=NODES[e.a],B=NODES[e.b],dx=(B[0]-A[0])/e.len,dy=(B[1]-A[1])/e.len;
@@ -88,11 +94,14 @@ export function generate(){
 // Wczytanie stanu lasu z zapisu (zamiast wygenerowanego).
 export function loadTrees(arr){
  trees.length=0;for(const b of buckets)b.length=0;
+ let dropped=0;
  for(const [x,y,sp,age,st,marked,stumpR,stumpAge,slash,burnt,uprawa,seed,flags,gb] of arr){
+  if(uprawa&&x>940&&x<1380&&y>660&&y<950){dropped++;continue}
   const t=addTree(x,y,sp,age,{st,marked:!!marked,stumpR,stumpAge,burnt:!!burnt,uprawa:!!uprawa,planted:!!(flags&1),prep:!!(flags&2),gb:gb||0});if(seed)t.seed=seed;
   if(flags&32){t.q=(flags>>3)&3;t.qk=!!(flags&4);t.kb=(flags>>6)&7}
   if(slash)t.slash={x:slash[0],y:slash[1],a:slash[2]};
  }
+ if(dropped)refillArea(960,680,400,250);
  dirtyAll();
 }
 export function serializeTrees(){return trees.map(t=>[+t.x.toFixed(1),+t.y.toFixed(1),t.sp,+t.age.toFixed(2),t.st===STUMP||t.lying?1:0,t.marked||t.assigned?1:0,t.stumpR||(t.lying?clamp(t.lying.r*.2,3,8):0),+(t.stumpAge||0).toFixed(1),t.slash?[Math.round(t.slash.x),Math.round(t.slash.y),+t.slash.a.toFixed(2)]:0,t.burnt?1:0,t.uprawa?1:0,t.seed,(t.planted?1:0)|(t.prep?2:0)|(t.qk?4:0)|((t.q||0)<<3)|((t.kb||0)<<6)|32,+(t.gb||0).toFixed(2)])}

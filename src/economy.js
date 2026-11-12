@@ -21,11 +21,11 @@ export function stat(k,n=1){if(ECO.st)ECO.st[k]+=n}
 // Plan na porę roku: dostarczyć drewno na składnicę, posadzić sadzonki, obsłużyć zgłoszenia.
 function newPlan(){
  const se=cal.season();
- ECO.plan={season:se,year:cal.year(),cut:se===3?12:se===1?6:8,plant:se===0?24:se===2?16:8,handle:2,doneCut:0,donePlant:0,doneHandle:0,rewarded:false,reward:2000};
+ ECO.plan={season:se,year:cal.year(),cut:se===3?12:se===1?6:8,plant:se===0?24:se===2?16:se===3?0:8,handle:2,doneCut:0,donePlant:0,doneHandle:0,rewarded:false,reward:2000};
 }
 export function planProgress(kind,n){const P=ECO.plan;if(!P)return;
  if(kind==='cut'){P.doneCut+=n;stat('delivered',n)}else if(kind==='plant'){P.donePlant+=n;stat('planted',n)}else{P.doneHandle+=n;stat('handled',n)}
- if(!P.rewarded&&P.doneCut>=P.cut&&P.donePlant>=P.plant&&P.doneHandle>=P.handle){P.rewarded=true;earn(P.reward,'premia za plan');toast('Plan na '+SEASONS[P.season]+' wykonany! Premia z nadleśnictwa: '+zl(P.reward)+'.')}}
+ if(!P.rewarded&&P.doneCut>=P.cut&&P.donePlant>=(P.season===3?0:P.plant)&&P.doneHandle>=P.handle){P.rewarded=true;earn(P.reward,'premia za plan');toast('Plan na '+SEASONS[P.season]+' wykonany! Premia z nadleśnictwa: '+zl(P.reward)+'.')}}
 // Koniec pory roku: podsumowanie, skok wzrostu lasu, nowy plan.
 function endSeason(){
  const P=ECO.plan,S=ECO.st,G=seasonGrow(YEARS_PER_SEASON),grown=G.grown;

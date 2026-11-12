@@ -13,7 +13,7 @@ import {updateRenew,R,createPlot,orderPrep,orderPlant} from './renew.js';
 import {initEconomy,updateEconomy,ECO} from './economy.js';
 import {spawnWildlife as respawnWild} from './life/populate.js';
 import {drawWorld} from './render.js';
-import {hud,bindUI,centerOn} from './ui.js';
+import {hud,bindUI,centerOn,repositionInfo} from './ui.js';
 import {bindInput} from './input.js';
 import {updateSound,toggleSound,resumeSound} from './sound.js';
 import {toggleMap,updateMap} from './mapview.js';
@@ -76,7 +76,7 @@ function run(ts){
  clampCamera();
  fpsT+=frame;fpsN++;if(fpsT>=.5){DEBUG.fps=Math.round(fpsN/fpsT);fpsT=0;fpsN=0}
  drawWorld();updateMap(frame);
- RT.hudT+=frame;if(RT.hudT>=.15){RT.hudT=0;hud()}
+ repositionInfo();RT.hudT+=frame;if(RT.hudT>=.15){RT.hudT=0;hud()}
  RT.saveT=(RT.saveT||0)+frame;if(RT.saveT>=30){RT.saveT=0;saveGame()}
  requestAnimationFrame(run);
 }

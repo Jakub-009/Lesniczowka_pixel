@@ -67,12 +67,12 @@ function spawnVisitor(){
   const p=new Ped({kind:'walker',x:cx,y:cy,speed:12,coat:pickA(['#6a5a8a','#8a6a4a','#4a6a8a','#7a4a4a','#5a7a5a']),cap:pickA(['#e8e4dc','#3a3a3a','#6b4a2e'])});
   p.label={opal:'petent — po drewno opałowe',permit:'petent — po zezwolenie',seed:'petent — po sadzonki',report:'petent — ze zgłoszeniem'}[kind];p.petent=kind;p.car=car;p.waitT=0;
   car.label='samochód petenta';
-  p.run([{go:[566,300]},{go:[DOOR[0]+16+BASE.queue.length*10,DOOR[1]+18]},{call:q=>{BASE.queue.push(q);sfx('door')}},{wait:9999,pose:'stand',face:[DOOR[0],DOOR[1]],until:q=>q.done}]);
+  p.run([{go:[YARD.x+YARD.w+6,(YARD.gate[0]+YARD.gate[1])/2]},{go:[DOOR[0]+16+BASE.queue.length*10,DOOR[1]+18]},{call:q=>{BASE.queue.push(q);sfx('door')}},{wait:9999,pose:'stand',face:[DOOR[0],DOOR[1]],until:q=>q.done}]);
  }});
 }
 function leave(p,msg){
  p.done=true;BASE.queue=BASE.queue.filter(q=>q!==p);if(msg)note(msg);
- p.run([{go:[566,300]},{go:p.car.dead?[600,300]:[p.car.pos[0]+Math.sin(p.car.heading)*16,p.car.pos[1]-Math.cos(p.car.heading)*16]},{call:q=>{q.dead=true;if(!p.car.dead){p.car.label='petent odjeżdża';p.car.goTo(goalNode(exitNode(rand()*3600)),{leave:true})}}}]);
+ p.run([{go:[YARD.x+YARD.w+6,(YARD.gate[0]+YARD.gate[1])/2]},{go:p.car.dead?[YARD.x+YARD.w+40,(YARD.gate[0]+YARD.gate[1])/2]:[p.car.pos[0]+Math.sin(p.car.heading)*16,p.car.pos[1]-Math.cos(p.car.heading)*16]},{call:q=>{q.dead=true;if(!p.car.dead){p.car.label='petent odjeżdża';p.car.goTo(goalNode(exitNode(rand()*3600)),{leave:true})}}}]);
 }
 function serve(u,p){
  const r=u.person;p.serving=u;r.busyOffice=true;r.hidden=false;

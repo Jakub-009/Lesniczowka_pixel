@@ -45,7 +45,7 @@ export function hud(){
  // plan na sezon
  const Pl=ECO.plan;if(Pl){const sig=[Pl.doneCut.toFixed(1),Pl.donePlant,Pl.doneHandle,Pl.rewarded,Pl.season].join();if(sig!==taskSig){taskSig=sig;
   const row=(ok,txt,a,b)=>`<div class="trow ${ok?'ok':''}"><span>${ok?'✔':'·'} ${txt}</span><b>${a} / ${b}</b></div>`;
-  $('#tasks').innerHTML=row(Pl.doneCut>=Pl.cut,'Drewno zerwane do dróg',displayNumber(Math.min(Pl.doneCut,Pl.cut),1),Pl.cut+' m³')+row(Pl.donePlant>=Pl.plant,'Posadzone sadzonki',Math.min(Pl.donePlant,Pl.plant),Pl.plant)+row(Pl.doneHandle>=Pl.handle,'Obsłużone zgłoszenia',Math.min(Pl.doneHandle,Pl.handle),Pl.handle)+
+  $('#tasks').innerHTML=row(Pl.doneCut>=Pl.cut,'Drewno zerwane do dróg',displayNumber(Math.min(Pl.doneCut,Pl.cut),1),Pl.cut+' m³')+(Pl.season===3||!Pl.plant?'':row(Pl.donePlant>=Pl.plant,'Posadzone sadzonki',Math.min(Pl.donePlant,Pl.plant),Pl.plant))+row(Pl.doneHandle>=Pl.handle,'Obsłużone zgłoszenia',Math.min(Pl.doneHandle,Pl.handle),Pl.handle)+
    `<div class="muted small">${Pl.rewarded?'Plan wykonany — premia wypłacona.':'Premia za wykonanie: '+zl(Pl.reward)}</div>`}}
  // zgłoszenia
  const open=openIncidents(),sig=open.map(q=>q.id+q.status).join('|');
@@ -112,9 +112,17 @@ function info(){
  else if(s.logs&&s.state)I={title:'Kłody — '+SP[s.sp].name,lines:['Miąższość '+displayNumber(s.vol,2)+' m³: '+Object.entries(pileSorts(s)).filter(([,v])=>v>.01).map(([k,v])=>SORTS[k].short+' '+displayNumber(v,2)).join(', '),s.state==='ground'?'Czeka na zrywkę (ciągnik przyjedzie sam).':'Ciągnik już po nie jedzie.'],btns:[]};
  else if(s.toPlant!==undefined)I=plotInfo(s);
  if(!I){el.style.display='none';return}
- const sig=JSON.stringify(I);if(sig===infoSig)return;infoSig=sig;
- el.innerHTML=`<div class="kick">${I.title}</div>`+I.lines.map(l=>`<div class="ln">${l}</div>`).join('')+(I.btns.length?`<div class="ibtns">${I.btns.map(([k,t])=>`<button data-ia="${k}">${t}</button>`).join('')}</div>`:'')+(s.pos||s.look||(s.kind&&ASPEC[s.kind]&&!s.edge)?`<div class="muted small">F — kamera śledzi</div>`:'');
- el.style.display='block';
+ const sig=JSON.stringify(I),fresh=sig!==infoSig;infoSig=sig;
+ if(fresh)el.innerHTML=`<div class="kick">${I.title}</div>`+I.lines.map(l=>`<div class="ln">${l}</div>`).join('')+(I.btns.length?`<div class="ibtns">${I.btns.map(([k,t])=>`<button data-ia="${k}">${t}</button>`).join('')}</div>`:'')+(s.pos||s.look||(s.kind&&ASPEC[s.kind]&&!s.edge)?`<div class="muted small">F — kamera śledzi</div>`:'');
+ el.style.display='block';placeInfo(el,s);
+}
+// 0.7.3: okno z opcjami pojawia się przy klikniętym obiekcie (nie w rogu ekranu) i podąża za kamerą
+export function repositionInfo(){const el=$('#info');if(el&&el.style.display==='block'&&state.selected)placeInfo(el,state.selected)}
+function placeInfo(el,s){
+ const cv=$('#game'),r=cv.getBoundingClientRect(),plot=s.toPlant!==undefined,bx=s.pos?s.pos[0]:s.x,by=s.pos?s.pos[1]:s.y,ax=bx+(plot?s.w/2:0),ay=by+(plot?s.h/2:0)-(s.st===undefined?0:6);
+ const sx=r.left+(ax-camera.x)*r.width/VIEW.w,sy=r.top+(ay-camera.y)*r.height/VIEW.h,w=el.offsetWidth||300,h=el.offsetHeight||120;
+ let x=sx+24,y=sy-h/2;if(x+w>innerWidth-8)x=sx-24-w;x=clamp(x,8,innerWidth-w-8);y=clamp(y,8,innerHeight-h-8);
+ el.style.position='fixed';el.style.left=Math.round(x)+'px';el.style.top=Math.round(y)+'px';el.style.bottom='auto';
 }
 // ── panel Leśniczówki (L) ──
 let baseSig='';
@@ -187,7 +195,7 @@ export function showReport(r){
   <p>Las urósł o ${r.years} lata.${r.grown?' '+r.grown+' sadzonek wyrosło na młode drzewka.':''}${r.young?' Udatność nowych upraw: '+Math.round((1-r.died/r.young)*100)+'% (nie przyjęło się: '+r.died+').':''}${r.unrenewed?' Pniaków bez odnowienia: '+r.unrenewed+'.':''}</p>
   ${r.fauna&&r.fauna.browsed>20?'<p><b>Zgryzanie!</b> Sarny i jelenie niszczą niegrodzone uprawy. Ogródź powierzchnie (karta powierzchni) albo złóż wniosek o odstrzał redukcyjny (L).</p>':''}
   ${r.next===3?'<p><b>Zima:</b> ekipa nie sadzi, a paśniki trzeba uzupełniać karmą.</p>':r.next===0?'<p><b>Wiosna:</b> okres lęgowy — w oddz. 103 wycinka czeka do lata. Uwaga na wypalanie traw.</p>':r.next===2?'<p><b>Jesień:</b> grzybiarze w lesie i rykowisko o zmierzchu.</p>':''}
-  <p><b>Teraz ${SEASONS[r.next]}.</b> Nowy plan: ${N.cut} m³ drewna, ${N.plant} sadzonek, ${N.handle} zgłoszenia — premia ${zl(N.reward)}.</p>
+  <p><b>Teraz ${SEASONS[r.next]}.</b> Nowy plan: ${N.cut} m³ drewna, ${N.plant?N.plant+' sadzonek, ':''}${N.handle} zgłoszenia${N.plant?'':' (zimą bez sadzenia)'} — premia ${zl(N.reward)}.</p>
   <button id="report-close">DALEJ</button>`;
  $('#report').classList.remove('hidden');state.paused=true;state.modal=true;
  $('#report-close').onclick=()=>{$('#report').classList.add('hidden');state.paused=false;state.modal=false;taskSig='';hud()};

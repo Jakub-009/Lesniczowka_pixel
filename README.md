@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.7.2 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.7.3 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -191,3 +191,11 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
 - **Szkółka** jest częścią podwórza leśniczówki (dawna „Uprawa” zniknęła); kupno dodaje grządki z sadzonkami i tunel foliowy.
 - **Składnice drewna:** jedno miejsce = jeden stos (tartak: grube kłody z pomarańczową etykietą, papierówka: cieńsze z niebieską, opał: luźna pryzma obok). Stosy leżą poza jezdnią i z dala od skrzyżowań; stare zapisy są automatycznie przenoszone. Kliknięcie pokazuje rozbicie na sortymenty.
 - Zapis z 0.7.0 działa.
+
+## Zmiany w 0.7.3 „Poprawki”
+- **Leśniczy, petenci i pies** nie chodzą już w miejsce starej leśniczówki (stare współrzędne spacerów i bramy); leśniczy reaguje na zgłoszenia znacznie szybciej.
+- **Plan na zimę** nie zawiera sadzenia (ziemia zamarznięta); premia zależy tylko od zadań możliwych do wykonania.
+- **Zapisy:** dawny regularny zagajnik po „Uprawie” jest zastępowany zwykłym drzewostanem oddziału; grodzenia z zapisu od razu odgradzają zwierzynę (wcześniej siatka działała dopiero po zbudowaniu w tej samej sesji).
+- **Kornik** wrócił do parametrów z 0.7.0 (brązowe korony na zrzutach to była jesień, nie kornik). Wiatrołomy zostają bez zmian.
+- **Przesieki** (jasne pasy między oddziałami) nie są już malowane w świecie.
+- **Okno z opcjami** pojawia się przy klikniętym obiekcie i podąża za kamerą, zamiast stać w lewym dolnym rogu.
