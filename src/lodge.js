@@ -2,9 +2,10 @@
 // Warstwa jest rysowana PO zimowej mgiełce, więc dachy mają śnieg, a nie biały welon.
 import {rect,line,poly,shadow} from './core.js';
 import {mk,outlinedDraw,text3} from './sprite.js';
-import {HOUSE,CARPORT,WOODSHED,KENNEL,WELL,PLAC,DOOR,LDY} from './map.js';
+import {HOUSE,CARPORT,GARAGE,WOODSHED,KENNEL,WELL,PLAC,DOOR,LDY,FENCES} from './map.js';
+import {fence} from './paint.js';
 
-export const LODGE_BOX={x:120,y:1230,w:720,h:360};
+export const LODGE_BOX={x:120,y:1230,w:700,h:360};
 const DARK='#2a3328';
 const PAL={
  summer:{r1:'#b5543a',r2:'#9a4630',r3:'#a84e36',rg:'#d98a62',rl:'#00000026',m1:'#7d8480',m2:'#686f6b',m3:'#8f9692',mg:'#b4bbb6',w1:'#8a6a4a',w2:'#6e5238',wg:'#a98458'},
@@ -82,12 +83,26 @@ function small(c,P,win){
  const S=PLAC;for(const [lx,ly] of [[S.x+12,S.y+8],[S.x+S.w-12,S.y+8]]){rect(c,lx+3,ly+5,5,3,'#00000035');rect(c,lx-1,ly-24,2,30,'#4a4f52');rect(c,lx-5,ly-26,10,3,'#6d7478');rect(c,lx-4,ly-24,8,1,'#f2e29a')}
 }
 function signs(c,win){
- outlinedDraw(c,550,242+LDY,G=>{rect(G,-14,-4,2,10,'#55524a');rect(G,12,-4,2,10,'#55524a');rect(G,-22,-16,44,13,'#2f5a3a');rect(G,-21,-15,42,11,'#3e7048');rect(G,-21,-15,42,1,'#6aa070');text3(G,'LEŚNICTWO',-18,-12,'#f1e6c2');if(win)rect(G,-22,-17,44,2,'#f2f6fa')},DARK);
+ outlinedDraw(c,690,256+LDY,G=>{rect(G,-14,-4,2,10,'#55524a');rect(G,12,-4,2,10,'#55524a');rect(G,-22,-16,44,13,'#2f5a3a');rect(G,-21,-15,42,11,'#3e7048');rect(G,-21,-15,42,1,'#6aa070');text3(G,'LEŚNICTWO',-18,-12,'#f1e6c2');if(win)rect(G,-22,-17,44,2,'#f2f6fa')},DARK);
+}
+function yard(c,win){
+ for(const f of FENCES){fence(f,c);if(win){const hor=f.y1===f.y2;if(hor)line(c,Math.min(f.x1,f.x2),f.y1-1,Math.max(f.x1,f.x2),f.y1-1,'#eef3f7',1);else line(c,f.x1-1,Math.min(f.y1,f.y2),f.x1-1,Math.max(f.y1,f.y2),'#eef3f7',1)}}
+ const S=PLAC;outlinedDraw(c,S.x+14,S.y+S.h-6,G=>{rect(G,-1,-4,2,10,'#55524a');rect(G,-12,-14,24,10,'#2f5a3a');rect(G,-11,-13,22,8,'#3e7048');text3(G,'PLAC',-8,-12,'#f1e6c2');if(win)rect(G,-12,-15,24,2,'#f2f6fa')},DARK);
+}
+// magazyn (kupowany): hala murowana z blaszanym dachem i dwiema bramami rolowanymi, obok wiaty
+export function drawGarage(c,win){
+ const G=GARAGE,P=win?PAL.winter:PAL.summer,fy=G.y+G.h;
+ shadow(c,G.x,G.y,G.w,G.h+10,32);
+ rect(c,G.x+2,fy,G.w-4,12,'#d9d3c2');rect(c,G.x+2,fy,G.w-4,2,'#9d968a');rect(c,G.x+2,fy+10,G.w-4,2,'#8a5a48');
+ for(const dx of [10,60]){rect(c,G.x+dx-1,fy+1,42,10,'#6d7470');rect(c,G.x+dx,fy+2,40,9,'#9aa29d');for(let y=fy+3;y<fy+11;y+=2)rect(c,G.x+dx,y,40,1,'#7d8480')}
+ hip(c,G.x,G.y,G.w,G.h,P.m1,P.m2,P.m3,P.mg,P.rl,'#4d4a46');
+ for(let x=G.x+8;x<G.x+G.w-6;x+=9)line(c,x,G.y+3,x,G.y+G.h-3,P.rl,1);
+ outlinedDraw(c,G.x+G.w/2,G.y+G.h/2+4,H=>{rect(H,-17,-5,34,10,'#2f5a3a');rect(H,-16,-4,32,8,'#3e7048');text3(H,'MAGAZYN',-14,-3,'#f1e6c2')},DARK);
 }
 function build(win){
  const [cv,c]=mk(LODGE_BOX.w,LODGE_BOX.h),P=win?PAL.winter:PAL.summer;
  c.translate(-LODGE_BOX.x,-LODGE_BOX.y);
- woodshed(c,P,win);small(c,P,win);house(c,P,win);carport(c,P,win);signs(c,win);
+ woodshed(c,P,win);small(c,P,win);house(c,P,win);carport(c,P,win);signs(c,win);yard(c,win);
  return cv;
 }
 let sum=null,win=null;

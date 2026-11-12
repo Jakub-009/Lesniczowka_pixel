@@ -73,6 +73,28 @@ function launch(out,msg){
  }
  toast(msg+' '+parts.join(', ')+'.');
 }
+// 0.7.4: anulowanie zleceń — zadania, których ekipa jeszcze nie zaczęła (kolejka, klaster, wstrzymane), i niewysłane oznaczenia.
+export const UNDO=[];
+export function cancelCrewTasks(pred=()=>true){
+ let n=0;
+ for(const C of J.crews)for(const k of ['tasks','cluster','held']){const keep=[];
+  for(const q of C[k]){
+   if(q.type==='fell'&&pred(q)){q.t.assigned=false;q.t.marked=false;n++}
+   else if(q.type==='plant'&&q.p.plot===undefined&&pred(q)){q.p.assigned=false;J.plants=J.plants.filter(x=>x!==q.p);n++}
+   else keep.push(q)}
+  C[k]=keep}
+ return n;
+}
+export const queuedCount=()=>J.crews.reduce((a,C)=>a+[...C.tasks,...C.cluster,...C.held].filter(q=>q.type==='fell'||q.p.plot===undefined).length,0);
+export const ordersCount=()=>pendingCount()+queuedCount();
+export function clearOrders(){
+ const list=trees.filter(t=>t.marked&&!t.assigned);for(const t of list)t.marked=false;
+ const pl=J.plants.filter(p=>!p.assigned&&p.plot===undefined);J.plants=J.plants.filter(p=>!pl.includes(p));
+ const q=cancelCrewTasks();
+ if(list.length)UNDO.push({type:'unmark',list});
+ toast(list.length+pl.length+q?'Anulowano zlecenia: '+(list.length+q)+' drzew do wycinki, '+(pl.length)+' sadzonek.'+(list.length?' Ctrl+Z przywraca oznaczenia.':''):'Brak zleceń do anulowania.');
+ return list.length+pl.length+q;
+}
 export function dispatchCrew(){
  const fell=trees.filter(t=>t.marked&&!t.assigned),pl=J.plants.filter(p=>!p.assigned);
  if(!fell.length&&!pl.length){toast('Brak zadań: wyznacz drzewa (klawisz 2) albo miejsca sadzenia (3).');return}
@@ -197,10 +219,10 @@ export const MACH={
 };
 // 0.6: nie ma bazy maszyn. Ciągnik usługowy przyjeżdża z zewnątrz, gdy są kłody do zwiezienia; jeśli praca trwa dłużej,
 // nocuje na placu przy leśniczówce, a po skończonej robocie zjeżdża z lasu. Kupiony forwarder stoi na placu na stałe.
-const PLAC_EDGE=edgeOf('a3','l1');
+const PLAC_EDGE=EDGES.find(e=>e.a==='l1'&&e.b==='yd');
 const homeLabel=()=>MACH[J.skid.mach].name+' (na placu przy leśniczówce)';
 function parkAtPlac(v,cb){
- const sp=PLAC_SPOTS[0],sRoad=clamp(NODES.a3[0]-(sp.x+70),20,PLAC_EDGE.len-20);
+ const sp=PLAC_SPOTS[0],sRoad=clamp(NODES.l1[0]-(sp.x+22),10,PLAC_EDGE.len-10);
  v.goTo({edge:PLAC_EDGE,s:sRoad},{park:false,onArrive:()=>v.driveOff([[sp.x+22,sp.y-28],[sp.x-14,sp.y+2]],{onArrive:()=>{v.v=0;v.parked=true;cb&&cb()}})});
 }
 function spawnMachine(kind,toPlac){

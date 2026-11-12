@@ -3,7 +3,7 @@
 import {WORLD,hash,rect,poly,clamp,LIGHT,cal,PX_PER_M,state} from './core.js';
 import {mk,outlinedDraw,crispAlpha} from './sprite.js';
 import {distToSegment} from './geometry.js';
-import {roadClearance,oddzial,STANDS,YARD,PLAC,TURNS,POLANA,inRect,inPolana,inWorld,EDGES,NODES} from './map.js';
+import {roadClearance,oddzial,STANDS,YARD,PLAC,TURNS,POLANA,inRect,inPolana,inWorld,EDGES,NODES,ptAt} from './map.js';
 
 export const SP={
  sosna:{name:'sosna zwyczajna',maxR:30,mature:70,h:28,d:42,vol:1.15,price:250,conifer:true,bark:['#9a5b33','#c47c48']},
@@ -39,7 +39,7 @@ export const fallLen=t=>clamp(crownR(t)*4.2,30,170);
 // ── generowanie lasu ──
 function pickSpecies(mix,u){let a=0;for(const k in mix){a+=mix[k];if(u<a)return k}return Object.keys(mix)[0]}
 const nearTurn=(x,y)=>TURNS.some(k=>Math.hypot(x-NODES[k][0],y-NODES[k][1])<118);
-const free=(x,y)=>inWorld(x,y,6)&&!nearTurn(x,y)&&!inRect(x,y,YARD,46)&&!inRect(x,y,PLAC,40)&&!inPolana(x,y,6);
+const free=(x,y)=>inWorld(x,y,6)&&!nearTurn(x,y)&&!inRect(x,y,YARD,18)&&!inPolana(x,y,6);
 function addTree(x,y,sp,age,extra={}){const t={id:trees.length,x,y,sp,age,st:STAND,seed:(hash(x|0,y|0,77)*1e6)|0,marked:false,q:qualityFor(x,y,extra.planted),qk:false,gb:0,...extra};t.rI=Math.round(crownR(t));trees.push(t);bucketAdd(t);return t}
 // Zapis sprzed 0.6.3: dosadzenie lasu przy drogach (węższe pobocza) i na drogach usuniętych w 0.6.3.
 // Tylko tam, gdzie w promieniu 20 px nie ma drzewa ani pniaka i nie ma powierzchni gracza (skip).
@@ -53,7 +53,7 @@ export function fillVerges(oldSegs,skip){
   if(!(rf<78||rm<92||onOld)||near(x,y))continue;
   const st=STANDS[oddzial(x,y)],sp=pickSpecies(st.mix,hash(i,j,4)),age=st.age[0]+(st.age[1]-st.age[0])*hash(i,j,5);
   const r=SP[sp].maxR*(.1+.9*clamp(age/SP[sp].mature,0,1)**.75);
-  if(rf<Math.max(28+hash(i,j,7)*14,r*.72+6)||rm<Math.max(46,r+10))continue;
+  if(rf<Math.max(28+hash(i,j,7)*14,r*.72+6)||rm<Math.max(30,r*.62+8))continue;
   addTree(x,y,sp,onOld?14+hash(i,j,8)*10:Math.max(12,age));n++;
  }
  dirtyAll();return n;
@@ -63,13 +63,14 @@ function genCells(i0,i1,j0,j1,keep){
  for(let j=j0;j<j1;j++)for(let i=i0;i<i1;i++){
   if(hash(i,j,1)<.07)continue;                                   // luki w drzewostanie
   const x=i*CELL+8+(hash(i,j,2)-.5)*30,y=j*CELL+8+(hash(i,j,3)-.5)*30;
-  if(!free(x,y)||(keep&&!keep(x,y)))continue;
+  if(!free(x,y))continue;
   const st=STANDS[oddzial(x,y)],sp=pickSpecies(st.mix,hash(i,j,4));
   const age=st.age[0]+(st.age[1]-st.age[0])*hash(i,j,5)+(hash(i,j,6)<.12?-18:0);
   const r=SP[sp].maxR*(.1+.9*clamp(age/SP[sp].mature,0,1)**.75);
   // 0.6.3: węższe pobocza — las bardziej zarośnięty; korona może lekko sięgać nad skraj jezdni
   const rf=roadClearance(x,y,['forest','drive']),rm=roadClearance(x,y,['main']);
-  if(rf<Math.max(28+hash(i,j,7)*14,r*.72+6)||rm<Math.max(46,r+10))continue;
+  if(rf<Math.max(28+hash(i,j,7)*14,r*.72+6)||rm<Math.max(30,r*.62+8))continue;
+  if(keep&&!keep(x,y,r,rm))continue;
   addTree(x,y,sp,Math.max(12,age));
  }
 }
@@ -88,11 +89,38 @@ export function generate(){
    addTree(x,y,hash(k,9,3)<.6?'brzoza':'sosna',9+hash(k,9,4)*9);
   }
  }
- // szkółka (dawna uprawa) jest pusta — rzędy sadzonek rysuje drawBase po zakupie
+// szkółka (dawna uprawa) jest pusta — rzędy sadzonek rysuje drawBase po zakupie
+ vergeTrees();
+}
+// 0.7.4: samosiejki i podszyt przy szosie oraz przy ogrodzeniu leśniczówki — las „dochodzi” do drogi i płotu
+function vergeTrees(onlyFree){
+ const none=()=>false,near=onlyFree?(x,y)=>treesIn(x-14,y-14,x+14,y+14).some(t=>Math.hypot(t.x-x,t.y-y)<14):none;let n=0;
+ const put=(x,y,sp,age)=>{if(!free(x,y)||roadClearance(x,y)<26||near(x,y))return;addTree(x,y,sp,age);n++};
+ const pk=u=>u<.5?'brzoza':u<.82?'sosna':'swierk';
+ for(const e of EDGES){if(e.kind!=='main')continue;
+  const A=NODES[e.a],B=NODES[e.b];
+  for(let s=30;s<e.len-30;s+=34)for(const side of [-1,1]){const k=s*5+side*7+e.len;if(hash(k,19,1)>.62)continue;
+   const [px,py,tx,ty]=ptAt(e,s),off=e.w/2+30+hash(k,19,2)*30,x=px-ty*off*side,y=py+tx*off*side;
+   put(x,y,pk(hash(k,19,3)),9+hash(k,19,4)*20)}}
+ // pas drzew wokół ogrodzenia podwórza (od zewnątrz, z przerwą na bramę)
+ const Y=YARD,per=2*(Y.w+Y.h);
+ for(let t=0;t<per;t+=44){const k=t+91,off=24+hash(k,20,1)*26;let x,y;
+  if(t<Y.w){x=Y.x+t;y=Y.y-off}else if(t<Y.w+Y.h){x=Y.x+Y.w+off;y=Y.y+(t-Y.w)}else if(t<2*Y.w+Y.h){x=Y.x+Y.w-(t-Y.w-Y.h);y=Y.y+Y.h+off}else{x=Y.x-off;y=Y.y+Y.h-(t-2*Y.w-Y.h)}
+  if(x>Y.x+Y.w&&y>Y.gate[0]-30&&y<Y.gate[1]+30)continue;
+  if(hash(k,20,2)>.78)continue;put(x,y,hash(k,20,3)<.5?'brzoza':hash(k,20,3)<.8?'sosna':'buk',12+hash(k,20,4)*22)}
+ dirtyAll();return n;
+}
+// 0.7.4: zapis sprzed rozbudowy podwórza — usuń drzewa w nowym obrysie i dosadź las tam, gdzie wcześniej reguły go wykluczały
+const OLD_YARD={x:150,y:1250,w:410,h:300},OLD_PLAC={x:604,y:1430,w:196,h:92};
+export function migrateLodgeArea(){
+ for(const t of treesIn(YARD.x-10,YARD.y-10,YARD.x+YARD.w+10,YARD.y+YARD.h+10).slice())if(inRect(t.x,t.y,YARD,8))removeTree(t);
+ const near=(x,y)=>treesIn(x-16,y-16,x+16,y+16).some(t=>Math.hypot(t.x-x,t.y-y)<16);
+ const C=38;genCells(0,Math.ceil(WORLD.w/C)+1,0,Math.ceil(WORLD.h/C)+1,(x,y,r,rm)=>(inRect(x,y,OLD_YARD,46)||inRect(x,y,OLD_PLAC,40)||rm<Math.max(46,r+10))&&!near(x,y));
+ vergeTrees(true);dirtyAll();
 }
 
 // Wczytanie stanu lasu z zapisu (zamiast wygenerowanego).
-export function loadTrees(arr){
+export function loadTrees(arr,migrate){
  trees.length=0;for(const b of buckets)b.length=0;
  let dropped=0;
  for(const [x,y,sp,age,st,marked,stumpR,stumpAge,slash,burnt,uprawa,seed,flags,gb] of arr){
@@ -102,6 +130,7 @@ export function loadTrees(arr){
   if(slash)t.slash={x:slash[0],y:slash[1],a:slash[2]};
  }
  if(dropped)refillArea(960,680,400,250);
+ if(migrate)migrateLodgeArea();
  dirtyAll();
 }
 export function serializeTrees(){return trees.map(t=>[+t.x.toFixed(1),+t.y.toFixed(1),t.sp,+t.age.toFixed(2),t.st===STUMP||t.lying?1:0,t.marked||t.assigned?1:0,t.stumpR||(t.lying?clamp(t.lying.r*.2,3,8):0),+(t.stumpAge||0).toFixed(1),t.slash?[Math.round(t.slash.x),Math.round(t.slash.y),+t.slash.a.toFixed(2)]:0,t.burnt?1:0,t.uprawa?1:0,t.seed,(t.planted?1:0)|(t.prep?2:0)|(t.qk?4:0)|((t.q||0)<<3)|((t.kb||0)<<6)|32,+(t.gb||0).toFixed(2)])}
@@ -278,7 +307,7 @@ function paintSapling(g,t,season){
   for(let k=0;k<5;k++)rect(g,x+(hash(k,s,1)-.5)*r*1.6,y+(hash(k,s,2)-.5)*r*1.6,2,2,k%2?b:l[0]);rect(g,x,y,1,1,'#5a4a36')}
 }
 function paintStump(g,t){
- const r=t.stumpR||5,x=Math.round(t.x),y=Math.round(t.y),old=(t.stumpAge||0)>12;
+ const r=t.stumpR||5,x=Math.round(t.x),y=Math.round(t.y),old=(t.stumpAge||0)>5;
  g.fillStyle='#2b241c';g.beginPath();g.arc(x,y,r+1,0,6.283);g.fill();
  g.fillStyle=old?'#6b5c4b':SP[t.sp].bark[0];g.beginPath();g.arc(x,y,r,0,6.283);g.fill();
  g.fillStyle=old?'#8f7f69':'#d8b47c';g.beginPath();g.arc(x,y,r-1.5,0,6.283);g.fill();
@@ -295,9 +324,12 @@ function paintSlash(g,t){
 // Las rośnie skokowo, przy zmianie pory roku (czas lasu). Zwraca, ile sadzonek przeszło w młode drzewka.
 // Udatność: część świeżo posadzonych sadzonek nie przyjmuje się — bez przygotowania gleby dużo więcej (sucha ściółka, chwasty).
 export function seasonGrow(years){
- let grown=0,died=0,young=0;
+ let grown=0,died=0,young=0,rotted=0;
  for(const t of trees.slice()){
-  if(t.st===STUMP){t.stumpAge=(t.stumpAge||0)+years;continue}
+  if(t.st===STUMP){t.stumpAge=(t.stumpAge||0)+years;
+   // 0.7.4: pniak próchnieje i znika po 6–10 latach, ale tylko tam, gdzie obszar jest już odnowiony; nieodnowione pniaki zostają jako sygnał „tu trzeba sadzić”
+   if(t.stumpAge>=6+hash(t.seed,5,93)*4&&hash(t.seed,Math.floor(t.stumpAge),94)<.6&&treesIn(t.x-30,t.y-30,t.x+30,t.y+30).some(q=>q.st===STAND&&q.age<SAPLING_AGE*3)){removeTree(t);rotted++}
+   continue}
   if(t.planted&&t.age<4){young++;if(hash(t.seed,Math.floor(t.age*10),91)<(t.prep?.05:.25)){removeTree(t);died++;continue}}
   const was=t.age<SAPLING_AGE;t.age+=years;if(was&&t.age>=SAPLING_AGE)grown++;
   // 0.6.2: w luźniejszym drzewostanie (po trzebieży) drzewa przyrastają szybciej; dorodne lepiej, wadliwe słabiej
@@ -305,7 +337,7 @@ export function seasonGrow(years){
    t.gb=(t.gb||0)+years*(clamp(.35-.06*n,-.25,.35)+[.1,0,-.1][t.q||0])}
   t.rI=Math.round(crownR(t));
  }
- dirtyAll();return{grown,died,young};
+ dirtyAll();return{grown,died,young,rotted};
 }
 export function testGrow(years){for(const t of trees)if(t.st===STAND&&t.age<60){t.age+=years;t.rI=Math.round(crownR(t));dirtyTree(t)}}
 // Wycinka: start (korona znika z warstwy), upadek (rysowany dynamicznie), leżące drzewo, wyrzynka (pień + gałęzie).

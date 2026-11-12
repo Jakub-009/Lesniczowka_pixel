@@ -155,9 +155,9 @@ export function planAreaPlants(x0,y0,x1,y1){
 }
 // Grodzenie powierzchni siatką (chroni sadzonki przed zgryzaniem przez sarny i jelenie).
 export function orderFence(p){
- if(p.fence){toast('Ta powierzchnia jest już grodzona.');return}
+ if(p.fence&&p.fence!=='gone'){toast('Ta powierzchnia jest już grodzona.');return}
  const c=fenceCost(p);if(!canAfford(c))return;
- pay(c,'grodzenie uprawy siatką');p.fence='building';p.fenceP=0;
+ pay(c,'grodzenie uprawy siatką');p.fence='building';p.fenceP=0;p.dismOffered=0;
  toast('Zlecono grodzenie P'+p.id+' ('+Math.round(perimOf(p)/PX_PER_M)+' m siatki, bramy na drogach). Montaż w godzinach pracy.');
 }
 // Repelent (0.6): środek odstraszający na sadzonki — tani, chroni przez bieżącą porę roku (ok. 75% mniej zgryzania).
@@ -171,11 +171,20 @@ export function orderRepel(p){
 }
 export function updateRenew(dt){
  plowUpdate();
- if(cal.work(7,16))for(const p of R.plots)if(p.fence==='building'){p.fenceP+=dt*6;if(p.fenceP>=perimOf(p)){p.fence='done';rebuildWild();toast('Grodzenie P'+p.id+' gotowe — sadzonki są bezpieczne od zgryzania.')}}
+ if(cal.work(7,16))for(const p of R.plots)if(p.fence==='building'){p.fenceP+=dt*6;if(p.fenceP>=perimOf(p)){p.fence='done';p.fenceDay=state.days;rebuildWild();toast('Grodzenie P'+p.id+' gotowe — sadzonki są bezpieczne od zgryzania.')}}
+ // 0.7.4: gdy sadzonki wyrosną (ok. 10 lat), pojawia się zgłoszenie demontażu siatki; zaniedbana siatka po ok. 15 latach niszczeje sama
+ if(state.days>=(R.fenceCheck||0)){R.fenceCheck=state.days+1;
+  for(const p of R.plots){if(p.fence!=='done')continue;
+   if(!p.dismOffered){
+    const tt=treesIn(p.x,p.y,p.x+p.w,p.y+p.h).filter(t=>t.planted&&t.st===STAND&&inShape(p,t.x,t.y));
+    if(tt.length>=5&&tt.filter(t=>t.age>=SAPLING_AGE+2).length>=tt.length*.6&&HOOK.report){p.dismOffered=state.days;HOOK.report('fence',p.x+p.w/2,p.y+p.h/2,'Sadzonki na P'+p.id+' wyrosły — można zdemontować siatkę (zbędna i pogarsza przejścia zwierzyny).',p)}}
+   else if(state.days-p.dismOffered>15){p.fence='gone';for(const q of E.incidents)if(q.type==='fence'&&q.ref===p&&q.status==='new')q.status='gone';rebuildWild();toast('Siatka na P'+p.id+' zniszczała ze starości i została rozebrana przez nieznanych sprawców.')}}}
 }
+export const HOOK={report:null};
+export function dismantleFence(p){if(p.fence!=='done')return;p.fence='gone';rebuildWild();toast('Siatka na P'+p.id+' zdemontowana — zwierzyna ma znów wolny przejazd.')}
 // Siatka grodzenia (na poziomie gruntu): słupki co ~2,5 m, rysowana do miejsca, gdzie doszli monterzy.
 export function drawFences(g){
- for(const p of R.plots){if(!p.fence)continue;
+ for(const p of R.plots){if(!p.fence||p.fence==='gone')continue;
   let left=p.fence==='done'?1e9:p.fenceP;const P=outline(p);
   for(let i=0;i<P.length&&left>0;i++){const [ax,ay]=P[i],[bx,by]=P[(i+1)%P.length],d=Math.hypot(bx-ax,by-ay)||1,L=Math.min(d,left);left-=d;
    let px=ax,py=ay,pg=roadClearance(ax,ay)<10;

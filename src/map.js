@@ -25,7 +25,7 @@ export const NODES={mW:[-140,hy(-140)],j1:[820,hy(820)],j2:[1700,hy(1700)],j3:[2
  // dukty północne (zakręcone) i pętle
  a3:[820,1400],a1:[800,1000],b1:[1720,1150],b2:[1680,560],c1:[2600,1100],
  // leśniczówka (0.6.4: zachód, przy szosie i wjeździe w duktę)
- l1:[560,1400],yd:[478,1400]};
+ l1:[720,1400],yd:[478,1400]};
 export const EDGES=[];
 function mkEdge(a,b,kind,w,lane,pts){pts=dens(pts);pts[0]=NODES[a].slice();pts[pts.length-1]=NODES[b].slice();
  const e={a,b,kind,w,lane,pts,id:a+'-'+b,cum:[0]};for(let i=1;i<pts.length;i++)e.cum.push(e.cum[i-1]+D(pts[i-1],pts[i]));e.len=e.cum[e.cum.length-1];EDGES.push(e);return e}
@@ -86,7 +86,7 @@ export function roadClearance(x,y,kinds){const i=Math.floor((x+OFF)/CELL),j=Math
 
 // ── Leśniczówka (zachód, przy szosie i wjeździe w duktę — 0.6.4) ──
 export const LDY=1100;   // przesunięcie względem układu z 0.6.3 (NW → zachód-środek)
-export const YARD={x:150,y:150+LDY,w:410,h:300,gate:[270+LDY,330+LDY]};
+export const YARD={x:150,y:150+LDY,w:570,h:300,gate:[270+LDY,330+LDY]};   // 0.7.4: podwórze obejmuje plac
 export const HOUSE={x:196,y:178+LDY,w:156,h:108};
 export const CARPORT={x:412,y:172+LDY,w:112,h:78};
 export const WOODSHED={x:172,y:352+LDY,w:72,h:70};
@@ -96,8 +96,9 @@ export const WELL={x:500,y:404+LDY};
 export const DOOR=[300,296+LDY];            // drzwi leśniczówki (od podwórza)
 export const PARK_YARD=[478,300+LDY];
 // ── Plac manewrowy przy leśniczówce (0.6): tu nocują maszyny zrywkowe i stoi kupiony forwarder ──
-export const PLAC={x:604,y:330+LDY,w:196,h:92};
-export const PLAC_SPOTS=[{x:660,y:378+LDY,h:Math.PI/2},{x:748,y:378+LDY,h:Math.PI/2}];   // h: kierunek jazdy (na wschód)
+export const PLAC={x:540,y:340+LDY,w:170,h:100};   // 0.7.4: plac wewnątrz podwórza (żwir jak reszta)
+export const GARAGE={x:540,y:172+LDY,w:112,h:78};   // magazyn/garaż obok wiaty (kupowany)
+export const PLAC_SPOTS=[{x:584,y:392+LDY,h:Math.PI/2},{x:664,y:392+LDY,h:Math.PI/2}];   // h: kierunek jazdy (na wschód)
 
 // ── Polana z amboną: nieregularna (zatoki), uprawa w grodzeniu ──
 export const POLANA={x:2100,y:1060,r:150};
@@ -156,8 +157,8 @@ export const BOARD={x:872,y:hy(820)-96};
 export const colliders=[];
 function addRect(x,y,w,h,id){colliders.push({shape:'obb',x:x+w/2,y:y+h/2,hw:w/2,hh:h/2,a:0,id,br:Math.hypot(w,h)/2})}
 function addCircle(x,y,r,id){colliders.push({shape:'circle',x,y,r,id,br:r})}
-for(const b of [HOUSE,CARPORT,WOODSHED])addRect(b.x,b.y,b.w,b.h,'building');
-addRect(KENNEL.x,KENNEL.y,KENNEL.w,KENNEL.h,'kennel');addCircle(WELL.x,WELL.y,8,'well');
+for(const b of [HOUSE,CARPORT,GARAGE,WOODSHED])addRect(b.x,b.y,b.w,b.h,'building');
+addRect(KENNEL.x,KENNEL.y,KENNEL.w,KENNEL.h,'kennel');addCircle(WELL.x,WELL.y,8,'well');addRect(NURSERY.x,NURSERY.y,NURSERY.w,NURSERY.h,'nursery');
 addCircle(AMBONA.x,AMBONA.y,9,'ambona');
 // płoty: podwórze (brama od wschodu) i grodzenie uprawy (furtka od zachodu)
 export const FENCES=[];

@@ -3,7 +3,7 @@ import {C,$,keys,state,camera,VIEW,SETTINGS,DEBUG,toast,active} from './core.js'
 import {treeAt,STAND,STUMP,CUT_AGE,treesIn,testGrow} from './forest.js';
 import {HOUSE,inRect} from './map.js';
 import {E} from './ents.js';
-import {J,toggleMark,togglePlant,dispatchCrew,orderTruck} from './jobs.js';
+import {J,toggleMark,togglePlant,dispatchCrew,orderTruck,UNDO,cancelCrewTasks,clearOrders} from './jobs.js';
 import {plotAt,createPlot,createPolyPlot,planAreaPlants} from './renew.js';
 import {setTool,hud,toggleBase} from './ui.js';
 import {toggleMap,mapOpen} from './mapview.js';
@@ -30,12 +30,11 @@ export function pick(x,y){
 }
 let down=null;
 // 0.6.3: cofanie ostatnich zaznaczeń obszarem (Ctrl+Z)
-const UNDO=[];
 function undo(){
  const u=UNDO.pop();if(!u){toast('Nie ma czego cofnąć.');return}
- if(u.type==='mark'){let n=0;for(const t of u.list)if(t.marked&&!t.assigned){t.marked=false;n++}toast('Cofnięto oznaczenie '+n+' drzew.')}
+ if(u.type==='mark'){let n=0;const set=new Set(u.list);n+=cancelCrewTasks(q=>q.t&&set.has(q.t));for(const t of u.list)if(t.marked&&!t.assigned){t.marked=false;n++}toast('Cofnięto oznaczenie '+n+' drzew.')}
  else if(u.type==='unmark'){let n=0;for(const t of u.list)if(!t.marked&&!t.assigned&&t.st===STAND){t.marked=true;n++}toast('Przywrócono oznaczenie '+n+' drzew.')}
- else if(u.type==='plant'){const set=new Set(u.list.filter(p=>!p.assigned));J.plants=J.plants.filter(p=>!set.has(p));toast('Cofnięto plan '+set.size+' sadzonek.')}
+ else if(u.type==='plant'){cancelCrewTasks(q=>q.p&&u.list.includes(q.p));const set=new Set(u.list.filter(p=>!p.assigned));J.plants=J.plants.filter(p=>!set.has(p));toast('Cofnięto plan '+set.size+' sadzonek.')}
  hud();
 }
 function finishPoly(){const P=state.poly;state.poly=null;if(!P)return;const p=createPolyPlot(P);if(p)state.selected=p;hud()}
@@ -91,7 +90,7 @@ export function bindInput(zoomFn){
   else if(k==='l')toggleBase(true);
   else if(k==='tab')toggleMap(true);
   else if(k==='u'){document.body.classList.toggle('noui');toast(document.body.classList.contains('noui')?'Interfejs schowany (U — pokaż).':'Interfejs widoczny.')}
-  else if(k==='e')dispatchCrew();else if(k==='k')orderTruck(true);
+  else if(k==='e')dispatchCrew();else if(k==='x')clearOrders();else if(k==='k')orderTruck(true);
   else if(k==='q'){const q=E.incidents.find(x=>x.status==='new');if(q)dispatch(q);else toast('Brak nowych zgłoszeń.')}
   else if(k==='f'){const s=state.selected;state.follow=s&&(s.pos||s.look||s.phase!=null||s.kind)&&s.st===undefined?s:null;if(!state.follow)toast('Wybierz pojazd, osobę albo zwierzę.')}
   else if(k==='t')$('#speedbtn').click();else if(k==='p')$('#pausebtn').click();else if(k==='m')toggleSound();

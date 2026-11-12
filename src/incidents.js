@@ -14,6 +14,7 @@ import {fireMult,fireSpeed,sanitaryMark,clearBlock} from './health.js';
 let nextId=1;
 const odd=(x,y)=>'oddz. '+oddzial(x,y);
 const open_=q=>q.status!=='done'&&q.status!=='gone';
+import {dismantleFence,HOOK as RENEW_HOOK} from './renew.js';
 export function report(type,x,y,text,ref,quiet){
  const inc={id:nextId++,type,x,y,text,ref,status:'new',t:0,seen:0};E.incidents.push(inc);
  if(!quiet){toast((type==='feed'?'Zadanie: ':'Zgłoszenie: ')+text);sfx('ping')}return inc;
@@ -81,8 +82,8 @@ export function spawnIntruder(kind){
 const CAR_EDGE=EDGES.find(e=>e.a==='l1'&&e.b==='yd');
 const yardIdle=[
  r=>[{go:[DOOR[0],DOOR[1]+10]},{wait:5+rand()*6,pose:'stand',face:[DOOR[0],DOOR[1]-10]}],
- r=>[{go:[245,1514]},{wait:5+rand()*4,pose:'kneel'}],
- r=>[{go:[330,1538]},{wait:6+rand()*5,pose:'kneel',face:[330,1500]}],
+ r=>[{go:[452,1440]},{wait:5+rand()*4,pose:'kneel'}],
+ r=>[{go:[400,1388]},{wait:6+rand()*5,pose:'stand',face:[440,1330]}],
  r=>[{go:[490,1484]},{wait:3+rand()*3,pose:'stand',face:[500,1504]}],
  r=>[{go:[YARD.x+YARD.w-24,(YARD.gate[0]+YARD.gate[1])/2]},{wait:4+rand()*6,pose:'stand',face:[YARD.x+YARD.w+90,(YARD.gate[0]+YARD.gate[1])/2]}]
 ];
@@ -142,6 +143,7 @@ class Unit{
   else if(inc.type==='feed')r.run([{go:[tx-14,ty+8]},{wait:4,pose:'kneel',face:[tx,ty]},{call:()=>{inc.ref.level=1;inc.ref.task=null;pay(ECO.feedCost||120,'karma dla zwierzyny')}},back,done(true)]);
   else if(inc.type==='fire')r.run([{go:[tx-10,ty+6]},{wait:5,pose:'saw',face:[tx,ty],tick:(q,dt)=>{inc.ref.grow=Math.max(0,inc.ref.grow-dt*.3)}},{call:()=>{inc.ref.dead=true}},back,done(true)]);
   else if(inc.type==='beetle')r.run([{go:[tx-12,ty+8]},{wait:5,pose:'kneel',face:[tx,ty]},{call:()=>{const n=sanitaryMark(inc.ref);inc.ref.found=n}},back,done(true)]);
+  else if(inc.type==='fence')r.run([{go:[tx-14,ty+8]},{wait:7,pose:'saw',face:[tx,ty]},{call:()=>{dismantleFence(inc.ref)}},back,done(true)]);
   else if(inc.type==='block')r.run([{go:[tx-14,ty+8]},{wait:7,pose:'saw',face:[tx,ty]},{call:()=>{clearBlock(inc.ref)}},back,done(true)]);
   else if(inc.type==='intruder'){
    const v=inc.ref,m=v.man,door=v.door||v.pos;
@@ -180,10 +182,10 @@ export const U=[];export let P=null;
 export function initPatrol(){
  P=new Unit('leśniczy (Ty)',0,CAR_EDGE.len-2);U.push(P);
  P.ranger=P.person;
- P.dog=new Wild({kind:'dog',x:340,y:330+LDY,seed:4242,nav:'yard',group:new Group(340,330+LDY,3,{fixed:true}),follow:P.person,leash:70,col:'#3a2e26',col2:'#9a6a3a',flee:0,idleMin:1,idleVar:3});
+ P.dog=new Wild({kind:'dog',x:450,y:1450,seed:4242,nav:'yard',group:new Group(450,1450,3,{fixed:true}),follow:P.person,leash:70,col:'#3a2e26',col2:'#9a6a3a',flee:0,idleMin:1,idleVar:3});
  P.dog.name='Brzoza (jamnik leśniczego)';
 }
-export function hirePod(){const u=new Unit('podleśniczy',1,CAR_EDGE.len-46,'#6a7a4a');U.push(u);return u}
+export function hirePod(){const u=new Unit('podleśniczy',1,CAR_EDGE.len-70,'#6a7a4a');U.push(u);return u}
 export function firePod(){const u=U[1];if(!u)return false;if(u.phase!=='home'){toast('Podleśniczy jest w terenie — zwolnisz go po powrocie.');return false}
  u.car.dead=true;u.person.dead=true;U.pop();return true}
 export function dispatch(inc){
@@ -283,3 +285,4 @@ export function orderAssess(x,y){
  toast('Zlecono ocenę drzewostanu w oddz. '+oddzial(x,y)+': leśniczy obejdzie okolicę i oznaczy wadliwe drzewa do trzebieży.');dispatch(inc);
 }
 export function feedTask(f,name){return report('feed',f.x,f.y,'Paśnik '+name+' pusty — trzeba dowieźć karmę.',f)}
+RENEW_HOOK.report=report;

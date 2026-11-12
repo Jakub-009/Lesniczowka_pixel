@@ -1,7 +1,7 @@
 // Kolejność warstw: podłoże → las (cienie, pnie, sadzonki) → przedmioty na ziemi → zwierzęta, ludzie, pojazdy →
 // korony → „prześwit” postaci pod koronami → padające drzewa, dym, znaczniki → noc i światła.
 import {ctx,VIEW,camera,state,fx,clamp,cal,DEBUG,rect,SETTINGS,RT,LIGHT} from './core.js';
-import {ground,markChunks,drawAmbona} from './paint.js';
+import {ground,markChunks,drawAmbona,PROPS} from './paint.js';
 import {drawForest,prefetchForest,trees,crownR,paintCrown,SP,STAND,QUAL,SAPLING_AGE,treesIn} from './forest.js';
 import {outlinedDraw} from './sprite.js';
 import {E} from './ents.js';
@@ -104,6 +104,7 @@ export function drawWorld(){
  blitGround();blitMarks();
  if(cal.season()===3){ctx.fillStyle='rgba(234,240,246,.5)';ctx.fillRect(Math.floor(camera.x),Math.floor(camera.y),VIEW.w+1,VIEW.h+1)}
  drawLodge(ctx,cal.season()===3);
+ for(const p of PROPS){if(p.x+p.w<camera.x||p.y+p.h<camera.y||p.x>camera.x+VIEW.w||p.y>camera.y+VIEW.h)continue;ctx.drawImage(p.cv,p.x,p.y)}
  drawForest(ctx,camera,VIEW.w,VIEW.h,'low');
  drawBase(ctx);drawHealth(ctx);drawTrash();drawFeeders(ctx);drawFences(ctx);drawGroundItems(ctx);drawLying();
  for(const a of E.animals)if(!a.dead)a.draw();

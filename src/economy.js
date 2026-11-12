@@ -28,7 +28,7 @@ export function planProgress(kind,n){const P=ECO.plan;if(!P)return;
  if(!P.rewarded&&P.doneCut>=P.cut&&P.donePlant>=(P.season===3?0:P.plant)&&P.doneHandle>=P.handle){P.rewarded=true;earn(P.reward,'premia za plan');toast('Plan na '+SEASONS[P.season]+' wykonany! Premia z nadleśnictwa: '+zl(P.reward)+'.')}}
 // Koniec pory roku: podsumowanie, skok wzrostu lasu, nowy plan.
 function endSeason(){
- const P=ECO.plan,S=ECO.st,G=seasonGrow(YEARS_PER_SEASON),grown=G.grown;
+ const P=ECO.plan,S=ECO.st,G=seasonGrow(YEARS_PER_SEASON),grown=G.grown;ECO.goneRen=(ECO.goneRen||0)*.92+(G.rotted||0);
  const rep={season:P.season,year:P.year,plan:P,st:S,grown,years:YEARS_PER_SEASON,health:state.health,protect:state.protect,money:state.money,unrenewed:ECO.unrenewed,next:cal.season(),died:G.died,young:G.young,browsed:G.browsed||0,market:ECO.market};
  for(const h of ECO.seasonHooks)Object.assign(rep,h()||{});
  // ocena nadleśniczego
@@ -59,7 +59,8 @@ export function updateEconomy(dt){
  let stumps=0,ren=0;
  for(const t of trees){if(t.st!==STUMP||t.stumpAge>40)continue;stumps++;
   if(treesIn(t.x-30,t.y-30,t.x+30,t.y+30).some(q=>q.st===STAND&&q.age<SAPLING_AGE*3))ren++}
- ECO.stumps=stumps;ECO.renewed=ren;ECO.renew=stumps?ren/stumps:1;
+ const gr=Math.round(ECO.goneRen||0);   // zdrowiejące, zniknięte pniaki nadal liczą się jako odnowione (zanikają z pamięci po kilku porach roku)
+ ECO.stumps=stumps+gr;ECO.renewed=ren+gr;ECO.renew=ECO.stumps?ECO.renewed/ECO.stumps:1;
  const unren=stumps-ren;ECO.unrenewed=unren;
  const cover=Math.min(1,coverSum()/ECO.cover0),trash=E.trash.filter(t=>!t.dead&&!t.fire).length,fires=E.incidents.filter(q=>q.type==='fire'&&q.status!=='done'&&q.status!=='gone').length;
  const target=clamp(32+50*cover-Math.min(15,unren*.35)-1.2*trash-3*fires-ECO.damage,0,100);

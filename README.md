@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.7.3 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.7.4 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -199,3 +199,14 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
 - **Kornik** wrócił do parametrów z 0.7.0 (brązowe korony na zrzutach to była jesień, nie kornik). Wiatrołomy zostają bez zmian.
 - **Przesieki** (jasne pasy między oddziałami) nie są już malowane w świecie.
 - **Okno z opcjami** pojawia się przy klikniętym obiekcie i podąża za kamerą, zamiast stać w lewym dolnym rogu.
+
+## Zmiany w 0.7.4 „Podwórze”
+- **Podwórze obejmuje plac:** ogrodzenie sięga dalej na wschód, plac ma ten sam żwir co dziedziniec i leży bezpiecznie z dala od dróg. Brama jest przy drodze dojazdowej; ciągnik wjeżdża i nocuje na placu.
+- **Magazyn (kupowany)** stoi obok wiaty z panelami, a nie na niej; przed zakupem pole jest zaznaczone palikami.
+- **Szkółka:** szkółka jest przeszkodą dla pieszych (leśniczy, pies, petenci); spacery leśniczego przeniesione na wolne miejsca podwórza.
+- **Odstępy:** terenówki i samochody petentów parkują z odstępem.
+- **Las wokół leśniczówki** podchodzi bliżej płotu i drogi; przy szosie rosną samosiejki. Stare zapisy są uzupełniane automatycznie.
+- **Zima:** płot, znaki DP, szlabany, tablice i słupki leżą na warstwie rysowanej po mgiełce i nie są już wyszarzone.
+- **Zlecenia:** przycisk/klawisz **X** anuluje niewysłane oznaczenia i zlecenia, których ekipa jeszcze nie zaczęła; Ctrl+Z cofa też zlecenia wysłane do ekipy, jeśli prace się nie zaczęły.
+- **Pniaki** próchnieją i znikają po 6–10 latach, ale tylko na obszarach już odnowionych; nieodnowione zostają jako sygnał do sadzenia (liczą się nadal do wskaźnika odnowienia).
+- **Siatka:** gdy sadzonki wyrosną (ok. 10 lat), pojawia się zgłoszenie demontażu siatki; zaniedbana siatka po ok. 15 latach niszczeje sama.

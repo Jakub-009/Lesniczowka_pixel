@@ -1,7 +1,8 @@
 // Leśniczówka jako baza (0.5): kancelaria z petentami (drewno opałowe, zezwolenia, sadzonki, zgłoszenia),
 // szkółka leśna, garaż z magazynem, kadry (podleśniczy, druga ekipa) i sprzęt. Panel otwiera klawisz L albo klik w dom.
 import {state,cal,toast,zl,displayNumber,clamp,SEASONS} from './core.js';
-import {DOOR,EDGES,NURSERY,CARPORT,YARD,inRect,oddzial} from './map.js';
+import {DOOR,EDGES,NURSERY,CARPORT,GARAGE,YARD,inRect,oddzial} from './map.js';
+import {drawGarage} from './lodge.js';
 import {goalNode,ENTRY,exitNode} from './roads.js';
 import {E} from './ents.js';
 import {Vehicle,Ped,rand} from './life/agents.js';
@@ -61,7 +62,7 @@ function spawnVisitor(){
  const se=cal.season(),r=rand(),nur=BASE.nursery&&ECO.nursery.stock>=120;
  const kind=r<[.3,.15,.5,.55][se]?'opal':r<.62?'permit':nur&&r<.82?'seed':'report';
  const w=rand()<.5,v=new Vehicle('car',{...ENTRY(w),color:pickA(CAR_COLS)});v.label='petent jedzie do kancelarii';
- const s=VIS_EDGE.len-36-(E.vehicles.filter(q=>q.petentCar&&!q.dead).length%3)*44;v.petentCar=true;
+ const s=VIS_EDGE.len-36-(E.vehicles.filter(q=>q.petentCar&&!q.dead).length%2)*52;v.petentCar=true;
  v.goTo({edge:VIS_EDGE,s},{park:true,onArrive:car=>{
   const h=car.heading,cx=car.pos[0]+Math.sin(h)*16,cy=car.pos[1]-Math.cos(h)*16;
   const p=new Ped({kind:'walker',x:cx,y:cy,speed:12,coat:pickA(['#6a5a8a','#8a6a4a','#4a6a8a','#7a4a4a','#5a7a5a']),cap:pickA(['#e8e4dc','#3a3a3a','#6b4a2e'])});
@@ -146,14 +147,9 @@ export function drawBase(g){
   g.strokeStyle='#8a6a48';g.lineWidth=1;g.strokeRect(N.x-3.5,N.y-3.5,N.w+7,N.h+7);
   outlinedDraw(g,N.x+34,N.y-4,G=>{R_(G,-1,-2,2,8,'#6b563d');R_(G,-16,-10,32,9,'#2f5a3a');text3(G,'SZKÓŁKA',-14,-8,'#f1e6c2')},'#1d2b24');
  }
- if(BASE.garage){
-  const C=CARPORT;R_(g,C.x+6,C.y+6,C.w,C.h,'#2b3b2a50');
-  R_(g,C.x,C.y,C.w,C.h,'#4a3a2c');R_(g,C.x+2,C.y+2,C.w-4,C.h-4,'#8a7660');
-  for(let x=C.x+4;x<C.x+C.w-4;x+=8)R_(g,x,C.y+4,1,C.h-14,'#7a6650');
-  R_(g,C.x,C.y+C.h-8,C.w,8,'#5e4a36');
-  for(const dx of [10,58])R_(g,C.x+dx,C.y+C.h-7,40,7,'#9aa29d'),R_(g,C.x+dx,C.y+C.h-5,40,1,'#6d7470'),R_(g,C.x+dx,C.y+C.h-3,40,1,'#6d7470');
-  R_(g,C.x+C.w/2-17,C.y+18,34,9,'#2f5a3a');text3(g,'MAGAZYN',C.x+C.w/2-14,C.y+20,'#f1e6c2');
- }
+ if(BASE.garage)drawGarage(g,cal.season()===3);
+ else{const G=GARAGE;for(const [x,y] of [[G.x,G.y],[G.x+G.w,G.y],[G.x,G.y+G.h],[G.x+G.w,G.y+G.h]]){R_(g,x-1,y-6,2,8,'#c9a574');R_(g,x-1,y-6,2,2,'#d8452c')}
+  g.strokeStyle='#e8e0c8';g.setLineDash([3,3]);g.lineWidth=1;g.strokeRect(G.x+.5,G.y+.5,G.w,G.h);g.setLineDash([])}
  for(const o of BASE.opalPiles)if(o.vol>.05)pileTop(g,o);
 }
 export const opalPileAt=(x,y)=>BASE.opalPiles.find(o=>Math.hypot(o.x-x,o.y-y)<16);
