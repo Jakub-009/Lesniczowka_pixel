@@ -3,7 +3,7 @@
 import {WORLD,hash,rect,poly,clamp,LIGHT,cal,PX_PER_M,state} from './core.js';
 import {mk,outlinedDraw,crispAlpha} from './sprite.js';
 import {distToSegment} from './geometry.js';
-import {roadClearance,oddzial,STANDS,YARD,PLAC,TURNS,POLANA,UPRAWA,inRect,inPolana,inWorld,EDGES,NODES} from './map.js';
+import {roadClearance,oddzial,STANDS,YARD,PLAC,TURNS,POLANA,inRect,inPolana,inWorld,EDGES,NODES} from './map.js';
 
 export const SP={
  sosna:{name:'sosna zwyczajna',maxR:30,mature:70,h:28,d:42,vol:1.15,price:250,conifer:true,bark:['#9a5b33','#c47c48']},
@@ -39,7 +39,7 @@ export const fallLen=t=>clamp(crownR(t)*4.2,30,170);
 // ── generowanie lasu ──
 function pickSpecies(mix,u){let a=0;for(const k in mix){a+=mix[k];if(u<a)return k}return Object.keys(mix)[0]}
 const nearTurn=(x,y)=>TURNS.some(k=>Math.hypot(x-NODES[k][0],y-NODES[k][1])<118);
-const free=(x,y)=>inWorld(x,y,6)&&!nearTurn(x,y)&&!inRect(x,y,YARD,46)&&!inRect(x,y,PLAC,40)&&!inPolana(x,y,6)&&!inRect(x,y,UPRAWA,22);
+const free=(x,y)=>inWorld(x,y,6)&&!nearTurn(x,y)&&!inRect(x,y,YARD,46)&&!inRect(x,y,PLAC,40)&&!inPolana(x,y,6);
 function addTree(x,y,sp,age,extra={}){const t={id:trees.length,x,y,sp,age,st:STAND,seed:(hash(x|0,y|0,77)*1e6)|0,marked:false,q:qualityFor(x,y,extra.planted),qk:false,gb:0,...extra};t.rI=Math.round(crownR(t));trees.push(t);bucketAdd(t);return t}
 // Zapis sprzed 0.6.3: dosadzenie lasu przy drogach (węższe pobocza) i na drogach usuniętych w 0.6.3.
 // Tylko tam, gdzie w promieniu 20 px nie ma drzewa ani pniaka i nie ma powierzchni gracza (skip).

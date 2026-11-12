@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.7.0 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.7.2 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -64,7 +64,8 @@ Gra zapisuje się sama co 30 s (localStorage).
 | `src/map.js` | mapa jako dane: drogi, oddziały, leśniczówka, składnica, polana, uprawa, kolizje | wzorzec z farmy |
 | `src/roads.js` | graf dróg, Dijkstra, trasa do dowolnego punktu | nowe |
 | `src/forest.js` | drzewa jako dane, gatunki, wzrost, wycinka, malowanie w kawałkach 256 px | nowe |
-| `src/paint.js` | podłoże: ściółka, pobocza, drogi, budynki | wzorzec `world.js` |
+| `src/paint.js` | podłoże: ściółka, pobocza, drogi, plac | wzorzec `world.js` |
+| `src/lodge.js` | zabudowa leśniczówki na osobnej warstwie (lato/zima) | nowe w 0.7.2 |
 | `src/ents.js` | rejestr obiektów, siatki nawigacji, zagrożenia dla zwierząt | nowe (z `obstacles.js`) |
 | `src/life/agents.js` | pojazdy, piesi ze scenariuszem, zwierzyna | z `life.js` + `tow.js` farmy |
 | `src/life/sprites.js` | wygląd pojazdów, ludzi, zwierząt | część z `life.js` farmy |
@@ -182,3 +183,11 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
 - **Wieża przeciwpożarowa** (6000 zł): pożary rozwijają się wolniej. **Zakaz wstępu do lasu:** brak grzybiarzy, spacerowiczów i rowerzystów, mniejsze ryzyko pożaru; zdejmowany automatycznie, gdy zagrożenie spada.
 - Panel leśniczówki (L) ma nową sekcję „Zdrowie lasu”; zamierające drzewa widać na mapie leśnej (Tab) jako pomarańczowe punkty.
 - Zapis z 0.6.4 działa (nowe pola są opcjonalne).
+
+## Zmiany w 0.7.2 „Porządek w terenie”
+- **Powierzchnie:** wielokąt jako dodatek do prostokąta (klik = kolejne punkty, Enter / klik w pierwszy punkt = zamknij, Esc = anuluj). Drogi, rowy i podwórze są wyłączone z powierzchni; pług orze tylko wewnątrz (z uwrociami), sadzonki ok. 3,5 m od drogi, ok. 2 m od rowu; ogrodzenie ma bramy przy drogach.
+- **Mapa:** szlaban DP3 stoi na poboczu (nie na drodze), strumień omija skrzyżowania, wiatrołomy wyglądają jak dwa powalone pnie, kornik rozprzestrzenia się wolniej.
+- **Leśniczówka** w stylu murowanej gajówki (biały tynk, czerwona dachówka, wiata z panelami PV, drewutnia), plac z płyt z oznaczonymi stanowiskami. Zabudowa leży na osobnej warstwie z wariantem zimowym (śnieg na dachach zamiast białej mgły). Ciągnik wraca na nowy plac.
+- **Szkółka** jest częścią podwórza leśniczówki (dawna „Uprawa” zniknęła); kupno dodaje grządki z sadzonkami i tunel foliowy.
+- **Składnice drewna:** jedno miejsce = jeden stos (tartak: grube kłody z pomarańczową etykietą, papierówka: cieńsze z niebieską, opał: luźna pryzma obok). Stosy leżą poza jezdnią i z dala od skrzyżowań; stare zapisy są automatycznie przenoszone. Kliknięcie pokazuje rozbicie na sortymenty.
+- Zapis z 0.7.0 działa.

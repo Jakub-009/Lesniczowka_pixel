@@ -4,7 +4,7 @@ import {treeAt,STAND,STUMP,CUT_AGE,treesIn,testGrow} from './forest.js';
 import {HOUSE,inRect} from './map.js';
 import {E} from './ents.js';
 import {J,toggleMark,togglePlant,dispatchCrew,orderTruck} from './jobs.js';
-import {plotAt,createPlot,planAreaPlants} from './renew.js';
+import {plotAt,createPlot,createPolyPlot,planAreaPlants} from './renew.js';
 import {setTool,hud,toggleBase} from './ui.js';
 import {toggleMap,mapOpen} from './mapview.js';
 import {feederAt} from './life/fauna.js';
@@ -38,6 +38,7 @@ function undo(){
  else if(u.type==='plant'){const set=new Set(u.list.filter(p=>!p.assigned));J.plants=J.plants.filter(p=>!set.has(p));toast('Cofnięto plan '+set.size+' sadzonek.')}
  hud();
 }
+function finishPoly(){const P=state.poly;state.poly=null;if(!P)return;const p=createPolyPlot(P);if(p)state.selected=p;hud()}
 export function bindInput(zoomFn){
  C.addEventListener('contextmenu',e=>e.preventDefault());
  // w narzędziach wycinki, sadzenia i odnowienia lewy przycisk zaznacza obszar; mapę przesuwa prawy (albo lewy w podglądzie)
@@ -62,21 +63,24 @@ export function bindInput(zoomFn){
     if(list.length)UNDO.push({type:'mark',list});
     toast(list.length?'Wyznaczono '+list.length+' drzew do wycinki. E — wyślij ekipę. Ctrl+Z — cofnij, Shift + przeciągnięcie — odznacz.':'W zaznaczeniu nie ma drzew do wycinki (od '+CUT_AGE+' lat).')}
    else if(state.tool==='plant'){const before=J.plants.length,n=planAreaPlants(x0,y0,x1,y1);if(n)UNDO.push({type:'plant',list:J.plants.slice(before)});toast(n?'Zaplanowano '+n+' sadzonek w rzędach. E — wyślij ekipę. Ctrl+Z — cofnij.':'Brak wolnych miejsc na sadzonki.')}
-   else if(state.tool==='plot'){const p=createPlot(x0,y0,x1,y1);if(p)state.selected=p}
+   else if(state.tool==='plot'){if(!state.poly){const p=createPlot(x0,y0,x1,y1);if(p)state.selected=p}}
    hud();return}
   if(d.drag)return;
-  if(d.btn===2){setTool('select');state.selected=null;return}
+  if(d.btn===2){state.poly=null;setTool('select');state.selected=null;return}
   if(!active())return;
   const [x,y]=toWorld(e);
   if(state.tool==='mark'){const t=treeAt(x,y,t=>t.st===STAND);if(t){toggleMark(t);state.selected=t}else toast('Kliknij koronę drzewa.')}
   else if(state.tool==='plant')togglePlant(x,y);
-  else if(state.tool==='plot'){const p=plotAt(x,y);if(p)state.selected=p;else toast('Przeciągnij, aby wyznaczyć powierzchnię odnowieniową.')}
+  else if(state.tool==='plot'){
+   if(state.poly){const P=state.poly;if(P.length>=3&&Math.hypot(x-P[0][0],y-P[0][1])<16)finishPoly();else P.push([x,y])}
+   else{const p=plotAt(x,y);if(p)state.selected=p;else{state.poly=[[x,y]];toast('Wielokąt: klikaj kolejne narożniki. Enter albo klik w pierwszy punkt kończy, Esc anuluje. (Prostokąt: przeciągnij.)')}}}
   else{const p=pick(x,y);if(p&&p.isHouse){toggleBase(true);return}state.selected=p;state.follow=null}
   hud();
  });
  C.addEventListener('wheel',e=>{e.preventDefault();zoomFn(e.deltaY>0?1:-1,toWorld(e))},{passive:false});
  addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
+  if(state.poly&&state.playing){if(k==='enter'){e.preventDefault();finishPoly();return}if(k==='escape'){state.poly=null;toast('Wielokąt anulowany.');return}}
   if((e.ctrlKey||e.metaKey)&&k==='z'&&state.playing&&!state.modal){e.preventDefault();undo();return}
   if(['arrowup','arrowdown','arrowleft','arrowright',' ','f1','f3','tab'].includes(k))e.preventDefault();
   if(!state.playing){if(k==='enter')$('#start').click();return}

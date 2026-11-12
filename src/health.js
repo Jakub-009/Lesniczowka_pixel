@@ -35,7 +35,7 @@ export function seedOutbreak(){
  for(let k=0;k<500;k++){const t=trees[(rand()*trees.length)|0];
   if(!t||t.st!==STAND||t.sp!=='swierk'||t.age<20||t.kb||inRect(t.x,t.y,YARD,80))continue;
   const nb=treesIn(t.x-80,t.y-80,t.x+80,t.y+80).filter(q=>q.st===STAND&&q.sp==='swierk'&&q.age>=20&&!q.kb);
-  if(nb.length<3)continue;infect(t);for(const q of nb.slice(0,4))infect(q);HL.stats.outbreaks++;return}
+  if(nb.length<3)continue;infect(t);for(const q of nb.slice(0,3))infect(q);HL.stats.outbreaks++;return}
 }
 function beetleTick(){
  const se=cal.season(),sub=1/8,trap=trapsOn(),now=state.days;
@@ -46,11 +46,11 @@ function beetleTick(){
   if(t.st!==STAND||!t.kb||t.kb>=4)continue;
   const age=now-t.kbT;
   if(t.kb===1&&age>(trap?.4:.8)){t.kb=2;dirtyTree(t);
-   if(!E.incidents.some(q=>q.type==='beetle'&&open_(q)&&Math.hypot(q.x-t.x,q.y-t.y)<320))
-    report('beetle',t.x,t.y,(trap?'Pułapki feromonowe wykazały nalot kornika — ':'Zamierające świerki — podejrzenie kornika w ')+odd(t.x,t.y)+'.',{x:t.x,y:t.y,r:260,n:0})}
+   if(!E.incidents.some(q=>q.type==='beetle'&&open_(q)&&Math.hypot(q.x-t.x,q.y-t.y)<420))
+    report('beetle',t.x,t.y,(trap?'Pułapki feromonowe wykazały nalot kornika — ':'Zamierające świerki — podejrzenie kornika w ')+odd(t.x,t.y)+'.',{x:t.x,y:t.y,r:340,n:0})}
   if(t.kb===2&&age>2.6){t.kb=3;dirtyTree(t)}
   if(t.kb===3&&age>7){stump(t);continue}
-  if(t.kb<3&&rand()<.25*(1+HL.dry*1.5)*(trap?.45:1)*sub){
+  if(t.kb<3&&rand()<.16*(1+HL.dry*1.2)*(trap?.45:1)*sub){
    const nb=treesIn(t.x-110,t.y-110,t.x+110,t.y+110).filter(q=>q.st===STAND&&!q.kb&&q.age>=20&&(q.sp==='swierk'||(q.sp==='sosna'&&q.age>50&&rand()<.2)));
    if(nb.length)infect(nb[(rand()*nb.length)|0])}
   if(t.kb===3)dead++;
@@ -167,8 +167,16 @@ export function drawHealth(g){
  }
  for(const b of HL.blocks){if(!vis(b.x,b.y))continue;
   g.save();g.translate(b.x,b.y);g.rotate(b.ang);
-  for(let k=-3;k<=3;k++){R_(g,-30,k*5-2,60,4,k%2?'#6b4a2a':'#7d5a34');R_(g,-30,k*5-2,60,1,'#9a7448')}
-  for(let k=0;k<18;k++)R_(g,-26+k*3+hash(k,1,9)*2,hash(k,2,9)*28-14,4,2,k%2?'#3d7350':'#2a4a3a');
+  // dwa powalone pnie na ukos: korona z jednej strony, tarcza korzeniowa z drugiej, połamane gałęzie
+  const line=(x0,y0,x1,y1,w,c)=>{g.strokeStyle=c;g.lineWidth=w;g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.stroke()};
+  const tree=(x0,y0,x1,y1,w,sd)=>{
+   line(x0,y0,x1,y1,w+2,'#2a1f16');line(x0,y0,x1,y1,w,'#5a4228');line(x0,y0,x1,y1,Math.max(1,w-4),'#7d5c3a');
+   const dx=x1-x0,dy=y1-y0,l=Math.hypot(dx,dy);
+   for(let k=0;k<9;k++){const t=.35+hash(k,sd,1)*.6,px=x0+dx*t,py=y0+dy*t,a=Math.atan2(dy,dx)+(k%2?1:-1)*(.5+hash(k,sd,2)*.8),L=7+hash(k,sd,3)*10;line(px,py,px+Math.cos(a)*L,py+Math.sin(a)*L,1,'#4a3524')}
+   for(let k=0;k<34;k++){const t=.55+hash(k,sd,4)*.5,px=x0+dx*t+(hash(k,sd,5)-.5)*18,py=y0+dy*t+(hash(k,sd,6)-.5)*18;g.fillStyle=k%3?'#2d5a3e':'#3d7350';g.fillRect(Math.round(px),Math.round(py),3+(k%2),2)}
+   g.fillStyle='#4a3a28';g.beginPath();g.ellipse(x0,y0,w*1.6,w*1.2,Math.atan2(dy,dx),0,6.283);g.fill();g.fillStyle='#6b563d';g.beginPath();g.ellipse(x0-dx/l*2,y0-dy/l*2,w*1.2,w*.9,Math.atan2(dy,dx),0,6.283);g.fill();
+   for(let k=0;k<6;k++){const a=Math.atan2(dy,dx)+Math.PI+(k-2.5)*.5;line(x0,y0,x0+Math.cos(a)*10,y0+Math.sin(a)*10,1,'#5a4630')}};
+  tree(34,10,-34,-14,5,Math.round(b.x)%97);tree(-26,16,40,-4,4,Math.round(b.y)%89);
   g.restore()}
 }
 export function drawWeather(g){

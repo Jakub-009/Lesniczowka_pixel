@@ -1,7 +1,7 @@
 // Kto mieszka w lesie i kto do niego przyjeżdża: zwierzyna w grupach, ruch na drodze, grzybiarze, spacerowicze, rowerzyści, myśliwy.
 import {cal,hash,state,clamp,SEASON_DAYS,toast} from '../core.js';
 import {banned} from '../health.js';
-import {EDGES,NODES,POLANA,UPRAWA,AMBONA,roadClearance,oddzial} from '../map.js';
+import {EDGES,NODES,POLANA,AMBONA,roadClearance,oddzial} from '../map.js';
 import {goalNode,pointOn,nearestRoad,ENTRY,exitNode} from '../roads.js';
 import {E,NAV} from '../ents.js';
 import {Vehicle,Ped,Wild,Group,rand} from './agents.js';
@@ -12,7 +12,7 @@ import {FA,cull,planLeft,likesNow} from './fauna.js';
 
 const CAR_COLS=['#8c9b95','#a4684f','#6f86a0','#b9a56a','#7a8f6f','#a8a6a0','#5a5f6a','#9a4a3a'];
 const pick=a=>a[Math.floor(rand()*a.length)];
-const LIKES=[[POLANA.x,POLANA.y],[POLANA.x-60,POLANA.y+70],[UPRAWA.x+UPRAWA.w+60,UPRAWA.y+100],[UPRAWA.x+150,UPRAWA.y-50],[1200,1400],[2950,1420],[1300,2120],[3100,760]];
+const LIKES=[[POLANA.x,POLANA.y],[POLANA.x-60,POLANA.y+70],[1420,780],[1110,630],[1200,1400],[2950,1420],[1300,2120],[3100,760]];
 export const groups=[];
 // Widoczna zwierzyna to reprezentacja populacji w obwodzie (FA.pop): mniej zwierząt na ekranie, ale ich liczba
 // rośnie i maleje razem z populacją — po rozrodzie, odstrzałach koła łowieckiego, wilkach i zimie.

@@ -1,14 +1,14 @@
 // Zwierzyna (0.5): liczebność w obwodzie (widać tylko jej część), rozród wiosną, wilki, plan łowiecki koła,
 // paśniki i dokarmianie zimą, zgryzanie niegrodzonych sadzonek, rykowisko jesienią.
 import {state,cal,toast,clamp,zl,SEASONS,displayNumber} from '../core.js';
-import {POLANA,UPRAWA,FEEDERS,inRect,roadClearance} from '../map.js';
+import {POLANA,FEEDERS,inRect,roadClearance} from '../map.js';
 import {trees,STAND,removeTree,dirtyTree,SAPLING_AGE} from '../forest.js';
 import {E} from '../ents.js';
 import {rand} from './agents.js';
 import {ECO,bumpDamage} from '../economy.js';
 import {sfx} from '../sound.js';
 import {feedTask} from '../incidents.js';
-import {R,seasonKey} from '../renew.js';
+import {R,seasonKey,inShape} from '../renew.js';
 
 export const NAMES={roe:'sarny',deer:'jelenie',boar:'dziki',wolf:'wilki',fox:'lisy',hare:'zające'};
 const ONE={roe:'sarnę',deer:'jelenia',boar:'dzika'};
@@ -65,9 +65,9 @@ export function updateFauna(dt){
  fT+=dt;if(fT>1){fT=0;FA.carcasses=FA.carcasses.filter(c=>!c.dead)}
 }
 // ── koniec pory roku (wywoływane z raportu) ──
-function fenced(t){if(inRect(t.x,t.y,UPRAWA,-2))return true;return R.plots.some(p=>p.fence==='done'&&inRect(t.x,t.y,p,-1))}
+function fenced(t){return R.plots.some(p=>p.fence==='done'&&inShape(p,t.x,t.y,-1))}
 // repelent naniesiony w kończącej się porze roku
-const repelled=t=>R.plots.some(p=>p.repel===seasonKey()-1&&inRect(t.x,t.y,p,-1));
+const repelled=t=>R.plots.some(p=>p.repel===seasonKey()-1&&inShape(p,t.x,t.y,-1));
 function seasonEnd(){
  const se=(cal.season()+3)%4,P=FA.pop,out={};const before={...P};
  // drapieżnictwo wilków (gatunek chroniony — nie poluje się na nie)

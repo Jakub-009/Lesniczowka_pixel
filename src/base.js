@@ -129,13 +129,22 @@ export function updateBase(dt){
 // ── rysowanie: szkółka, garaż z magazynem, opał do odbioru ──
 const R_=(g,x,y,w,h,c)=>{g.fillStyle=c;g.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h))};
 export function drawBase(g){
- if(BASE.nursery){
-  const N=NURSERY,f=ECO.nursery?clamp(ECO.nursery.stock/1200,0,1):0,snow=cal.season()===3;
-  R_(g,N.x-3,N.y-3,N.w+6,N.h+6,'#6e5a42');R_(g,N.x,N.y,N.w,N.h,snow?'#dfe6e8':'#7a6248');
-  for(let r=0;r<6;r++){const y=N.y+6+r*12;R_(g,N.x+6,y,N.w-12,8,snow?'#cfd8da':'#5e4a36');
-   const n=Math.round((N.w-16)/5*clamp(f*3-r*.1,0,1));for(let k=0;k<n;k++){R_(g,N.x+8+k*5,y+2,3,4,snow?'#7a9a7a':'#3f744c');R_(g,N.x+9+k*5,y+2,1,2,'#7fb06a')}}
-  g.strokeStyle='#c4ccc8';g.lineWidth=1;g.strokeRect(N.x-3.5,N.y-3.5,N.w+7,N.h+7);
-  outlinedDraw(g,N.x+N.w-28,N.y-6,G=>{R_(G,-1,-2,2,8,'#6b563d');R_(G,-16,-10,32,9,'#2f5a3a');text3(G,'SZKÓŁKA',-14,-8,'#f1e6c2')},'#1d2b24');
+ {   // szkółka na podwórzu (0.7.2): grządki z sadzonkami i tunel foliowy; przed zakupem tylko wygrodzona, przekopana ziemia
+  const N=NURSERY,own=BASE.nursery,f=own&&ECO.nursery?clamp(ECO.nursery.stock/1200,0,1):0,snow=cal.season()===3;
+  R_(g,N.x-3,N.y-3,N.w+6,N.h+6,'#5d4a36');R_(g,N.x,N.y,N.w,N.h,snow?'#e3eaed':'#6f5740');
+  if(own){
+   const bw=N.w-52;
+   for(let r=0;r<6;r++){const y=N.y+5+r*16;R_(g,N.x+5,y,bw,10,snow?'#d2dce0':'#5a4531');
+    const n=Math.round((bw-6)/5*clamp(f*3-r*.1,0,1));for(let k=0;k<n;k++){R_(g,N.x+7+k*5,y+2,3,6,snow?'#7a9a7a':'#3f744c');R_(g,N.x+8+k*5,y+2,1,3,'#7fb06a')}}
+   // tunel foliowy z łukowymi żebrami
+   const tx=N.x+N.w-44,ty=N.y+5,th=N.h-10;R_(g,tx-2,ty-2,40,th+4,'#00000030');R_(g,tx,ty,36,th,snow?'#f1f6f9':'#d8e6e2');
+   g.globalAlpha=.55;R_(g,tx+3,ty+2,30,th-4,snow?'#ffffff':'#e8f2ee');g.globalAlpha=1;
+   for(let y=ty;y<ty+th;y+=9)R_(g,tx,y,36,1,snow?'#c3d0d8':'#a9bdb6');R_(g,tx+17,ty,2,th,snow?'#ffffff':'#f4faf7');
+   if(!snow)for(let k=0;k<4;k++)R_(g,tx+6+k*7,ty+th-6,4,5,'#4a8a50');
+   R_(g,tx,ty,2,th,'#8a9a96');R_(g,tx+34,ty,2,th,'#8a9a96');
+  }
+  g.strokeStyle='#8a6a48';g.lineWidth=1;g.strokeRect(N.x-3.5,N.y-3.5,N.w+7,N.h+7);
+  outlinedDraw(g,N.x+34,N.y-4,G=>{R_(G,-1,-2,2,8,'#6b563d');R_(G,-16,-10,32,9,'#2f5a3a');text3(G,'SZKÓŁKA',-14,-8,'#f1e6c2')},'#1d2b24');
  }
  if(BASE.garage){
   const C=CARPORT;R_(g,C.x+6,C.y+6,C.w,C.h,'#2b3b2a50');

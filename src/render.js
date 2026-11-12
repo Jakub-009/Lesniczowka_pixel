@@ -12,6 +12,7 @@ import {drawFeeders} from './life/fauna.js';
 import {birds} from './life/sprites.js';
 import {NODES,EDGES,YARD,HOUSE} from './map.js';
 import {drawPlots,drawFences} from './renew.js';
+import {drawLodge} from './lodge.js';
 
 const vis=(x,y,r=60)=>x>camera.x-r&&x<camera.x+VIEW.w+r&&y>camera.y-r&&y<camera.y+VIEW.h+r;
 function blitGround(cv=ground){
@@ -102,6 +103,7 @@ export function drawWorld(){
  ctx.fillStyle='#2b3b2a';ctx.fillRect(Math.floor(camera.x),Math.floor(camera.y),VIEW.w+1,VIEW.h+1);
  blitGround();blitMarks();
  if(cal.season()===3){ctx.fillStyle='rgba(234,240,246,.5)';ctx.fillRect(Math.floor(camera.x),Math.floor(camera.y),VIEW.w+1,VIEW.h+1)}
+ drawLodge(ctx,cal.season()===3);
  drawForest(ctx,camera,VIEW.w,VIEW.h,'low');
  drawBase(ctx);drawHealth(ctx);drawTrash();drawFeeders(ctx);drawFences(ctx);drawGroundItems(ctx);drawLying();
  for(const a of E.animals)if(!a.dead)a.draw();

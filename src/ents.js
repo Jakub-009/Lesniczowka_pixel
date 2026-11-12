@@ -1,12 +1,12 @@
 // Rejestr wszystkiego, co żyje i się rusza, oraz siatki nawigacji (piesi, dzika zwierzyna, podwórze).
 import {createNav} from './nav.js';
-import {pointBlocked,roadClearance,YARD,PLAC,UPRAWA,NURSERY,inRect,inWorld} from './map.js';
-import {R} from './renew.js';
+import {pointBlocked,roadClearance,YARD,PLAC,NURSERY,inRect,inWorld} from './map.js';
+import {R,inShape} from './renew.js';
 export const E={vehicles:[],people:[],animals:[],piles:[],trash:[],incidents:[],plants:[],ropes:[]};
 export const NAV={foot:null,wild:null,yard:null};
 // zwierzyna: nie wchodzi na podwórze, plac, do grodzeń (uprawa i ogrodzone powierzchnie) ani na drogę główną
-const wildOk=(x,y)=>inWorld(x,y,20)&&!pointBlocked(x,y,10)&&!inRect(x,y,YARD,70)&&!inRect(x,y,PLAC,40)&&!inRect(x,y,UPRAWA,14)&&!inRect(x,y,NURSERY,16)&&roadClearance(x,y,['main'])>40
- &&!R.plots.some(p=>p.fence==='done'&&inRect(x,y,p,14));
+const wildOk=(x,y)=>inWorld(x,y,20)&&!pointBlocked(x,y,10)&&!inRect(x,y,YARD,70)&&!inRect(x,y,PLAC,40)&&!inRect(x,y,NURSERY,16)&&roadClearance(x,y,['main'])>40
+ &&!R.plots.some(p=>p.fence==='done'&&inShape(p,x,y,14));
 // Po ogrodzeniu powierzchni: przeliczenie siatki zwierzyny i wyprowadzenie zwierząt, które zostały w środku.
 export function rebuildWild(){
  NAV.wild.build(wildOk);

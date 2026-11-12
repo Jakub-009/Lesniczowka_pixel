@@ -2,8 +2,8 @@
 // drogi, oddziały, powierzchnie odnowieniowe, stosy i pojazdy. Klik przenosi kamerę w to miejsce.
 import {WORLD,camera,VIEW,$} from './core.js';
 import {trees,STAND,STUMP,SAPLING_AGE,crownR,QUAL} from './forest.js';
-import {NODES,EDGES,STANDS,oddzial,YARD,POLANA,UPRAWA,PLAC,WETLANDS,STREAM,FEEDERS} from './map.js';
-import {R} from './renew.js';
+import {NODES,EDGES,STANDS,oddzial,YARD,POLANA,PLAC,WETLANDS,STREAM,FEEDERS} from './map.js';
+import {R,outline} from './renew.js';
 import {J} from './jobs.js';
 import {U} from './incidents.js';
 import {centerOn} from './ui.js';
@@ -43,8 +43,7 @@ function draw(){
   g.fillStyle=mode==='sp'?SPC[t.sp]:mode==='q'?(t.qk&&t.age>=SAPLING_AGE?QUAL[t.q].col:'#9aa08a'):ageCol(t.age);const r=t.age<SAPLING_AGE?1:Math.max(2,Math.min(6,crownR(t)*1.6/K));g.fillRect(x-r/2,y-r/2,r,r);
  }
  g.lineWidth=1;
- g.strokeStyle='#c4ccc8';g.strokeRect(UPRAWA.x/K,UPRAWA.y/K,UPRAWA.w/K,UPRAWA.h/K);
- for(const p of R.plots){g.strokeStyle=p.fence==='done'?'#e8f0f0':'#f1e6c2';g.setLineDash(p.fence==='done'?[]:[3,2]);g.strokeRect(p.x/K+.5,p.y/K+.5,p.w/K,p.h/K);g.setLineDash([])}
+ for(const p of R.plots){g.strokeStyle=p.fence==='done'?'#e8f0f0':'#f1e6c2';g.setLineDash(p.fence==='done'?[]:[3,2]);g.beginPath();outline(p).forEach(([x,y],i)=>i?g.lineTo(x/K,y/K):g.moveTo(x/K,y/K));g.closePath();g.stroke();g.setLineDash([])}
  for(const s of J.stacks){if(s.vol<.05)continue;g.fillStyle='#8a4a1e';g.fillRect(s.x/K-2,s.y/K-2,4,4)}
  for(const C of J.crews)if(C.van&&!C.van.dead){g.fillStyle='#f0a030';g.fillRect(C.van.pos[0]/K-2,C.van.pos[1]/K-2,4,4)}
  if(J.skid.trac&&!J.skid.trac.dead){const v=J.skid.trac;g.fillStyle='#e0d030';g.fillRect(v.pos[0]/K-2,v.pos[1]/K-2,4,4)}

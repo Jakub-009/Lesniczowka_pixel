@@ -1,7 +1,7 @@
 // Prace leśne (0.5): wyznaczanie drzew, ekipy pilarzy A i B (ścinka, wyrzynka, sadzenie), zrywka szlakami do stosów przy drogach,
 // ciężarówka z żurawiem (HDS) objeżdżająca stosy. Wszystko jeździ samo — gracz wydaje polecenia i pilnuje budżetu.
 import {state,toast,particle,clamp,zl,displayNumber,ctx,cal,rect} from './core.js';
-import {PLAC,PLAC_SPOTS,roadClearance,oddzial,inRect,YARD,UPRAWA,pointBlocked,NODES,EDGES} from './map.js';
+import {PLAC,PLAC_SPOTS,roadClearance,oddzial,inRect,YARD,pointBlocked,NODES,EDGES,ptAt} from './map.js';
 import {nearestRoad,goalNode,edgeOf,pointOn,ENTRY,exitNode} from './roads.js';
 import {paintRut} from './paint.js';
 import {E,NAV} from './ents.js';
@@ -157,22 +157,36 @@ export function fireCrewB(){
  J.crews[0].tasks.push(...B.tasks,...B.held);J.crews.pop();toast('Umowa z ekipą B rozwiązana.');
 }
 
-// ── stosy drewna przy drogach ──
-// Drewno nie trafia na jedną składnicę: zrywka układa stosy na poboczu drogi najbliżej szlaku, a ciężarówka je objeżdża.
+// ── składnice drewna przy drogach (0.7.2) ──
+// Jedno miejsce = jedna składnica: wszystkie sortymenty leżą w jednym stosie (rozróżnione grubością kłód i kolorem etykiet), opał obok jako luźna pryzma.
+// Miejsce jest zawsze poza jezdnią i z dala od skrzyżowań (geometria wg krzywej drogi, nie cięciwy).
 const STACK_CAP=40;
-function stackPos(e,s){const A=NODES[e.a],B=NODES[e.b],dx=(B[0]-A[0])/e.len,dy=(B[1]-A[1])/e.len,h=Math.atan2(dx,-dy),off=e.w/2+14,[cx,cy]=pointOn(e,s);
- return{x:cx+Math.cos(h)*off,y:cy+Math.sin(h)*off,ax:dx,ay:dy,nx:Math.cos(h),ny:Math.sin(h)}}
-// 0.6.2: osobny stos dla każdego sortymentu; stosy jednego miejsca leżą obok siebie wzdłuż drogi
-const SORT_OFF={tart:0,pap:44,opal:-44};
+function placeAt(e,s,side){
+ const [cx,cy,tx,ty]=ptAt(e,s),nx=-ty*side,ny=tx*side,off=e.w/2+13;
+ return{x:cx+nx*off,y:cy+ny*off,ax:tx,ay:ty,nx,ny};
+}
+function pileOk(P){   // narożniki stosu (długość 40, głębokość 30 w stronę lasu) poza drogami, podwórzem i placem
+ for(const [al,d] of [[-22,-2],[22,-2],[-22,32],[22,32],[0,32],[0,-2]]){
+  const x=P.x+P.ax*al+P.nx*d,y=P.y+P.ay*al+P.ny*d;
+  if(roadClearance(x,y)<7||inRect(x,y,YARD,6)||inRect(x,y,PLAC,10)||pointBlocked(x,y,3))return false}
+ return true;
+}
+function spotAt(e,s0){
+ // istniejąca składnica na tej drodze w pobliżu — dołączamy do niej
+ for(const q of J.stacks)if(q.edge===e&&Math.abs(q.s-s0)<110)return{s:q.s,P:{x:q.x,y:q.y,ax:q.ax,ay:q.ay,nx:q.nx,ny:q.ny}};
+ for(let k=0;k<14;k++){const s=clamp(s0+(k%2?-1:1)*Math.ceil(k/2)*18,70,e.len-70);
+  for(const side of k%2?[1,-1]:[-1,1]){const P=placeAt(e,s,side);if(pileOk(P)&&!J.stacks.some(q=>Math.hypot(q.x-P.x,q.y-P.y)<60))return{s,P}}}
+ const s=clamp(s0,70,e.len-70);return{s,P:placeAt(e,s,1)};
+}
 export function stackFor(x,y,sort='tart'){
  const rp=nearestRoad(x,y,['forest'],{margin:60});
  let best=null;for(const st of J.stacks){if((st.sort||'tart')!==sort)continue;const d=Math.hypot(st.x-rp.x,st.y-rp.y);if(d<170&&st.vol<STACK_CAP-2&&(!best||d<best.d))best={st,d}}
  if(best)return best.st;
- // nowy stos: nie bliżej niż 38 px od innego
- let s=clamp(rp.s+SORT_OFF[sort],50,rp.edge.len-50);for(let k=0;k<8;k++){const p=stackPos(rp.edge,s);if(!J.stacks.some(q=>Math.hypot(q.x-p.x,q.y-p.y)<38))break;s=clamp(s+(k%2?-1:1)*(k+1)*22,50,rp.edge.len-50)}
- const P=stackPos(rp.edge,s),st={id:J.nextStack++,edge:rp.edge,s,...P,vol:0,value:0,sort,truck:sort!=='opal',odd:oddzial(P.x,P.y)};J.stacks.push(st);return st;
+ const {s,P}=spotAt(rp.edge,rp.s),st={id:J.nextStack++,edge:rp.edge,s,...P,vol:0,value:0,sort,truck:sort!=='opal',odd:oddzial(P.x,P.y)};J.stacks.push(st);return st;
 }
-export function restoreStack(edgeId,s,vol,value,sort='tart',truck){const e=EDGES.find(q=>q.id===edgeId);if(!e)return null;const P=stackPos(e,s),st={id:J.nextStack++,edge:e,s,...P,vol,value,sort,truck:truck??sort!=='opal',odd:oddzial(P.x,P.y)};J.stacks.push(st);return st}
+// wczytanie zapisu: stare stosy (po jednym na sortyment, mogły leżeć na jezdni) trafiają na nowe składnice
+export function restoreStack(edgeId,s0,vol,value,sort='tart',truck){const e=EDGES.find(q=>q.id===edgeId);if(!e)return null;const {s,P}=spotAt(e,s0),st={id:J.nextStack++,edge:e,s,...P,vol,value,sort,truck:truck??sort!=='opal',odd:oddzial(P.x,P.y)};J.stacks.push(st);return st}
+export const spotOf=st=>J.stacks.filter(q=>q.vol>.05&&Math.hypot(q.x-st.x,q.y-st.y)<8);
 export function addToStack(st,vol,value){st.vol+=vol;st.value+=value}
 export function takeFromStack(st,vol){const q=Math.min(vol,st.vol),val=st.vol>0?st.value*q/st.vol:0;st.vol-=q;st.value-=val;if(st.vol<.05&&!J.truck.route.includes(st)&&J.truck.cur!==st)J.stacks=J.stacks.filter(z=>z!==st);return{q,val}}
 
@@ -187,7 +201,7 @@ const PLAC_EDGE=edgeOf('a3','l1');
 const homeLabel=()=>MACH[J.skid.mach].name+' (na placu przy leśniczówce)';
 function parkAtPlac(v,cb){
  const sp=PLAC_SPOTS[0],sRoad=clamp(NODES.a3[0]-(sp.x+70),20,PLAC_EDGE.len-20);
- v.goTo({edge:PLAC_EDGE,s:sRoad},{park:false,onArrive:()=>v.driveOff([[sp.x+22,350],[sp.x-14,380]],{onArrive:()=>{v.v=0;v.parked=true;cb&&cb()}})});
+ v.goTo({edge:PLAC_EDGE,s:sRoad},{park:false,onArrive:()=>v.driveOff([[sp.x+22,sp.y-28],[sp.x-14,sp.y+2]],{onArrive:()=>{v.v=0;v.parked=true;cb&&cb()}})});
 }
 function spawnMachine(kind,toPlac){
  const S=J.skid,M=MACH[kind];S.mach=kind;
@@ -373,20 +387,32 @@ export function updateJobs(dt){
 // ── rysowanie: stosy przy drogach, kłody w lesie, liny i żurawie ──
 const rect2=(g,x,y,w,h,c)=>{g.fillStyle=c;g.fillRect(Math.round(x),Math.round(y),w,h)};
 export function drawStacks(g){
- for(const st of J.stacks){
-  if(st.vol<.05)continue;
-  const sort=st.sort||'tart',L={tart:34,pap:24,opal:13}[sort],th=sort==='tart'?4:3,n=clamp(Math.ceil(st.vol*(sort==='tart'?1.1:1.5)),1,16),{x,y,ax,ay,nx,ny}=st;
-  g.save();g.translate(Math.round(x),Math.round(y));g.rotate(Math.atan2(ay,ax));   // oś X wzdłuż drogi
-  const side=Math.sign(nx*-ay+ny*ax)||1;   // na zewnątrz drogi
-  g.fillStyle='#2b3b2a40';g.fillRect(-L/2+3,3*side,L,n*th*side);
-  for(const ox of sort==='opal'?[-2]:[-10,8])rect2(g,-L/2+ox+(sort==='opal'?6:8),-2*side,3,(n*th+4)*side,'#5a4634');   // podkłady
-  for(let k=0;k<n;k++){const yy=side>0?k*th:-(k+1)*th,top=k>=n-3;
-   const bark=sort==='opal'?(k%3?'#6e5a48':'#8a7a68'):sort==='pap'?'#7a6048':'#9a6a40';
-   rect2(g,-L/2,yy,L,th,'#4a3624');rect2(g,-L/2,yy+1,L,th-2,top?'#b8844a':bark);rect2(g,-L/2,yy,2,th,'#e3c08a');rect2(g,L/2-2,yy,2,th,'#d8b47c')}
-  if(st.truck===false&&sort==='opal'){rect2(g,L/2+2,-8*side-2,2,8,'#6b563d');rect2(g,L/2-1,-10*side-3,8,5,'#e8e0c8')}   // tabliczka „opał dla ludności”
+ const spots=new Map();
+ for(const st of J.stacks){if(st.vol<.05)continue;const k=Math.round(st.x)+','+Math.round(st.y);let o=spots.get(k);if(!o)spots.set(k,o={st,tart:0,pap:0,opal:0,own:false});o[st.sort||'tart']+=st.vol;if((st.sort||'tart')==='opal'&&st.truck===false)o.own=true}
+ for(const o of spots.values()){
+  const {x,y,ax,ay,nx,ny}=o.st,side=Math.sign(nx*-ay+ny*ax)||1;
+  g.save();g.translate(Math.round(x),Math.round(y));g.rotate(Math.atan2(ay,ax));   // oś X wzdłuż drogi, +Y/−Y = od drogi do lasu wg side
+  const rt=o.tart>.05?clamp(Math.ceil(o.tart/4.5),1,5):0,rp=o.pap>.05?clamp(Math.ceil(o.pap/4.5),1,4):0,depth=rt*4+rp*3+(rt&&rp?1:0),L=36;
+  // utwardzone mijsce pod stosem
+  if(rt||rp){g.fillStyle='#a8996f';g.fillRect(-L/2-5,side>0?-3:-depth-5,L+10,depth+8);g.fillStyle='#8a7c58';g.fillRect(-L/2-5,side>0?depth+4:-depth-5,L+10,1)}
+  let off=0;
+  const row=(th,len,bark,top,tag)=>{const yy=side>0?off:-off-th;
+   g.fillStyle='#2b3b2a40';if(off===0)g.fillRect(-len/2+3,side>0?-1:-th-1,len,th+3);
+   rect2(g,-len/2,yy,len,th,'#4a3624');rect2(g,-len/2,yy+1,len,th-2,bark);if(top)rect2(g,-len/2+2,yy+1,len-4,1,top);
+   rect2(g,-len/2,yy,2,th,'#e3c08a');rect2(g,len/2-2,yy,2,th,'#d8b47c');rect2(g,len/2+1,yy,2,th>3?th-1:th,tag);off+=th};
+  for(let k=0;k<rt;k++)row(4,L,k%2?'#9a6a40':'#a8764a',k===rt-1?'#c28f55':null,'#e08a2a');       // tartak: grube kłody, etykieta pomarańczowa
+  if(rt&&rp)off+=1;
+  for(let k=0;k<rp;k++)row(3,L-8,k%2?'#7a6048':'#6e5640',k===rp-1?'#92765a':null,'#3a74c0');     // papierówka: cienkie, krótsze, etykieta niebieska
+  if(rt||rp){for(const px of [-12,10])rect2(g,px,side>0?-1:-depth-3,3,depth+4,'#5a4634')}
+  // opał: luźna pryzma polan obok stosu
+  if(o.opal>.05){const n=clamp(Math.round(o.opal*16),14,130),cx=L/2+17,cy=side*8;g.fillStyle='#2b3b2a45';g.beginPath();g.ellipse(cx+1,cy+side*2,8+Math.min(o.opal,8)*1.3,6+Math.min(o.opal,8)*.9,0,0,6.28);g.fill();
+   for(let i=0;i<n;i++){const a=hash2(i,1)*6.283,r=Math.sqrt(hash2(i,2))*(4+Math.min(o.opal,8)*1.1),px=cx+Math.cos(a)*r*1.3,py=cy+Math.sin(a)*r*.8-(r<4?1:0);
+    rect2(g,px-1.5,py,3,2,i%3?'#b8844a':'#8a6a48');if(i%5===0)rect2(g,px-1.5,py,1,2,'#e3c08a')}
+   if(o.own){rect2(g,cx-1,side*-6-2,2,9,'#6b563d');rect2(g,cx-1,side*-6-4,9,5,'#e8e0c8');rect2(g,cx+1,side*-6-3,5,1,'#3a6ab0')}}
   g.restore();
  }
 }
+const hash2=(i,k)=>{const v=Math.sin(i*127.1+k*311.7)*43758.5453;return v-Math.floor(v)};
 export function drawGroundItems(g){
  drawStacks(g);
  for(const p of E.piles)if(!p.dead)pileTop(g,p);

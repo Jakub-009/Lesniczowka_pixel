@@ -6,7 +6,7 @@ import {serializeTrees,loadTrees,trees,removeTree,STAND,fillVerges} from './fore
 import {inRect} from './map.js';
 import {roadClearance} from './map.js';
 import {J,MACH,restoreStack,hireCrewB,placeForwarder,stackFor} from './jobs.js';
-import {R,rowsOf} from './renew.js';
+import {R,passesOf} from './renew.js';
 import {paintTrail,paintFurrowRow,markAlpha} from './paint.js';
 import {Vehicle} from './life/agents.js';
 import {EDGES} from './map.js';
@@ -24,7 +24,7 @@ export function clearSave(){try{localStorage.removeItem(KEY)}catch(e){}}
 export function saveGame(){
  if(!state.playing)return;
  try{
-  const o={v:3,ver:'0.7.0',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
+  const o={v:3,ver:'0.7.2',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
    stacks:J.stacks.filter(s=>s.vol>.05).map(s=>[s.edge.id,Math.round(s.s),+s.vol.toFixed(2),Math.round(s.value),s.sort||'tart',s.truck!==false]),sold:J.sold,
    plants:J.plants.map(p=>[Math.round(p.x),Math.round(p.y),p.sp]),
    piles:E.piles.filter(p=>!p.dead).map(p=>[Math.round(p.x),Math.round(p.y),+p.a.toFixed(2),+p.vol.toFixed(3),p.sp,p.logs,p.bark,p.sorts||null,p.vals||null]),
@@ -53,7 +53,7 @@ export function loadGame(){
   J.plants=(o.plants||[]).map(([x,y,sp])=>({x,y,sp,assigned:false}));
   // powierzchnie odnowieniowe i szlaki: dane + ponowne malowanie bruzd i kolein (z wyblaknięciem według wieku)
   R.plots=(o.plots||[]).map(p=>({...p,state:p.state==='planting'||p.state==='queued'||p.state==='prepping'?(p.prepared?'prepared':'new'):p.state}));R.nextId=o.nextPlot||R.plots.length+1;
-  for(const p of R.plots)if(p.prepared){const age=state.days-(p.prepDay??state.days);if(age>25)continue;markAlpha(FADE**age);for(const y of rowsOf(p))paintFurrowRow(y,p.x+6,p.x+p.w-6)}
+  for(const p of R.plots)if(p.prepared){const age=state.days-(p.prepDay??state.days);if(age>25)continue;markAlpha(FADE**age);for(const q of passesOf(p))paintFurrowRow(q.y,q.x0,q.x1)}
   J.trails=(o.trails||[]).map(t=>Array.isArray(t)?{d:o.days,p:t}:t).filter(t=>state.days-t.d<25);
   for(const t of J.trails){markAlpha(FADE**(state.days-t.d));paintTrail(t.p)}
   markAlpha(1);

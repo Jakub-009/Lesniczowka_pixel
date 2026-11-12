@@ -90,7 +90,7 @@ export const YARD={x:150,y:150+LDY,w:410,h:300,gate:[270+LDY,330+LDY]};
 export const HOUSE={x:196,y:178+LDY,w:156,h:108};
 export const CARPORT={x:412,y:172+LDY,w:112,h:78};
 export const WOODSHED={x:172,y:352+LDY,w:72,h:70};
-export const GARDEN={x:272,y:330+LDY,w:124,h:92};
+export const NURSERY={x:262,y:1428,w:150,h:100};   // szkółka leśna na podwórzu (0.7.2)
 export const KENNEL={x:424,y:372+LDY,w:22,h:18};
 export const WELL={x:500,y:404+LDY};
 export const DOOR=[300,296+LDY];            // drzwi leśniczówki (od podwórza)
@@ -104,12 +104,10 @@ export const POLANA={x:2100,y:1060,r:150};
 export const polR=a=>POLANA.r*(1+.17*Math.sin(2*a+1)+.1*Math.sin(3*a+.5)+.06*Math.sin(5*a+2));
 export const AMBONA={x:1958,y:1030};
 // Szkółka leśna: ogrodzony plac w oddz. 101 od początku gry (pusty); kupno uruchamia produkcję sadzonek (0.7)
-export const UPRAWA={x:960,y:680,w:400,h:250,gate:[780,828]};   // furtka w zachodnim płocie (od dukty)
-export const NURSERY=UPRAWA;
 
 // ── Mokradła i strumień (łańcuch: zachód → środek → południowy wschód) ──
 export const WETLANDS=[{x:470,y:1010,rx:120,ry:62},{x:1850,y:1430,rx:130,ry:70},{x:3440,y:2590,rx:115,ry:60}];
-export const STREAM=dens(cr([[585,1030],[700,1110],[850,1200],[1100,1260],[1400,1330],[1730,1400],[1850,1430],[1990,1455],[2250,1530],[2500,1610],[2700,1700],[2750,1800],[2800,2000],[3000,2200],[3100,2330],[3250,2420],[3380,2520],[3440,2590]]),10);
+export const STREAM=dens(cr([[585,1030],[700,1110],[850,1200],[1100,1260],[1400,1330],[1730,1400],[1850,1430],[1990,1455],[2090,1520],[2180,1610],[2230,1710],[2300,1830],[2450,1980],[2650,2090],[2850,2160],[3000,2200],[3100,2330],[3250,2420],[3380,2520],[3440,2590]]),10);
 export const inWetland=(x,y,m=0)=>WETLANDS.some(w=>((x-w.x)/(w.rx+m))**2+((y-w.y)/(w.ry+m))**2<1);
 export function streamDist(x,y){let m=1e9;for(let i=0;i<STREAM.length-1;i++){const A=STREAM[i],B=STREAM[i+1];if(Math.abs(A[0]-x)>60&&Math.abs(B[0]-x)>60)continue;if(Math.abs(A[1]-y)>60&&Math.abs(B[1]-y)>60)continue;
  const dx=B[0]-A[0],dy=B[1]-A[1],l2=dx*dx+dy*dy||1;let t=((x-A[0])*dx+(y-A[1])*dy)/l2;t=t<0?0:t>1?1:t;m=Math.min(m,Math.hypot(x-A[0]-dx*t,y-A[1]-dy*t))}return m}
@@ -146,7 +144,12 @@ const st=(r,c)=>String(101+r*4+c);
 export const POSTS=[...GX.flatMap((x,i)=>[{x:x+14,y:GY+14,n:[st(0,i)+' '+st(0,i+1),st(1,i)+' '+st(1,i+1)]},
  {x:x+14,y:hy(x)-46,n:[st(1,i)+' '+st(1,i+1)]},{x:x+14,y:hy(x)+52,n:[st(2,i)+' '+st(2,i+1)]}])];
 // Szlabany na wjazdach z szosy w dukty i tablica leśnictwa.
-export const BARRIERS=[];for(const k of ['j1','j2','j3','j4']){const x=HX[k];BARRIERS.push({x,y:hy(x)-84});if(k!=='j3')BARRIERS.push({x,y:hy(x)+84})}
+export const BARRIERS=[];{   // 0.7.2: słup na poboczu dukty, ramię wzdłuż drogi (otwarte); pozycja liczona z geometrii dukty
+ const fe=EDGES.filter(e=>e.kind==='forest'),near=(x,y)=>{let b=null;for(const e of fe)for(let s=0;s<=e.len;s+=6){const p=ptAt(e,s),d=Math.hypot(p[0]-x,p[1]-y);if(!b||d<b.d)b={d,x:p[0],y:p[1],tx:p[2],ty:p[3]}}return b};
+ for(const k of ['j1','j2','j3','j4'])for(const sg of [-1,1]){if(k==='j3'&&sg>0)continue;const x=HX[k],y=hy(x)+84*sg,b=near(x,y);
+  let nx=-b.ty,ny=b.tx;if(nx<0||(Math.abs(nx)<.2&&ny<0)){nx=-nx;ny=-ny}
+  const a=b.ty*(b.y-hy(b.x))>0?1:-1;BARRIERS.push({x:b.x+nx*32,y:b.y+ny*32,bx:b.tx*a,by:b.ty*a})}
+}
 export const BOARD={x:872,y:hy(820)-96};
 
 // ── Kolizje (dla pieszych i zwierząt) ──
@@ -161,9 +164,6 @@ export const FENCES=[];
 {const {x,y,w,h,gate}=YARD;
  FENCES.push({x1:x,y1:y,x2:x+w,y2:y,style:'yard'},{x1:x,y1:y+h,x2:x+w,y2:y+h,style:'yard'},{x1:x,y1:y,x2:x,y2:y+h,style:'yard'},
   {x1:x+w,y1:y,x2:x+w,y2:gate[0],style:'yard'},{x1:x+w,y1:gate[1],x2:x+w,y2:y+h,style:'yard'});}
-{const {x,y,w,h,gate}=UPRAWA;
- FENCES.push({x1:x,y1:y,x2:x+w,y2:y,style:'net'},{x1:x,y1:y+h,x2:x+w,y2:y+h,style:'net'},{x1:x+w,y1:y,x2:x+w,y2:y+h,style:'net'},
-  {x1:x,y1:y,x2:x,y2:gate[0],style:'net'},{x1:x,y1:gate[1],x2:x,y2:y+h,style:'net'});}
 for(const f of FENCES){
  if(f.y1===f.y2)addRect(Math.min(f.x1,f.x2)-3,f.y1-3,Math.abs(f.x2-f.x1)+6,6,'fence');
  else addRect(f.x1-3,Math.min(f.y1,f.y2)-3,6,Math.abs(f.y2-f.y1)+6,'fence');

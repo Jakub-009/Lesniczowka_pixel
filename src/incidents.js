@@ -1,7 +1,7 @@
 // Interwencje (0.5): quad/cross, śmieci, dym (latem i przy wiosennym wypalaniu traw), nocni intruzi (kłusownik, złodziej drewna ze stosu,
 // złodziej choinek zimą) i zadania: dowiezienie karmy do paśnika. Patrolują jednostki: leśniczy (zawsze) i podleśniczy (po zatrudnieniu).
 import {state,toast,cal,hash,particle,clamp,zl,DOW,SEASON_DAYS} from './core.js';
-import {oddzial,DOOR,YARD,roadClearance,EDGES,POLANA,UPRAWA,inRect} from './map.js';
+import {oddzial,DOOR,YARD,roadClearance,EDGES,POLANA} from './map.js';
 import {nearestRoad,goalNode,offMap,ENTRY,exitNode} from './roads.js';
 import {E,NAV} from './ents.js';
 import {Vehicle,Ped,Wild,Group,rand} from './life/agents.js';
@@ -55,7 +55,7 @@ export function spawnIntruder(kind){
  const I=INTR[kind];let goal=null,stack=null,young=[];
  if(kind==='thief'){stack=J.stacks.filter(s=>s.vol>1.5).sort(()=>rand()-.5)[0];if(!stack)return;goal={edge:stack.edge,s:stack.s}}
  else if(kind==='xmas'){
-  young=trees.filter(t=>t.st===STAND&&t.age>=4&&t.age<16&&(t.sp==='sosna'||t.sp==='swierk')&&!inRect(t.x,t.y,UPRAWA,-4)&&roadClearance(t.x,t.y)<240);
+  young=trees.filter(t=>t.st===STAND&&t.age>=4&&t.age<16&&(t.sp==='sosna'||t.sp==='swierk')&&roadClearance(t.x,t.y)<240);
   if(young.length<2)return;const t0=young[Math.floor(rand()*young.length)];young=young.filter(t=>Math.hypot(t.x-t0.x,t.y-t0.y)<160).slice(0,3);
   const rp=nearestRoad(t0.x,t0.y,['forest'],{margin:60});goal={edge:rp.edge,s:rp.s};
  }else{const E2=forestEdges(),e=E2[Math.floor(rand()*E2.length)];goal={edge:e,s:50+rand()*(e.len-100)}}
