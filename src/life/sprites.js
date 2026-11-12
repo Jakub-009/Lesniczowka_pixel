@@ -40,6 +40,30 @@ export function vanTop(g,x,y,h,travel=0){
   rect(s,-6,-30,4,2,'#ecddb6');rect(s,2,-30,4,2,'#ecddb6');rect(s,-8,24,4,2,'#c2362b');rect(s,4,24,4,2,'#c2362b');
  });
 }
+// Radiowóz Policji (0.8.2): biało-niebieski z kogutem.
+export function policeTop(g,x,y,h,travel=0,beacon=false){
+ orientedShadow(g,x,y,h,[[10,24,0]],10);
+ drawRotated(g,x,y,h,s=>{
+  wheels(s,[-8,8],[-14,15],4,8,travel);
+  rect(s,-9,-24,18,48,'#2a3b66');rect(s,-8,-25,16,47,'#eef0f2');rect(s,-8,-25,16,2,'#ffffff');
+  rect(s,-8,-8,16,7,'#2f5ea8');rect(s,-8,2,16,6,'#2f5ea8');
+  rect(s,-6,-15,12,8,'#5d8790');rect(s,-5,-14,10,3,'#a8c2c6');rect(s,-6,12,12,6,'#5d8790');
+  rect(s,-6,-27,4,2,'#ecddb6');rect(s,2,-27,4,2,'#ecddb6');rect(s,-6,22,4,2,'#c2362b');rect(s,2,22,4,2,'#c2362b');
+  const on=beacon&&Math.floor(RT.frame/10)%2;rect(s,-5,-4,4,3,beacon?(on?'#4a8aff':'#1f3a7a'):'#1f3a7a');rect(s,1,-4,4,3,beacon?(on?'#1f3a7a':'#ff4a3a'):'#7a2a24');
+ });
+}
+// Śmieciarka firmy wywozowej: zielona kabina i biała zabudowa.
+export function wasteTop(g,x,y,h,travel=0){
+ orientedShadow(g,x,y,h,[[13,34,0]],14);
+ drawRotated(g,x,y,h,s=>{
+  wheels(s,[-11,11],[-24,10,24],5,10,travel);
+  rect(s,-12,-34,24,18,'#244a30');rect(s,-11,-35,22,17,'#3f8a52');rect(s,-9,-31,18,7,'#5d8790');rect(s,-8,-30,16,3,'#a8c2c6');
+  rect(s,-13,-15,26,50,'#4a4f4c');rect(s,-12,-16,24,49,'#d9dcd6');rect(s,-12,-16,24,3,'#f4f6f2');
+  for(let k=-8;k<30;k+=8)rect(s,-12,k,24,1,'#b6bab3');rect(s,-12,24,24,6,'#e0a21e');
+  rect(s,-9,-4,18,5,'#3f8a52');rect(s,-6,-3,12,3,'#cfe6cf');
+  rect(s,-9,-37,4,2,'#ecddb6');rect(s,5,-37,4,2,'#ecddb6');rect(s,-10,33,4,2,'#c2362b');rect(s,6,33,4,2,'#c2362b');
+ });
+}
 // Ciągnik leśny (zielono-żółty) z wyciągarką.
 export function tractorTop(g,x,y,h,travel=0,steer=0){
  orientedShadow(g,x,y,h,[[16,30,0]],15);

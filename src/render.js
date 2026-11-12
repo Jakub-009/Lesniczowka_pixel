@@ -14,6 +14,7 @@ import {NODES,EDGES,YARD,HOUSE} from './map.js';
 import {drawPlots,drawFences} from './renew.js';
 import {drawLodge,drawMailbox} from './lodge.js';
 import {unreadMail} from './mail.js';
+import {drawOrder} from './order.js';
 
 const vis=(x,y,r=60)=>x>camera.x-r&&x<camera.x+VIEW.w+r&&y>camera.y-r&&y<camera.y+VIEW.h+r;
 function blitGround(cv=ground){
@@ -28,6 +29,9 @@ function drawTrash(){
  for(const t of E.trash){if(t.dead||t.fire||!vis(t.x,t.y))continue;const x=Math.round(t.x),y=Math.round(t.y);
   if(t.kind==='bag'){rect(ctx,x-4,y-3,9,7,'#20262a');rect(ctx,x-3,y-3,7,6,'#3a4248');rect(ctx,x-1,y-5,3,2,'#3a4248');rect(ctx,x-2,y-2,2,1,'#6a747a')}
   else if(t.kind==='tire'){ctx.fillStyle='#1e1e1e';ctx.beginPath();ctx.arc(x,y,6,0,6.28);ctx.fill();ctx.fillStyle='#55594f';ctx.beginPath();ctx.arc(x,y,3,0,6.28);ctx.fill()}
+  else if(t.kind==='dump'){
+   rect(ctx,x-15,y-6,32,16,'#2b261f55');rect(ctx,x-14,y-8,10,8,'#6a5a44');rect(ctx,x-13,y-9,8,2,'#8a7658');rect(ctx,x-2,y-10,13,9,'#394146');rect(ctx,x-1,y-10,6,3,'#5a666c');rect(ctx,x+8,y-4,9,8,'#a89a74');rect(ctx,x-12,y,9,7,'#20262a');rect(ctx,x-11,y-1,7,3,'#3a4248');
+   ctx.fillStyle='#1e1e1e';ctx.beginPath();ctx.arc(x+2,y+5,5,0,6.28);ctx.fill();ctx.fillStyle='#55594f';ctx.beginPath();ctx.arc(x+2,y+5,2,0,6.28);ctx.fill();rect(ctx,x+10,y+3,7,5,'#3a6a8a');rect(ctx,x+11,y+2,5,2,'#6ea0c0');rect(ctx,x-6,y+6,4,2,'#d8d0b8')}
   else if(t.kind==='snare'){ctx.strokeStyle='#a8b0ae';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x+.5,y+.5,4,0,6.28);ctx.stroke();rect(ctx,x+4,y-1,4,2,'#6b563d');rect(ctx,x-1,y-1,2,2,'#cfd6d4')}
   else{for(let k=0;k<4;k++){rect(ctx,x-6+k*4,y-2+(k%2)*3,2,4,k%2?'#4a8a5a':'#c8d8d0');rect(ctx,x-6+k*4,y-3+(k%2)*3,2,1,'#e8e4dc')}rect(ctx,x+5,y+2,5,3,'#d8d0b8')}
  }
@@ -107,6 +111,7 @@ export function drawWorld(){
  drawLodge(ctx,cal.season()===3);
  for(const p of PROPS){if(p.x+p.w<camera.x||p.y+p.h<camera.y||p.x>camera.x+VIEW.w||p.y>camera.y+VIEW.h)continue;ctx.drawImage(p.cv,p.x,p.y)}
  drawMailbox(ctx,unreadMail()>0,cal.season()===3);
+ drawOrder(ctx,cal.season()===3);
  drawForest(ctx,camera,VIEW.w,VIEW.h,'low');
  drawBase(ctx);drawHealth(ctx);drawTrash();drawFeeders(ctx);drawFences(ctx);drawGroundItems(ctx);drawLying();
  for(const a of E.animals)if(!a.dead)a.draw();

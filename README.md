@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.8.1 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.8.2 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -66,6 +66,7 @@ Gra zapisuje się sama co 30 s (localStorage).
 | `src/forest.js` | drzewa jako dane, gatunki, wzrost, wycinka, malowanie w kawałkach 256 px | nowe |
 | `src/paint.js` | podłoże: ściółka, pobocza, drogi, plac | wzorzec `world.js` |
 | `src/mail.js` | poczta (dziennik zdarzeń), priorytety zgłoszeń, zwalnianie czasu | nowe w 0.8.1 |
+| `src/order.js` | dzikie wysypiska, firma wywozowa, Policja, fotopułapki, szlabany, parking | nowe w 0.8.2 |
 | `src/oddcard.js` | statystyki do karty oddziału | nowe w 0.8.1 |
 | `src/lodge.js` | zabudowa leśniczówki na osobnej warstwie (lato/zima) | nowe w 0.7.2 |
 | `src/ents.js` | rejestr obiektów, siatki nawigacji, zagrożenia dla zwierząt | nowe (z `obstacles.js`) |
@@ -221,3 +222,11 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
+
+## Zmiany w 0.8.2 „Porządek w lesie”
+- **Dzikie wysypiska:** wieczorem lub nocą (średnio co kilka dni, rzadziej zimą) samochód z przyczepą zostawia w lesie stos odpadów. Zgłoszenie „Zleć wywóz · 700 zł” wysyła śmieciarkę firmy wywozowej (jedzie w godzinach 7–16, ładowacze zbierają odpady). Nieusunięte wysypisko liczy się w stanie lasu jak kilka worków śmieci i ciąży na ochronie terenu. Patrol sam wysypiska nie sprząta.
+- **Policja:** na karcie quada, crossa i nocnego intruza (kłusownik, złodziej drewna, choinek) jest przycisk „Wezwij Policję”. Radiowóz przyjeżdża po kilkudziesięciu minutach gry, zatrzymuje sprawcę (+ochrona, wpływ 250 zł). Jeśli patrol zdąży pierwszy, Policja odjeżdża.
+- **Fotopułapki** (L, 2 400 zł, 25 zł dziennie): kamery na słupkach szlabanów przy wjazdach. Nielegalne wjazdy i wysypiska są zgłaszane od razu, a z nagrania wpływa mandat (150 zł za zatrzymanie, 450 zł za wysypisko).
+- **Szlabany** (L, bezpłatnie): zamknięte odstraszają o połowę nielegalnych wjazdów (quady, nocni intruzi, wysypiska), ale bez parkingu zmniejszają też liczbę grzybiarzy i spacerowiczów.
+- **Parking leśny z koszem** (L, 3 500 zł, 15 zł dziennie): na zarezerwowanym miejscu przy szosie; odwiedzający zostawiają ok. 65% mniej śmieci, a przy zamkniętych szlabanach nadal mają gdzie zaparkować.
+- Nowe pojazdy: radiowóz i śmieciarka. Quady i crossy działają jak wcześniej; zmienia je tylko to, że szlabany i fotopułapki wpływają na ich liczbę i szybkość zgłoszenia.

@@ -6,7 +6,7 @@ import {goalNode,pointOn,nearestRoad,ENTRY,exitNode} from '../roads.js';
 import {E,NAV} from '../ents.js';
 import {Vehicle,Ped,Wild,Group,rand} from './agents.js';
 import {addTrash,U} from '../incidents.js';
-import {bumpProtect} from '../economy.js';
+import {bumpProtect,ECO} from '../economy.js';
 import {sfx} from '../sound.js';
 import {FA,cull,planLeft,likesNow} from './fauna.js';
 
@@ -52,7 +52,7 @@ function spawnPickers(berry){
    const p=new Ped({kind:'picker',x:cx+i*6,y:cy,prop:berry?'bucket':'basket',berry,speed:13+rand()*3,coat:pick(['#8a6a4a','#5a6a8a','#7a3a3a','#4a6a4a','#9a8a5a']),cap:pick(['#c84a3a','#d8b23a','#3a4a6a','#e8e4dc'])});
    p.label=berry?'zbieracz jagód':'grzybiarz';
    p.run([{wander:{x:cx,y:cy,r:240,t:110+rand()*110,pickP:.7,until:()=>cal.hour()>15,ok:(x,y)=>roadClearance(x,y)>24}},{go:[cx,cy]},{call:q=>{
-    if(rand()<.14)addTrash(q.x+(rand()-.5)*30,q.y+(rand()-.5)*30);
+    if(rand()<.14*(ECO.ord.parking?.35:1))addTrash(q.x+(rand()-.5)*30,q.y+(rand()-.5)*30);
     q.hidden=true;q.dead=true;if(++back>=n){v.label=who+' — odjeżdżają';leaveMap(v)}}}]);
   }
   v.label=who+' (zaparkowani)';
@@ -64,7 +64,7 @@ function spawnWalker(){
  const p=new Ped({kind:'walker',x,y:y0,speed:11+rand()*3,coat:pick(['#5a7aa0','#a05a5a','#6a8a5a','#c0a050','#7a5a8a']),cap:pick(['#6b4a2e','#e8e4dc','#3a3a3a'])});
  p.label='spacerowicz';
  let dog=null;if(rand()<.5){dog=new Wild({kind:'dog',x:x+8,y:y0,seed:Math.floor(rand()*1e5),nav:'foot',group:new Group(x,y0,1,{fixed:true}),follow:p,leash:60,idleMin:.4,idleVar:1.2,col:pick(['#c8a060','#3a3430','#e8e0d0']),col2:'#5a4636',flee:0})}
- p.run([{go:[x,y1]},{wait:4+rand()*4,pose:'stand'},{go:[x+(rand()-.5)*10,y0+10]},{call:q=>{q.dead=true;if(dog)dog.dead=true;if(rand()<.06)addTrash(q.x+12,q.y-30)}}]);
+ p.run([{go:[x,y1]},{wait:4+rand()*4,pose:'stand'},{go:[x+(rand()-.5)*10,y0+10]},{call:q=>{q.dead=true;if(dog)dog.dead=true;if(rand()<.06*(ECO.ord.parking?.35:1))addTrash(q.x+12,q.y-30)}}]);
 }
 // Myśliwy z koła łowieckiego (0.6: szybszy): przyjeżdża wieczorem albo o świcie, idzie z psem na ambonę i — jeśli plan
 // łowiecki nie jest wykonany — po krótkim mierzeniu strzela do sarny, jelenia albo dzika (nigdy do lochy z warchlakami).
@@ -151,7 +151,7 @@ function updateDrive(){
 function shot(q){sfx('shot');for(const a of E.animals)if(a.kind!=='dog'&&!a.dead&&Math.hypot(a.x-q.x,a.y-q.y)<420)a.escape&&a.escape(q.x,q.y)}
 // Rozkład dnia (0.2): goście przyjeżdżają w swoich godzinach, w weekend więcej, w nocy las jest pusty.
 export function updateVisitors(dt){
- const ban=banned();
+ const closed=ECO.ord.bar&&!ECO.ord.parking,ban=banned()||(closed&&rand()<.6);
  const h=cal.hour(),se=cal.season(),we=cal.weekend(),night=cal.night(),winter=se===3;
  for(const k of ['car','pick','walk','bike'])T[k]-=dt;
  const cars=E.vehicles.filter(v=>v.kind==='car'&&v.roam).length,rush=(h>6&&h<9)||(h>15&&h<18);

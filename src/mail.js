@@ -2,7 +2,7 @@
 // Moduł zależy tylko od core.js, żeby można go było importować z każdego miejsca bez cykli.
 import {state,toast,$,SEASONS,SEASON_DAYS} from './core.js';
 // 3 = pilne (pożar, nielegalny wjazd, nocny intruz): zatrzymują przyspieszenie, 2 = zwykłe, 1 = drobne (wygasają), 0 = propozycje (bez kary)
-export const PRIO={fire:3,quad:3,intruder:3,block:2,beetle:2,feed:2,trash:1,fence:0,assess:0};
+export const PRIO={fire:3,quad:3,intruder:3,block:2,beetle:2,feed:2,dump:2,trash:1,fence:0,assess:0};
 export const prio=q=>PRIO[q.type]??2;
 export const MAXOPEN=7;   // tyle otwartych zgłoszeń naraz; nadmiar niepilnych wygasa (z listem w skrzynce)
 export const TTL={trash:2.2};   // w dniach gry, dotyczy zgłoszeń, których nikt nie ruszył

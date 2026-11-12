@@ -13,6 +13,7 @@ import {BASE,BUILD,buildNursery,buildGarage,hireDeputy,fireDeputy,NPLANS,cycleNu
 import {VSPEC,ASPEC} from './life/agents.js';
 import {MAIL,mail,unreadMail,stamp} from './mail.js';
 import {oddStats} from './oddcard.js';
+import {COSTS as OC,canPolice,callPolice,buyCams,toggleBarriers,buyParking,camsOn,barClosed,parkingOn,CAM_COUNT} from './order.js';
 
 export function lat(n){n=Math.round(n);const d=n%10,dd=n%100;return n+(n===1?' rok':(d>=2&&d<=4&&!(dd>=12&&dd<=14))?' lata':' lat')}
 const pct=v=>Math.round(v)+'%';
@@ -52,12 +53,15 @@ export function hud(){
  // zgłoszenia
  const open=openIncidents(),sig=open.map(q=>q.id+q.status).join('|');
  if(sig!==incSig){incSig=sig;
-  $('#incidents').innerHTML=open.length?open.map(q=>`<div class="inc ${q.type}"><span class="go" data-go="${q.id}">${q.text}</span>${q.status==='new'?`<button data-inc="${q.id}">${q.type==='feed'?'Dowieź karmę':'Wyślij patrol'}</button>`:`<i>${q.status==='queued'?'w kolejce':(q.unit&&U.length>1?q.unit.name+' działa':'patrol działa')}</i>`}</div>`).join(''):'<div class="muted">Spokojnie w lesie.</div>';
+  $('#incidents').innerHTML=open.length?open.map(q=>`<div class="inc ${q.type}"><span class="go" data-go="${q.id}">${q.text}</span>${q.status==='new'?`<button data-inc="${q.id}">${incLabel(q)}</button>`:`<i>${incWait(q)}</i>`}${polBtn(q)}</div>`).join(''):'<div class="muted">Spokojnie w lesie.</div>';
  }
   const um=unreadMail();$('#mailn').textContent=um?'('+um+')':'';$('#mailbtn').classList.toggle('hot',um>0);
  if(state.mailOpen)renderMail();if(state.oddOpen)renderOdd();
  info();
 }
+const incLabel=q=>q.type==='feed'?'Dowieź karmę':q.type==='dump'?'Zleć wywóz · '+zl(OC.waste):'Wyślij patrol';
+const incWait=q=>q.type==='dump'?(q.status==='queued'?'czeka na firmę wywozową':'śmieciarka działa'):q.status==='queued'?'w kolejce':(q.unit&&U.length>1?q.unit.name+' działa':'patrol działa');
+const polBtn=q=>canPolice(q)?`<button data-pol="${q.id}">Wezwij Policję</button>`:q.police&&q.status!=='done'&&q.status!=='gone'?'<i>Policja w drodze</i>':'';
 function treeInfo(t){
  const st=STANDS[oddzial(t.x,t.y)],sp=SP[t.sp];
  if(t.st===STUMP){
@@ -105,14 +109,14 @@ function info(){
  if(!s||s.dead||(s.status&&(s.status==='done'||s.status==='gone'))){if(state.selected&&(s.dead||s.status))state.selected=null;el.style.display='none';infoSig='';return}
  let I;
  if(s.st!==undefined)I=treeInfo(s);
- else if(s.text)I={title:{quad:'Nielegalny wjazd',fire:'Dym nad lasem',intruder:'Nocny intruz',feed:'Paśnik do uzupełnienia',trash:'Śmieci w lesie'}[s.type]||'Zgłoszenie',lines:[s.text,s.type==='feed'?'Karma: '+zl(ECO.feedCost||120)+' + paliwo. Pusty paśnik zimą = większe straty zwierzyny i więcej zgryzania.':'',{new:'Czeka na decyzję.',queued:'W kolejce patrolu.',assigned:'Patrol w drodze.'}[s.status]||''].filter(Boolean),btns:s.status==='new'?[['patrol',s.type==='feed'?'Dowieź karmę':'Wyślij patrol']]:[]};
+ else if(s.text)I={title:{quad:'Nielegalny wjazd',fire:'Dym nad lasem',intruder:'Nocny intruz',feed:'Paśnik do uzupełnienia',trash:'Śmieci w lesie',dump:'Dzikie wysypisko'}[s.type]||'Zgłoszenie',lines:[s.text,s.type==='feed'?'Karma: '+zl(ECO.feedCost||120)+' + paliwo. Pusty paśnik zimą = większe straty zwierzyny i więcej zgryzania.':'',{new:'Czeka na decyzję.',queued:'W kolejce patrolu.',assigned:'Patrol w drodze.'}[s.status]||''].filter(Boolean),btns:[...(s.status==='new'?[['patrol',incLabel(s)]]:[]),...(canPolice(s)?[['police','Wezwij Policję']]:[])]};
  else if(s.value!=null&&s.edge&&!s.pos){const sp=spotOf(s),op=sp.find(q=>q.sort==='opal'),so=op?'opal':(s.sort||'tart'),tv=sp.reduce((a,q)=>a+q.value,0);I={title:'Składnica drewna przy drodze, oddz. '+s.odd,lines:['Na składnicy: '+displayNumber(sp.reduce((a,q)=>a+q.vol,0),1)+' m³ · wartość ok. '+zl(Math.round(tv*ECO.market)),sp.map(q=>SORTS[q.sort||'tart'].name+' '+displayNumber(q.vol,1)+' m³').join(' · '),
   so==='opal'?((op||s).truck===false?'Opał dla ludności: kupują go petenci w kancelarii ('+zl(PRICE.opal)+'/m³) i odbierają spod stosu. Ciężarówka go nie bierze.':'Ciężarówka może zabrać ten opał (taniej niż sprzedaż petentom).'):'Cena rynkowa ×'+displayNumber(ECO.market,2)+' (zimą drożej, latem taniej).',
   'Do wywozu: '+displayNumber(truckTotal(),1)+' m³ (przy 16 m³ nadleśnictwo samo przyśle transport). Opał przy drogach: '+displayNumber(stackTotal(q=>q.sort==='opal'),1)+' m³.','Sprzedano łącznie: '+displayNumber(J.sold,1)+' m³.'],
   btns:[...(so==='opal'?[['opaltruck',(op||s).truck===false?'Pozwól zabrać ciężarówce':'Zostaw dla ludności']]:[]),...(J.truck.v?[]:[['truck','Zamów wywóz teraz']])]}}
  else if(s.level!=null&&s.name)I={title:'Paśnik '+s.name,lines:['Karma: '+Math.round(s.level*100)+'%',cal.season()===3?'Zima: zwierzyna wyjada karmę. Przy niskim poziomie pojawi się zadanie.':'Poza zimą paśnik stoi, lizawka solna obok.'],btns:[]};
  else if(s.day!=null&&s.vol!=null&&s.edge)I={title:'Drewno opałowe do odbioru',lines:['Sprzedane w kancelarii: '+displayNumber(s.vol,1)+' m³','Nabywca przyjedzie ciągnikiem z przyczepą.'],btns:[]};
- else if(s.pos)I={title:VSPEC[s.kind].name[0].toUpperCase()+VSPEC[s.kind].name.slice(1),lines:[s.label||'',s.cart?'Ładunek: '+displayNumber(s.load,1)+' / '+s.cap+' m³':'',s.illegal?'Wjazd pojazdów silnikowych do lasu jest zabroniony.':''].filter(Boolean),btns:s.illegal&&s.inc&&s.inc.status==='new'?[['patrol','Wyślij patrol']]:[]};
+ else if(s.pos)I={title:VSPEC[s.kind].name[0].toUpperCase()+VSPEC[s.kind].name.slice(1),lines:[s.label||'',s.cart?'Ładunek: '+displayNumber(s.load,1)+' / '+s.cap+' m³':'',s.illegal?'Wjazd pojazdów silnikowych do lasu jest zabroniony.':''].filter(Boolean),btns:[...(s.illegal&&s.inc&&s.inc.status==='new'?[['patrol','Wyślij patrol']]:[]),...(s.inc&&canPolice(s.inc)?[['police','Wezwij Policję']]:[])]};
  else if(s.kind&&ASPEC[s.kind])I={title:s.name||ASPEC[s.kind].name,lines:[{idle:'Odpoczywa / żeruje',walk:'Wędruje',run:'Ucieka!'}[s.state]||'',s.male&&s.kind==='deer'?'Byk z porożem':s.male&&s.kind==='roe'?'Rogacz':s.sow?'Locha prowadząca warchlaki (pod ochroną)':'',FA.pop[s.kind==='piglet'?'boar':s.kind]!=null?'W obwodzie: '+NAMES[s.kind==='piglet'?'boar':s.kind]+' ok. '+FA.pop[s.kind==='piglet'?'boar':s.kind]+' szt.':'',s.kind==='wolf'?'Gatunek chroniony — reguluje liczebność saren i jeleni.':''].filter(Boolean),btns:[]};
  else if(s.look)I={title:s.label?s.label[0].toUpperCase()+s.label.slice(1):'Osoba',lines:[s.kind==='picker'?(s.berry?'Zbiera jagody w borze. Czasem zostawia śmieci…':'Zbiera grzyby. Czasem zostawia śmieci…'):s.kind==='worker'?'Pracownik ekipy leśnej.':s.kind==='lesniczy'?(s.unit&&s.unit!==U[0]?'Podleśniczy: drugi patrol, dyżur w kancelarii.':'Prowadzi leśnictwo. Wyjeżdża na interwencje.'):s.kind==='hunter'?'Koło łowieckie: plan odstrzału '+['roe','deer','boar'].map(k=>FA.culled[k]+'/'+FA.plan[k]).join(', ')+' (sarny, jelenie, dziki).':s.petent?'Petent czeka przed kancelarią.':'Odpoczywa w lesie.'],btns:[]};
  else if(s.logs&&s.state)I={title:'Kłody — '+SP[s.sp].name,lines:['Miąższość '+displayNumber(s.vol,2)+' m³: '+Object.entries(pileSorts(s)).filter(([,v])=>v>.01).map(([k,v])=>SORTS[k].short+' '+displayNumber(v,2)).join(', '),s.state==='ground'?'Czeka na zrywkę (ciągnik przyjedzie sam).':'Ciągnik już po nie jedzie.'],btns:[]};
@@ -137,7 +141,7 @@ export function toggleMail(open){
  if(open){state.mailOpen=true;mailFresh=new Set(MAIL.filter(m=>!m.read).map(m=>m.id));for(const m of MAIL)m.read=true;mailSig='';el.style.display='block';renderMail()}
  else{state.mailOpen=false;el.style.display='none'}
 }
-const KIND={fire:['■','#e0482f'],quad:['■','#e8a32e'],intruder:['■','#e8a32e'],trash:['■','#d8c23a'],beetle:['■','#c9764a'],storm:['■','#8fb4d8'],plan:['✉','#9fd27a'],money:['■','#e0704f'],assess:['✔','#9fd27a']};
+const KIND={dump:["■","#b08a5a"],fire:['■','#e0482f'],quad:['■','#e8a32e'],intruder:['■','#e8a32e'],trash:['■','#d8c23a'],beetle:['■','#c9764a'],storm:['■','#8fb4d8'],plan:['✉','#9fd27a'],money:['■','#e0704f'],assess:['✔','#9fd27a']};
 export function renderMail(){
  for(const m of MAIL)if(!m.read)mailFresh.add(m.id),m.read=true;
  const sig=MAIL.map(m=>m.id).join()+mailFresh.size;if(sig===mailSig)return;mailSig=sig;
@@ -209,6 +213,11 @@ export function renderBase(){
   ${btn('tower',HL.tower?'Wieża przeciwpożarowa działa':'Zbuduj wieżę przeciwpożarową · '+zl(HC.tower),HL.tower)}
   ${btn('ban',HL.ban?'Zniesienie zakazu wstępu do lasu':'Zakaz wstępu do lasu · '+zl(40)+'/dzień',false,HL.ban)}
   <p class="hint2">Kornik zasiedla świerki po cichu: rude korony widać dopiero po kilku dniach. Zgłoszenie obejrzy patrol i oznaczy drzewa do cięcia sanitarnego (E). Susza i wiatrołomy mu sprzyjają, pułapki hamują. Zakaz wstępu zmniejsza ryzyko pożaru, ale znika się po spadku zagrożenia.</p></div>
+ <div class="bsec"><h3>PORZĄDEK W LESIE</h3>
+  ${row('Fotopułapki przy wjazdach',camsOn()?'działają · '+zl(OC.camsDay)+'/dzień':'—')}${camsOn()?'':btn('cams','Zamontuj fotopułapki · '+zl(OC.cams))}
+  ${row('Szlabany na wjazdach',barClosed()?'zamknięte':'otwarte')}${btn('bar',barClosed()?'Otwórz szlabany':'Zamknij szlabany',false,barClosed())}
+  ${row('Parking leśny z koszem',parkingOn()?'jest · '+zl(OC.parkingDay)+'/dzień':'—')}${parkingOn()?'':btn('parking','Zbuduj parking przy szosie · '+zl(OC.parking))}
+  <p class="hint2">Fotopułapki zgłaszają nielegalne wjazdy i wysypiska od razu i dają mandaty z nagrania. Zamknięte szlabany odstraszają o połowę nielegalnych wjazdów, ale bez parkingu ubywa też grzybiarzy i spacerowiczów. Kosz na parkingu ogranicza śmiecenie. Policję wzywasz na karcie zgłoszenia (quad, nocny intruz). Dzikie wysypisko usuwa firma wywozowa (${zl(OC.waste)}).</p></div>
  <div class="bsec"><h3>KOŁO ŁOWIECKIE</h3>
   ${['roe','deer','boar','wolf','fox','hare'].map(k=>row(NAMES[k][0].toUpperCase()+NAMES[k].slice(1),FA.pop[k]+(FA.plan[k]!=null?' · plan '+FA.culled[k]+'/'+FA.plan[k]:k==='wolf'?' · chronione':''))).join('')}
   ${row('Presja na uprawy',Math.round(pr*100)+'%')}${meter(pr/2)}
@@ -251,6 +260,7 @@ export function bindUI(){
  for(const b of document.querySelectorAll('[data-tool]'))b.addEventListener('click',()=>setTool(b.dataset.tool));
  $('#crewbtn').addEventListener('click',dispatchCrew);$('#cancelbtn').addEventListener('click',clearOrders);$('#sellbtn').addEventListener('click',()=>orderTruck(true));
  $('#incidents').addEventListener('click',e=>{
+  const pb=e.target.closest('[data-pol]');if(pb){const q=E.incidents.find(x=>x.id==pb.dataset.pol);callPolice(q);incSig='';hud();return}
   const b=e.target.closest('[data-inc]');if(b){const q=E.incidents.find(x=>x.id==b.dataset.inc);dispatch(q);incSig='';hud();return}
   const g=e.target.closest('[data-go]');if(g){const q=E.incidents.find(x=>x.id==g.dataset.go);if(q){centerOn(q.x,q.y);state.selected=q;state.follow=null}}
  });
@@ -258,6 +268,7 @@ export function bindUI(){
   const b=e.target.closest('[data-ia]');if(!b)return;const s=state.selected,k=b.dataset.ia;
   if(k==='mark'){toggleMark(s)}
   else if(k==='patrol'){dispatch(s.text?s:s.inc)}
+  else if(k==='police')callPolice(s.text?s:s.inc);
   else if(k==='truck')orderTruck(true);
   else if(k==='fence')orderFence(s);
   else if(k==='mix')cycleMix(s);
@@ -273,7 +284,7 @@ export function bindUI(){
  $('#mailbtn').addEventListener('click',()=>toggleMail());
  $('#mailbox').addEventListener('click',e=>{const g=e.target.closest('[data-mgo]');if(!g)return;const m=MAIL.find(x=>x.id==g.dataset.mgo);if(m&&m.x!=null){centerOn(m.x,m.y);state.follow=null}});
  $('#basecard').addEventListener('click',e=>{const b=e.target.closest('[data-b]');if(!b)return;const k=b.dataset.b;
-  ({nplan:cycleNursery,hireB:hireCrewB,fireB:fireCrewB,hirePod:hireDeputy,firePod:fireDeputy,nursery:buildNursery,garage:buildGarage,fwd:buyForwarder,truck:()=>orderTruck(true),reduce:requestReduction,traps:buyTraps,tower:buildTower,ban:toggleBan})[k]?.();
+  ({nplan:cycleNursery,hireB:hireCrewB,fireB:fireCrewB,hirePod:hireDeputy,firePod:fireDeputy,nursery:buildNursery,garage:buildGarage,fwd:buyForwarder,truck:()=>orderTruck(true),reduce:requestReduction,traps:buyTraps,tower:buildTower,ban:toggleBan,cams:buyCams,bar:toggleBarriers,parking:buyParking})[k]?.();
   baseSig='';renderBase();hud()});
  setTool('select');
  ECO.onSeason=showReport;

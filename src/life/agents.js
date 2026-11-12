@@ -38,12 +38,14 @@ export const VSPEC={
  truck:{speed:82,forest:.55,acc:20,hw:14,hh:37,wb:44,hitch:34,cart:'log',name:'ciągnik siodłowy z wózkiem do dłużycy'},
  quad:{speed:70,forest:1,acc:40,hw:7,hh:11,wb:16,wild:true,name:'quad'},
  cross:{speed:80,forest:1,acc:45,hw:3,hh:11,wb:16,wild:true,name:'motocykl crossowy'},
+ police:{speed:110,forest:.62,acc:46,hw:10,hh:24,wb:30,name:'radiowóz Policji'},
+ waste:{speed:70,forest:.5,acc:20,hw:13,hh:35,wb:42,name:'śmieciarka firmy wywozowej'},
  bike:{speed:28,forest:.9,acc:14,hw:3,hh:9,wb:14,rider:true,name:'rowerzysta'}
 };
 // Jazda (0.3): pojazd goni „marchewkę” — punkt przesuwający się po pasie ruchu (albo po ścieżce w terenie) —
 // i skręta jak prawdziwy pojazd (model rowerowy, skręt kół ograniczony). Nie przesuwa się bokiem i nie obraca w miejscu.
 const MAXSTEER=.72;
-const SMALLV=new Set(['car','patrol','van','quad','cross','bike']);
+const SMALLV=new Set(['car','patrol','van','quad','cross','bike','police']);
 export class Vehicle{
  constructor(kind,o={}){
   this.kind=kind;this.spec=VSPEC[kind];this.allow=o.allow||this.spec.allow||['main','forest'];
@@ -216,6 +218,8 @@ export class Vehicle{
   if(k==='car')S.carTop(ctx,x,y,h,this.color,t);
   else if(k==='patrol')S.patrolTop(ctx,x,y,h,t,this.beacon);
   else if(k==='van')S.vanTop(ctx,x,y,h,t);
+  else if(k==='police')S.policeTop(ctx,x,y,h,t,this.beacon);
+  else if(k==='waste')S.wasteTop(ctx,x,y,h,t);
   else if(k==='tractor'||k==='plower')S.tractorTop(ctx,x,y,h,t,this.steer);
   else if(k==='forwarder')S.forwarderTop(ctx,x,y,h,t,this.steer);
   else if(k==='truck')S.truckTop(ctx,x,y,h,t,this.cap?this.load/this.cap:0);
