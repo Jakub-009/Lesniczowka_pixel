@@ -2,7 +2,9 @@
 // drogi, oddziały, powierzchnie odnowieniowe, stosy i pojazdy. Klik przenosi kamerę w to miejsce.
 import {WORLD,camera,VIEW,$} from './core.js';
 import {trees,STAND,STUMP,SAPLING_AGE,crownR,QUAL} from './forest.js';
-import {NODES,EDGES,STANDS,oddzial,YARD,POLANA,PLAC,WETLANDS,STREAM,FEEDERS} from './map.js';
+import {NODES,EDGES,STANDS,oddzial,YARD,POLANA,PLAC,WETLANDS,STREAM} from './map.js';
+import {FA} from './life/fauna.js';
+import {AMB,AMB_R} from './life/ambony.js';
 import {R,outline} from './renew.js';
 import {J} from './jobs.js';
 import {U} from './incidents.js';
@@ -24,7 +26,6 @@ function background(){
  x.strokeStyle='#7aa4c0';x.lineWidth=2;x.beginPath();STREAM.forEach((p,i)=>i?x.lineTo(p[0]/K,p[1]/K):x.moveTo(p[0]/K,p[1]/K));x.stroke();
  x.fillStyle='#7aa4c0';for(const w of WETLANDS){x.beginPath();x.ellipse(w.x/K,w.y/K,w.rx/K,w.ry/K,0,0,6.28);x.fill()}
  for(const e of EDGES){x.lineWidth=e.kind==='main'?5:3;x.strokeStyle=e.kind==='main'?'#6a6e72':'#a8946a';x.beginPath();e.pts.forEach((p,i)=>i?x.lineTo(p[0]/K,p[1]/K):x.moveTo(p[0]/K,p[1]/K));x.stroke()}
- x.fillStyle='#8a4a2a';for(const f of FEEDERS)x.fillRect(f.x/K-2,f.y/K-2,4,4);
  x.fillStyle='#b89a6a';x.fillRect(YARD.x/K,YARD.y/K,YARD.w/K,YARD.h/K);x.fillStyle='#a8a08a';x.fillRect(PLAC.x/K,PLAC.y/K,PLAC.w/K,PLAC.h/K);
  x.fillStyle='#b8cc8a';x.beginPath();x.arc(POLANA.x/K,POLANA.y/K,POLANA.r/K,0,6.28);x.fill();
  return c;
@@ -44,6 +45,8 @@ function draw(){
  }
  g.lineWidth=1;
  for(const p of R.plots){g.strokeStyle=p.fence==='done'?'#e8f0f0':'#f1e6c2';g.setLineDash(p.fence==='done'?[]:[3,2]);g.beginPath();outline(p).forEach(([x,y],i)=>i?g.lineTo(x/K,y/K):g.moveTo(x/K,y/K));g.closePath();g.stroke();g.setLineDash([])}
+ g.fillStyle='#8a4a2a';for(const f of FA.feeders)g.fillRect(f.x/K-2,f.y/K-2,4,4);
+ g.strokeStyle='#f4e8a0';g.lineWidth=1;for(const a of AMB.list){g.fillStyle='#5a3a1a';g.fillRect(a.x/K-3,a.y/K-3,6,6);g.strokeStyle='#f4e8a0';g.strokeRect(a.x/K-3,a.y/K-3,6,6);g.globalAlpha=.35;g.beginPath();g.arc(a.x/K,a.y/K,AMB_R/K,0,6.28);g.stroke();g.globalAlpha=1}
  for(const s of J.stacks){if(s.vol<.05)continue;g.fillStyle='#8a4a1e';g.fillRect(s.x/K-2,s.y/K-2,4,4)}
  for(const C of J.crews)if(C.van&&!C.van.dead){g.fillStyle='#f0a030';g.fillRect(C.van.pos[0]/K-2,C.van.pos[1]/K-2,4,4)}
  if(J.skid.trac&&!J.skid.trac.dead){const v=J.skid.trac;g.fillStyle='#e0d030';g.fillRect(v.pos[0]/K-2,v.pos[1]/K-2,4,4)}
@@ -58,7 +61,7 @@ function draw(){
 function legend(){
  const L=$('#maplegend');if(!L)return;
  L.innerHTML=(mode==='sp'?Object.entries(SPC).map(([k,c])=>`<span><i style="background:${c}"></i>${SPN[k]}</span>`).join(''):mode==='q'?[...QUAL.map(q=>[q.col,q.name]),['#9aa08a','nieoceniona']].map(([c,n])=>`<span><i style="background:${c}"></i>${n}</span>`).join(''):AGES.map(([,c,n])=>`<span><i style="background:${c}"></i>${n}</span>`).join(''))+
-  '<span><i style="background:#8a5a3a"></i>pniaki</span><span><i style="background:#8a4a1e"></i>stos</span><span><i style="background:#3a80e0"></i>patrol</span><span><i style="background:#f0a030"></i>ekipa</span>';
+  '<span><i style="background:#5a3a1a"></i>ambona</span><span><i style="background:#8a4a2a"></i>paśnik</span><span><i style="background:#8a5a3a"></i>pniaki</span><span><i style="background:#8a4a1e"></i>stos</span><span><i style="background:#3a80e0"></i>patrol</span><span><i style="background:#f0a030"></i>ekipa</span>';
  for(const b of document.querySelectorAll('[data-mapmode]'))b.classList.toggle('on',b.dataset.mapmode===mode);
 }
 export const mapOpen=()=>open;

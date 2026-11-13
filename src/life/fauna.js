@@ -6,7 +6,7 @@ import {trees,STAND,removeTree,dirtyTree,SAPLING_AGE} from '../forest.js';
 import {E} from '../ents.js';
 import {rand,WX} from './agents.js';
 import {mail} from '../mail.js';
-import {ECO,bumpDamage} from '../economy.js';
+import {ECO,bumpDamage,canAfford,pay} from '../economy.js';
 import {sfx} from '../sound.js';
 import {feedTask} from '../incidents.js';
 import {R,seasonKey,inShape} from '../renew.js';
@@ -19,22 +19,49 @@ const TARGET={roe:48,deer:16,boar:22};   // las 0.6 jest ok. 2,25× większy
 export const FH={wolves:null};   // ustawiane przez populate.js (bez cyklu importów)
 export const FA={wolf:{present:false,size:0,until:0,cool:5,days:0,total:0},pop:{roe:58,deer:20,boar:30,fox:9,hare:28},plan:{roe:8,deer:3,boar:8},culled:{roe:0,deer:0,boar:0},seasonCull:0,
  feeders:[],winterT:0,emptyT:0,reduction:false,roarT:0,roarSeason:-1,browsed:0,carcasses:[]};
+// 0.9: paśniki buduje gracz w trybie Budowa (stałe miejsca FEEDERS, max 4); nowa gra zaczyna z jednym
+export const FEED_COST=700,FEED_MAX=FEEDERS.length;
+export const mkFeeder=(slot,level=.3)=>({name:FEEDERS[slot].name,slot,x:FEEDERS[slot].x,y:FEEDERS[slot].y,level,task:null});
 export function initFauna(){
- FA.feeders=FEEDERS.map(f=>({name:f.name,x:f.x,y:f.y,level:.3,task:null}));
+ FA.feeders=[mkFeeder(0)];
  newPlan(false);
  if(!ECO.seasonHooks.includes(seasonEnd))ECO.seasonHooks.push(seasonEnd);
 }
+export const feederSlotAt=(x,y,r=60)=>{let b=null,bd=r;FEEDERS.forEach((f,i)=>{if(FA.feeders.some(q=>q.slot===i))return;const d=Math.hypot(f.x-x,f.y-y);if(d<bd){bd=d;b=i}});return b};
+export function buildFeeder(slot){
+ if(slot==null||FA.feeders.some(q=>q.slot===slot))return false;
+ if(FA.feeders.length>=FEED_MAX){toast('Są już wszystkie '+FEED_MAX+' paśniki.');return false}
+ if(!canAfford(FEED_COST))return false;
+ pay(FEED_COST,'budowa paśnika');FA.feeders.push(mkFeeder(slot,.5));FA.feeders.sort((a,b)=>a.slot-b.slot);
+ toast('Paśnik gotowy: '+FEEDERS[slot].name+'. Zimą zwierzyna rozłoży się po większej liczbie paśników, a ubytki karmy uzupełnia patrol.');return true;
+}
+// zasięg paśników: jeden obejmuje tylko część lasu (reszta zwierzyny głodna zimą)
+const feedCover=()=>[.4,.7,.85,.95,1][Math.min(4,FA.feeders.length)];
 export const pressure=()=>(FA.pop.roe+2.5*FA.pop.deer)/(TARGET.roe+2.5*TARGET.deer);
 // Plan łowiecki na rok (od wiosny): odstrzał nadwyżki ponad zagęszczenie docelowe, minimum symboliczne.
 function newPlan(reset=true){
- for(const k of ['roe','deer','boar']){const over=FA.pop[k]-TARGET[k]*.85;FA.plan[k]=Math.max(k==='deer'?1:2,Math.round(over*.7));if(reset)FA.culled[k]=0}
+ for(const k of ['roe','deer','boar']){const over=FA.pop[k]-TARGET[k]*.8;FA.plan[k]=Math.min(Math.round(FA.pop[k]*.5),Math.max(k==='deer'?1:2,Math.round(over*.9)));if(reset)FA.culled[k]=0}
  FA.reduction=false;
 }
 export const planLeft=()=>['roe','deer','boar'].reduce((a,k)=>a+Math.max(0,FA.plan[k]-FA.culled[k]),0);
-export function cull(kind,visible){
+export function cull(kind,visible,quiet=false){
  if(!FA.plan[kind])return false;FA.pop[kind]=Math.max(0,FA.pop[kind]-1);FA.culled[kind]++;FA.seasonCull++;
+ if(quiet)return true;
  toast((visible?'Myśliwy z koła łowieckiego pozyskał ':'Koło łowieckie: pozyskano ')+ONE[kind]+' (plan '+FA.culled[kind]+'/'+FA.plan[kind]+').');return true;
 }
+// 0.9: partia pozyskania z wyjścia na ambonę (poza widocznymi strzałami): n sztuk rozdzielonych wg tego, co zostało w planie
+export function cullBatch(n,label=''){
+ const got={};
+ for(let i=0;i<n;i++){
+  const w=GAMEK.map(k=>Math.max(0,FA.plan[k]-FA.culled[k])*(FA.pop[k]>3?1:0)),tot=w.reduce((a,b)=>a+b,0);if(tot<=0)break;
+  let r=rand()*tot,k=GAMEK[0];for(let j=0;j<w.length;j++){r-=w[j];if(r<=0){k=GAMEK[j];break}}
+  if(cull(k,false,true))got[k]=(got[k]||0)+1;
+ }
+ const m=Object.values(got).reduce((a,b)=>a+b,0);
+ if(m)toast((label||'Koło łowieckie')+': pozyskano '+m+' szt. ('+Object.entries(got).map(([k,v])=>NAMES[k]+' '+v).join(', ')+'). Plan: '+(GAMEK.reduce((a,k)=>a+FA.culled[k],0))+'/'+(GAMEK.reduce((a,k)=>a+FA.plan[k],0))+'.');
+ return m;
+}
+const GAMEK=['roe','deer','boar'];
 // Wniosek o odstrzał redukcyjny: większy plan, myśliwi przychodzą co wieczór.
 export function requestReduction(){
  if(FA.reduction){toast('Wniosek o odstrzał redukcyjny już złożony.');return}
@@ -59,7 +86,7 @@ export function updateFauna(dt){
  if(w){FA.winterT+=dt;let empty=0;
   for(const f of FA.feeders){f.level=Math.max(0,f.level-dt*.42/1440*(1+FA.pop.deer/30));if(f.level<.02)empty++;
    if(f.level<.22&&!(f.task&&f.task.status!=='done'&&f.task.status!=='gone')){f.task=feedTask(f,f.name)}}
-  FA.emptyT+=dt*empty/FA.feeders.length;
+  FA.emptyT+=dt*empty/Math.max(1,FA.feeders.length);
  }
  // rykowisko: jesienią o zmierzchu i świcie byki ryczą
  if(cal.season()===2&&((h>17.5&&h<22)||(h>4.5&&h<7.5))&&FA.pop.deer>2){
@@ -101,9 +128,10 @@ function seasonEnd(){
  // drapieżnictwo wilków (gatunek chroniony — nie poluje się na nie)
  const wd=FA.wolf.days||0,eaten=FA.wolf.size*.25*Math.min(wd,SD)*(.7+rand()*.6)*(wd?1:0);out.wolfDays=wd;P.roe=Math.max(4,P.roe-Math.round(eaten*.75));P.deer=Math.max(3,P.deer-Math.round(eaten*.15));P.boar=Math.max(3,P.boar-Math.round(eaten*.1));
  // zima: straty zależne od dokarmiania
- let fed=1;if(se===3){fed=FA.winterT>0?1-FA.emptyT/FA.winterT:1;const loss=(1-fed)*.18+.02;P.roe=Math.round(P.roe*(1-loss));P.deer=Math.round(P.deer*(1-loss*.7));P.boar=Math.round(P.boar*(1-loss*.6));P.hare=Math.round(P.hare*(1-loss));out.fed=fed}
+ let fed=1;if(se===3){fed=FA.winterT>0?1-FA.emptyT/FA.winterT:1;fed*=feedCover();const loss=(1-fed)*.18+.02;P.roe=Math.round(P.roe*(1-loss));P.deer=Math.round(P.deer*(1-loss*.7));P.boar=Math.round(P.boar*(1-loss*.6));P.hare=Math.round(P.hare*(1-loss));out.fed=fed}
  // wiosna: rozród
- if(se===0){P.roe=Math.round(P.roe*1.38);P.deer=Math.round(P.deer*1.28);P.boar=Math.round(P.boar*1.65);P.hare=Math.round(P.hare*1.5);P.fox+=rand()<.6?1:0;}
+ if(se===0){const g=(b,k,m,lo)=>clamp(b-k*P[m]/TARGET[m],lo,b);   // 0.9: rozród zależny od zagęszczenia (bez polowań zwierzyny nie przybywa w nieskończoność)
+  P.roe=Math.round(P.roe*g(1.40,.16,'roe',.85));P.deer=Math.round(P.deer*g(1.30,.12,'deer',.9));P.boar=Math.round(P.boar*g(1.75,.35,'boar',.6));P.hare=Math.round(P.hare*1.5);P.fox+=rand()<.6?1:0;}
  else{P.boar=Math.round(P.boar*.97);P.hare=Math.round(P.hare*.93)}
  // zgryzanie: niegrodzone, młode sadzonki z nasadzeń
  const pr=pressure()*(se===3?1.6:se===0?1.2:.8)*(se===3&&fed<.6?1.4:1)*(1-.25*clamp(wd/SD,0,1));let browsed=0,killed=0;

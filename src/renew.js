@@ -119,7 +119,7 @@ function plowUpdate(){
   P.phase='driving';
   v.goTo({edge:rp.edge,s:rp.s},{onArrive:()=>{
    // dojazd w teren do pierwszego rzędu, potem orka rząd po rzędzie (zawracanie na uwrociach)
-   let ap=NAV.foot.findPath(v.pos[0],v.pos[1],rows[0][0]-24,rows[0][1]);if(!ap||!ap.length)ap=[[rows[0][0]-24,rows[0][1]]];
+   let ap=NAV.veh.findPath(v.pos[0],v.pos[1],rows[0][0]-24,rows[0][1]);if(!ap||!ap.length)ap=[[rows[0][0]-24,rows[0][1]]];
    P.base=ap.length+1;P.passes=passesOf(p);P.rows=P.passes.length;P.ys=P.passes.map(q=>q.y);P.phase='plowing';v.label='orka bruzd na P'+p.id;
    v.driveOff([...ap,...rows],{work:plowWork,onArrive:()=>{
     v.plowing=false;p.prepared=true;p.state='prepared';
@@ -128,7 +128,7 @@ function plowUpdate(){
     p.prepDay=state.days;
     toast('Gleba na P'+p.id+' przygotowana: '+P.ys.length+' bruzd. Można sadzić.');
     const back=nearestRoad(v.pos[0],v.pos[1],['main','forest'],{margin:40});
-    let bp=NAV.foot.findPath(v.pos[0],v.pos[1],back.x,back.y);if(!bp||!bp.length)bp=[[back.x,back.y]];
+    let bp=NAV.veh.findPath(v.pos[0],v.pos[1],back.x,back.y);if(!bp||!bp.length)bp=[[back.x,back.y]];
     P.phase='leaving';v.label='ciągnik z pługiem wraca';
     v.driveOff(bp,{onArrive:()=>{v.rejoin();v.goTo(goalNode(exitNode(v.pos[0])),{leave:true,onArrive:()=>{}});P.v=null;P.cur=null;P.phase='idle'}});
    }});

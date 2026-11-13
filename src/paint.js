@@ -166,8 +166,7 @@ function paintPolana(){
   outlinedDraw(g,x,y,G=>{for(let k=0;k<3;k++){const aa=k*2.1+hash(k,i),dd=r*.35;blobPatch(G,Math.cos(aa)*dd,Math.sin(aa)*dd,r*.6,pal[0],pal,i+k)}},'#26392a')}
 }
 // Ambona myśliwska: drewniana kabina na nogach, dach z papy (rysowana dynamicznie, nad postaciami).
-export function drawAmbona(c){
- const {x,y}=AMBONA;
+export function drawAmbona(c,x=AMBONA.x,y=AMBONA.y){
  c.fillStyle='#2b3b2a50';c.beginPath();c.moveTo(x+6,y+6);c.lineTo(x+6+LIGHT.x*60,y+6+LIGHT.y*60);c.lineTo(x+20+LIGHT.x*60,y-6+LIGHT.y*60);c.lineTo(x+20,y-6);c.fill();
  outlinedDraw(c,x,y,G=>{
   for(const [dx,dy] of [[-9,-9],[9,-9],[-9,9],[9,9]])rect(G,dx-1,dy-1,3,3,'#5a4630');

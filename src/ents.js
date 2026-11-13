@@ -3,7 +3,7 @@ import {createNav} from './nav.js';
 import {pointBlocked,roadClearance,YARD,PLAC,NURSERY,inRect,inWorld} from './map.js';
 import {R,inShape} from './renew.js';
 export const E={vehicles:[],people:[],animals:[],piles:[],trash:[],incidents:[],plants:[],ropes:[]};
-export const NAV={foot:null,wild:null,yard:null};
+export const NAV={foot:null,wild:null,yard:null,veh:null};
 // zwierzyna: nie wchodzi na podwórze, plac, do grodzeń (uprawa i ogrodzone powierzchnie) ani na drogę główną
 const wildOk=(x,y)=>inWorld(x,y,20)&&!pointBlocked(x,y,10)&&!inRect(x,y,YARD,70)&&!inRect(x,y,PLAC,40)&&!inRect(x,y,NURSERY,16)&&roadClearance(x,y,['main'])>40
  &&!R.plots.some(p=>p.fence==='done'&&inShape(p,x,y,14));
@@ -15,6 +15,8 @@ export function rebuildWild(){
 }
 export function buildNavs(){
  NAV.foot=createNav((x,y)=>inWorld(x,y,14)&&!pointBlocked(x,y,9));
+ // pojazdy w terenie (forwarder, ciągnik, pług, quady): omijają podwórze leśniczówki z ogrodzeniem; wolno im tylko na plac
+ NAV.veh=createNav((x,y)=>inWorld(x,y,14)&&!pointBlocked(x,y,9)&&(!inRect(x,y,YARD,18)||inRect(x,y,PLAC,30)));
  NAV.wild=createNav(wildOk);
  NAV.yard=createNav((x,y)=>inRect(x,y,YARD,-14)&&!pointBlocked(x,y,9));
 }

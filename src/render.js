@@ -8,7 +8,9 @@ import {E} from './ents.js';
 import {drawGroundItems,drawRopes,J} from './jobs.js';
 import {drawBase} from './base.js';
 import {drawHealth,drawWeather} from './health.js';
-import {drawFeeders} from './life/fauna.js';
+import {drawFeeders,FA,feederSlotAt} from './life/fauna.js';
+import {AMB,AMB_R,ambonaWhy} from './life/ambony.js';
+import {FEEDERS} from './map.js';
 import {birds} from './life/sprites.js';
 import {NODES,EDGES,YARD,HOUSE} from './map.js';
 import {drawPlots,drawFences} from './renew.js';
@@ -120,6 +122,30 @@ function edgeCover(){
  if(y0<0&&y1>0){ctx.fillRect(Math.max(x0,-2),-2,Math.min(x1,W+2)-Math.max(x0,-2),2)}
  if(y1>H&&y0<H){ctx.fillRect(Math.max(x0,-2),H,Math.min(x1,W+2)-Math.max(x0,-2),2)}
 }
+// 0.9: tryb Budowa — zasięgi istniejących ambon, wolne miejsca paśników i „duch” budowanego obiektu (zielony = można, czerwony = nie)
+function drawBuildGhost(g){
+ if(state.tool!=='build')return;
+ const kind=state.buildKind||'ambona',t=state.elapsed;
+ g.save();
+ if(kind==='ambona'){
+  g.lineWidth=2;g.setLineDash([12,8]);
+  for(const a of AMB.list){g.strokeStyle='rgba(250,230,140,.85)';g.beginPath();g.arc(a.x,a.y,AMB_R,0,7);g.stroke()}
+  g.setLineDash([]);
+  const h=state.hover;
+  if(h&&h.build){const why=ambonaWhy(h.x,h.y),ok=!why;
+   g.fillStyle=ok?'rgba(120,220,120,.10)':'rgba(230,90,70,.10)';g.beginPath();g.arc(h.x,h.y,AMB_R,0,7);g.fill();
+   g.strokeStyle=ok?'rgba(150,240,140,.9)':'rgba(240,110,90,.9)';g.lineWidth=2;g.beginPath();g.arc(h.x,h.y,AMB_R,0,7);g.stroke();
+   g.globalAlpha=.65;drawAmbona(g,h.x,h.y);g.globalAlpha=1;
+   if(why){g.font='11px monospace';g.textAlign='center';const w=g.measureText(why).width+10;g.fillStyle='rgba(20,14,10,.85)';g.fillRect(h.x-w/2,h.y-44,w,16);g.fillStyle='#ffb09a';g.fillText(why,h.x,h.y-32)}}
+ }else{
+  const h=state.hover,near=h&&h.build?feederSlotAt(h.x,h.y,90):null;
+  FEEDERS.forEach((f,i)=>{if(FA.feeders.some(q=>q.slot===i))return;
+   const pulse=.5+.5*Math.sin(t*4),hot=near===i;
+   g.strokeStyle=hot?'rgba(150,240,140,1)':'rgba(240,220,140,'+(.5+.4*pulse)+')';g.lineWidth=hot?3:2;g.setLineDash([6,5]);g.strokeRect(f.x-18,f.y-12,36,24);g.setLineDash([]);
+   g.font='11px monospace';g.textAlign='center';g.fillStyle='rgba(20,14,10,.85)';const w=g.measureText(f.name).width+10;g.fillRect(f.x-w/2,f.y-38,w,16);g.fillStyle=hot?'#c8f0b0':'#f0e0a0';g.fillText(f.name,f.x,f.y-26)});
+ }
+ g.restore();
+}
 export function drawWorld(){
  ctx.save();ctx.translate(-Math.floor(camera.x),-Math.floor(camera.y));
  ctx.fillStyle='#2b3b2a';ctx.fillRect(Math.floor(camera.x),Math.floor(camera.y),VIEW.w+1,VIEW.h+1);
@@ -135,8 +161,8 @@ export function drawWorld(){
  for(const p of E.people)if(!p.onStand)p.draw();
  for(const v of E.vehicles)if(!v.dead)v.draw();
  drawRopes(ctx);
- drawAmbona(ctx);for(const p of E.people)if(p.onStand)p.draw();
- drawForest(ctx,camera,VIEW.w,VIEW.h,'high');prefetchForest(camera,VIEW.w,VIEW.h,3);if(!prefDone)prefDone=prefetchAll(4);
+ for(const a of AMB.list)if(a.x>camera.x-60&&a.x<camera.x+VIEW.w+60&&a.y>camera.y-60&&a.y<camera.y+VIEW.h+60)drawAmbona(ctx,a.x,a.y);for(const p of E.people)if(p.onStand)p.draw();
+ drawForest(ctx,camera,VIEW.w,VIEW.h,'high');drawBuildGhost(ctx);prefetchForest(camera,VIEW.w,VIEW.h,3);if(!prefDone)prefDone=prefetchAll(4);
  // prześwit: zwierzęta i ludzie pod koronami widoczni jako półprzezroczyste sylwetki
  if(SETTINGS.ghosts){ctx.globalAlpha=.5;for(const a of E.animals)if(!a.dead)a.draw();for(const p of E.people)if(!p.onStand)p.draw();for(const v of E.vehicles)if(v.off&&!v.dead)v.draw();ctx.globalAlpha=1}
  drawFire();drawFalling();drawParticles();drawPlots(ctx,state.selected);drawMarkers();

@@ -25,6 +25,12 @@
    <button class="tool" data-tool="mark"><b>2</b>Wycinka</button>
    <button class="tool" data-tool="plant"><b>3</b>Sadzenie</button>
    <button class="tool" data-tool="plot"><b>4</b>Odnowienie</button>
+   <button class="tool" data-tool="build"><b>5</b>Budowa</button>
+   <div id="buildpanel" style="display:none">
+    <div class="bkinds"><button class="bk on" data-bk="ambona" id="bk-ambona"></button><button class="bk" data-bk="pasnik" id="bk-pasnik"></button></div>
+    <div class="bstat" id="bstat"></div>
+    <button class="bhelp" id="bhelp">ⓘ Jak to działa?</button>
+   </div>
    <div class="toolhint" id="toolhint"></div>
    <div class="sep"></div>
    <button id="crewbtn" class="act"><b>E</b>Wyślij ekipę <span id="crewn"></span></button>
@@ -62,6 +68,7 @@
 <div id="base" class="hidden panel"><div class="card wide" id="basecard"></div></div>
 <div id="mapov" class="hidden"><div class="mapcard"><div class="maphead"><b>MAPA LEŚNICTWA</b><span><button data-mapmode="sp">Gatunki</button><button data-mapmode="age">Wiek</button><button data-mapmode="q">Jakość</button><button id="mapclose">Zamknij (Tab)</button></span></div>
  <canvas id="mapcv"></canvas><div id="maplegend"></div><div class="maphint">Kliknij miejsce na mapie, aby tam przejść.</div></div></div>
+<div id="infowin" class="hidden"><button class="xclose" id="infowin-x" title="Zamknij (Esc)">×</button><div id="infowin-body"></div><button id="infowin-ok">ROZUMIEM</button></div>
 <div id="help" class="hidden panel"><div class="card"><div class="kicker">JAK GRAĆ</div>
  <div class="keys"><span><b>Mysz</b> przeciągnij mapę, kliknij obiekt</span><span><b>Kółko / Z</b> przybliżenie</span><span><b>1</b> podgląd</span><span><b>2</b> wycinka: klik / przeciągnij</span><span><b>3</b> sadzenie: klik / przeciągnij = rzędy</span><span><b>4</b> odnowienie: przeciągnij = powierzchnia</span><span><b>Prawy przycisk</b> przesuwa mapę</span><span><b>E</b> wyślij ekipę</span><span><b>K</b> zamów wywóz</span><span><b>Q</b> patrol do zgłoszenia</span><span><b>F</b> kamera śledzi</span><span><b>WASD</b> widok</span><span><b>T</b> tempo ×1/×3/×10</span><span><b>P</b> pauza · <b>M</b> dźwięk</span><span><b>G</b> wzrost lasu (test)</span><span><b>F3</b> debug</span><span><b>Esc</b> anuluj</span></div>
  <p class="hint2"><b>Trzebież:</b> kliknij drzewo i zleć „Ocenę drzewostanu” — leśniczy obejdzie okolicę, pozna jakość drzew (przy narzędziu Wycinka kropki: zielona dorodne, żółta przeciętne, czerwona wadliwe) i oznaczy wadliwe do usunięcia. W luźniejszym drzewostanie drzewa rosną szybciej. Drewno samo dzieli się na tartaczne, papierówkę i opał — opał leży w osobnych stosach dla ludności.</p>

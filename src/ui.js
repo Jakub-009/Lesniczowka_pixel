@@ -8,7 +8,8 @@ import {R,inPlot,perimOf,plotStats,prepCost,areaHa,spotsIn,orderPrep,orderPlant,
 import {ECO,dailyCost} from './economy.js';
 import {E} from './ents.js';
 import {dispatch,openIncidents,U,orderAssess,assessing,ASSESS,DEC,decide} from './incidents.js';
-import {FA,NAMES,pressure,planLeft,requestReduction} from './life/fauna.js';
+import {FA,NAMES,pressure,planLeft,requestReduction,FEED_COST,FEED_MAX} from './life/fauna.js';
+import {AMB,AMB_COST,AMB_MAX,AMB_R,demolishAmbona} from './life/ambony.js';
 import {BASE,BUILD,buildNursery,buildGarage,hireDeputy,fireDeputy,NPLANS,cycleNursery,nurseryText} from './base.js';
 import {VSPEC,ASPEC} from './life/agents.js';
 import {MAIL,mail,unreadMail,stamp} from './mail.js';
@@ -20,7 +21,30 @@ const pct=v=>Math.round(v)+'%';
 function barCol(v){return v>=70?'#8ec86a':v>=50?'#d8b665':'#e0704f'}
 export function setTool(t){state.tool=t;state.poly=null;state.hover=null;state.box=null;for(const b of document.querySelectorAll('[data-tool]'))b.classList.toggle('on',b.dataset.tool===t);
  const msg={select:'Podgląd: kliknij drzewo, zwierzę, pojazd, zgłoszenie albo powierzchnię.',mark:'Wycinka: klik = drzewo (trzebież od '+THIN_AGE+' lat), przeciągnij = obszar (od '+CUT_AGE+' lat), Shift + przeciągnij = odznacz, Ctrl+Z = cofnij. Kolorowe kropki = oceniona jakość. Prawy przycisk przesuwa mapę.',plant:'Sadzenie: klik = sadzonka, przeciągnij = rzędy sadzonek (bez przygotowania gleby).',plot:'Odnowienie: przeciągnij prostokąt albo klikaj narożniki wielokąta (Enter kończy, Esc anuluje). Drogi są wyłączone z powierzchni. → pług LPz → sadzenie w rzędach.'}[t];
- $('#toolhint').textContent=msg;}
+ $('#toolhint').textContent=msg;
+ $('#buildpanel').style.display=t==='build'?'block':'none';
+ if(t==='build'){buildUi();showInfoWin('build',false)}}
+// 0.9: okienka informacyjne (zamykane krzyżykiem w rogu, OK albo Esc); pierwszy raz otwierają się same, potem przyciskiem ⓘ
+const INFOWIN={
+ build:{title:'Budowa: ambony i paśniki',html:`<p>Wybierz rodzaj po lewej i kliknij w mapę. <b>Prawy przycisk</b> albo <b>Esc</b> kończy budowę.</p>
+  <h3>Ambona · ${AMB_COST.toLocaleString('pl-PL')} zł (maks. ${AMB_MAX})</h3><ul><li>Każda ma <b>własnego myśliwego</b>, który wieczorem i o świcie obstawia zasięg ok. ${AMB_R} px (żółte koło).</li><li>Jedna ambona utrzymuje zwierzynę na rozsądnym poziomie. Gdy jest jej za dużo i plan łowiecki rośnie szybciej, niż zdąża go wykonać, dobuduj kolejną (stan sprawdzisz w Leśniczówce, L).</li><li>Zielone koło = można, czerwone = nie (z powodem). Min. ${330} px od innej ambony, 70 px od drogi; nie na podwórzu, mokradle ani powierzchni odnowieniowej.</li><li>Rozbiórka: kliknij ambonę w Podglądzie (odzysk 40%).</li></ul>
+  <h3>Paśnik · ${FEED_COST.toLocaleString('pl-PL')} zł (maks. ${FEED_MAX})</h3><ul><li>Zimą zwierzyna wyjada z niego karmę; pusty paśnik to zadanie dla patrolu.</li><li>Zaczynasz z jednym. Kolejne stawiasz w stałych miejscach (żółte ramki). Więcej paśników to mniejsze straty zimą i mniejsze zgryzanie upraw, ale więcej karmy do dowiezienia.</li></ul>`}
+};
+export function showInfoWin(key,force=true){
+ const I=INFOWIN[key];if(!I)return;
+ let seen=false;try{seen=!!localStorage.getItem('lesn.seen.'+key)}catch(e){}
+ if(!force&&seen)return;
+ try{localStorage.setItem('lesn.seen.'+key,'1')}catch(e){}
+ $('#infowin-body').innerHTML='<h2>'+I.title+'</h2>'+I.html;$('#infowin').classList.remove('hidden');
+}
+export const closeInfoWin=()=>$('#infowin').classList.add('hidden');
+export function buildUi(){
+ const k=state.buildKind||'ambona',af=FA.feeders.length;
+ $('#bk-ambona').textContent='Ambona · '+zl(AMB_COST);$('#bk-pasnik').textContent='Paśnik · '+zl(FEED_COST);
+ $('#bk-ambona').classList.toggle('on',k==='ambona');$('#bk-pasnik').classList.toggle('on',k==='pasnik');
+ $('#bk-pasnik').classList.toggle('off',af>=FEED_MAX);$('#bk-ambona').classList.toggle('off',AMB.list.length>=AMB_MAX);
+ $('#bstat').innerHTML=k==='ambona'?'Ambony: '+AMB.list.length+' / '+AMB_MAX+'<br>Kliknij w mapę: zielone koło = można.':'Paśniki: '+af+' / '+FEED_MAX+'<br>Kliknij żółtą ramkę na mapie.';
+}
 let incSig='',infoSig='',taskSig='';
 export function hud(){
  const h=cal.hour(),hh=Math.floor(h),mm=Math.floor((h-hh)*60);
@@ -124,6 +148,7 @@ function info(){
   so==='opal'?((op||s).truck===false?'Opał dla ludności: kupują go petenci w kancelarii ('+zl(PRICE.opal)+'/m³) i odbierają spod stosu. Ciężarówka go nie bierze.':'Ciężarówka może zabrać ten opał (taniej niż sprzedaż petentom).'):'Cena rynkowa ×'+displayNumber(ECO.market,2)+' (zimą drożej, latem taniej).',
   'Do wywozu: '+displayNumber(truckTotal(),1)+' m³ (przy 10 m³ nadleśnictwo samo przyśle transport). Opał przy drogach: '+displayNumber(stackTotal(q=>q.sort==='opal'),1)+' m³.','Sprzedano łącznie: '+displayNumber(J.sold,1)+' m³.'],
   btns:[...(so==='opal'?[['opaltruck',(op||s).truck===false?'Pozwól zabrać ciężarówce':'Zostaw dla ludności']]:[]),...(J.truck.v?[]:[['truck','Zamów wywóz teraz']])]}}
+ else if(s.shots!==undefined&&s.outings!==undefined)I={title:'Ambona '+(s.id+1),lines:['Wyjść myśliwych: '+s.outings+' · pozyskano: '+s.got+' szt.','Zasięg ok. '+AMB_R+' px. Myśliwy wychodzi wieczorem i o świcie (poza wiosną), dopóki plan łowiecki nie jest wykonany.'],btns:s.id===0?[]:[['demolish','Rozbierz (odzysk '+zl(Math.round(AMB_COST*.4))+')']]};
  else if(s.level!=null&&s.name)I={title:'Paśnik '+s.name,lines:['Karma: '+Math.round(s.level*100)+'%',cal.season()===3?'Zima: zwierzyna wyjada karmę. Przy niskim poziomie pojawi się zadanie.':'Poza zimą paśnik stoi, lizawka solna obok.'],btns:[]};
  else if(s.day!=null&&s.vol!=null&&s.edge)I={title:'Drewno opałowe do odbioru',lines:['Sprzedane w kancelarii: '+displayNumber(s.vol,1)+' m³','Nabywca przyjedzie ciągnikiem z przyczepą.'],btns:[]};
  else if(s.pos)I={title:VSPEC[s.kind].name[0].toUpperCase()+VSPEC[s.kind].name.slice(1),lines:[s.label||'',s.cart?'Ładunek: '+displayNumber(s.load,1)+' / '+s.cap+' m³':'',s.illegal?'Wjazd pojazdów silnikowych do lasu jest zabroniony.':''].filter(Boolean),btns:[...(s.illegal&&s.inc&&s.inc.status==='new'?[['patrol','Wyślij patrol']]:[])]};
@@ -230,12 +255,13 @@ export function renderBase(){
   <p class="hint2">Fotopułapki zgłaszają nielegalne wjazdy i wysypiska od razu i dają mandaty z nagrania. Zamknięte szlabany odstraszają o połowę nielegalnych wjazdów, ale bez parkingu ubywa też grzybiarzy i spacerowiczów. Kosz na parkingu ogranicza śmiecenie. Policję wzywasz na karcie zgłoszenia (quad, nocny intruz). Dzikie wysypisko usuwa firma wywozowa (${zl(OC.waste)}).</p></div>
  <div class="bsec"><h3>KOŁO ŁOWIECKIE</h3>
   ${['roe','deer','boar','fox','hare'].map(k=>row(NAMES[k][0].toUpperCase()+NAMES[k].slice(1),FA.pop[k]+(FA.plan[k]!=null?' · plan '+FA.culled[k]+'/'+FA.plan[k]:''))).join('')}
+  ${row('Ambony',AMB.list.length+' / '+AMB_MAX+' · '+AMB.list.reduce((a,q)=>a+q.got,0)+' szt. pozyskano')}
   ${row('Wilki (wędrowne, chronione)',FA.wolf.present?'wataha: '+FA.wolf.size+' os. · jeszcze ok. '+Math.max(1,Math.ceil(FA.wolf.until-state.days))+' dni':'nie ma w lesie')}
   ${row('Presja na uprawy',Math.round(pr*100)+'%')}${meter(pr/2)}
   ${FA.reduction?'<p class="hint2">Odstrzał redukcyjny przyjęty — myśliwi co wieczór na ambonie.</p>':btn('reduce','Wniosek o odstrzał redukcyjny',pr<1.05)}</div>
- <div class="bsec"><h3>PAŚNIKI</h3>
+ <div class="bsec"><h3>PAŚNIKI (${FA.feeders.length}/${FEED_MAX})</h3>
   ${FA.feeders.map(f=>row(f.name,Math.round(f.level*100)+'%')+meter(f.level)).join('')}
-  <p class="hint2">Zimą zwierzyna wyjada karmę — pusty paśnik to zadanie dla patrolu (${zl(ECO.feedCost||120)} za karmę). Głodna zwierzyna mocniej zgryza uprawy.</p></div>
+  <p class="hint2">Zimą zwierzyna wyjada karmę — pusty paśnik to zadanie dla patrolu (${zl(ECO.feedCost||120)} za karmę). Głodna zwierzyna mocniej zgryza uprawy. Ambony i kolejne paśniki stawiasz w trybie Budowa (5).</p></div>
  </div><button id="base-close">ZAMKNIJ (L / Esc)</button>`;
  if(html===baseSig)return;baseSig=html;$('#basecard').innerHTML=html;
  $('#base-close').onclick=()=>toggleBase(false);
@@ -288,11 +314,14 @@ export function bindUI(){
   else if(k==='assess')orderAssess(s.x,s.y);
   else if(k==='odd')toggleOdd(true,oddzial(s.x+(s.w?s.w/2:0),s.y+(s.h?s.h/2:0)));
   else if(k==='repel')orderRepel(s);
+  else if(k==='demolish'){demolishAmbona(s);state.selected=null}
   else if(k==='prep')orderPrep(s);else if(k==='plantplot')orderPlant(s);else if(k==='delplot'){removePlot(s);if(!R.plots.includes(s))state.selected=null}
   else if(k==='plantnear'){for(let a=0;a<12;a++){const x=s.x+Math.cos(a)*12,y=s.y+Math.sin(a)*12;const n=J.plants.length;togglePlant(x,y);if(J.plants.length>n)break}}
   infoSig='';hud();
  });
  $('#basebtn').addEventListener('click',()=>toggleBase(true));
+ $('#bk-ambona').addEventListener('click',()=>{state.buildKind='ambona';buildUi()});$('#bk-pasnik').addEventListener('click',()=>{state.buildKind='pasnik';buildUi()});
+ $('#bhelp').addEventListener('click',()=>showInfoWin('build',true));$('#infowin-x').addEventListener('click',closeInfoWin);$('#infowin-ok').addEventListener('click',closeInfoWin);
  $('#mailbtn').addEventListener('click',()=>toggleMail());
  $('#mailbox').addEventListener('click',e=>{const g=e.target.closest('[data-mgo]');if(!g)return;const m=MAIL.find(x=>x.id==g.dataset.mgo);if(m&&m.x!=null){centerOn(m.x,m.y);state.follow=null}});
  $('#basecard').addEventListener('click',e=>{const b=e.target.closest('[data-b]');if(!b)return;const k=b.dataset.b;

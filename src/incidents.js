@@ -44,9 +44,9 @@ function quadExcursion(v){
  const h=v.heading,fx=Math.sin(h),fy=-Math.cos(h),sx=Math.cos(h),sy=Math.sin(h),sg=rand()<.5?1:-1;
  for(const side of [sg,-sg]){
   const D=80+rand()*150,tx=v.pos[0]+(fx*.35+sx*side*.94)*D+fx*40,ty=v.pos[1]+(fy*.35+sy*side*.94)*D+fy*40;
-  if(!NAV.foot||!NAV.foot.walkable(tx,ty)||roadClearance(tx,ty)<45)continue;
+  if(!NAV.veh||!NAV.veh.walkable(tx,ty)||roadClearance(tx,ty)<45)continue;
   const rp=nearestRoad(tx+fx*80,ty+fy*80,['forest'],{margin:30});if(!rp)continue;
-  const a=NAV.foot.findPath(v.pos[0],v.pos[1],tx,ty),b=a&&a.length?NAV.foot.findPath(tx,ty,rp.x,rp.y):null;
+  const a=NAV.veh.findPath(v.pos[0],v.pos[1],tx,ty),b=a&&a.length?NAV.veh.findPath(tx,ty,rp.x,rp.y):null;
   if(!a||!a.length||!b||!b.length)continue;
   v.driveOff([...a,...b],{work:quadWork,onArrive:q=>{q.rejoin();q.arrived=false;q.final=false;q.stopS=null;q.route=null;q.roam=['forest'];q.exc=state.elapsed+25+rand()*40;q.label=(q.kind==='quad'?'quad':'crossowiec')+' wrócił na drogę'}});
   if(v.off)v.off.workSpeed=40;

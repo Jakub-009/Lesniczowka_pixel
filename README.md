@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.8.4 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.9.0 (w budowie) — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -223,6 +223,14 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
+
+## Zmiany w 0.9 (w budowie) „Ambony”
+- **Tryb Budowa (klawisz 5):** wybierasz Ambonę albo Paśnik i klikasz w mapę. Zielone koło = można stawiać, czerwone = nie (z podanym powodem). Pierwszy raz otwiera się okienko informacyjne (zamykane krzyżykiem, OK albo Esc), potem wraca przyciskiem ⓘ.
+- **Ambony** (1 100 zł, maks. 8, rozbiórka z odzyskiem 40%): każda ma **własnego myśliwego** (wieczór i świt, przesunięci w czasie), zasięg ok. 420 px i licznik pozyskania. Wyjście daje widoczny strzał oraz porcję „z obwodu” zależną od presji zwierzyny. Jedna ambona utrzymuje stan wyjściowy (test 8 lat: presja ok. 0,95), ale przy zaległościach (za dużo zwierzyny, plan rośnie szybciej niż go wykonuje) dobudowujesz kolejne. Najwyżej 3 myśliwych na raz widać w lesie, pozostałe wyjścia liczą się bez sceny.
+- **Paśniki:** nowa gra zaczyna z jednym; kolejne (700 zł, maks. 4) stawiasz w stałych miejscach. Jeden paśnik obejmuje 70% lasu, cztery — całość; mniej paśników to większe straty zimą i mocniejsze zgryzanie. Stare zapisy mają wszystkie cztery.
+- **Zwierzyna:** rozród zależy od zagęszczenia (bez polowań liczebność ustala się ok. 2,5× ponad docelową zamiast rosnąć bez końca), plan łowiecki = 90% nadwyżki ponad 80% stanu docelowego (maks. połowa populacji).
+- **Ekipy:** w pierwszej kolejności tną drzewa z kornikiem (zgłoszenia sanitarne), a patrol z oznaczonymi korowymi drzewami wysyła je sam; max. zasięg chodzenia od auta ok. 210 px, a nowe zadania w zasięgu bierze się bez wracania do auta (koniec z przejazdami o kilka pikseli).
+- **Maszyny leśne** (forwarder, ciągnik, pług, quady) omijają podwórze leśniczówki; wjeżdżają tylko na plac.
 
 ## Zmiany w 0.8.4 „Stabilność”
 - **Zawieszenia:** błąd w jednym podsystemie nie zatrzymuje już pętli gry (wyjątek w `incidents.js`: zmienna `U` przesłaniała listę jednostek). Dodany strażnik wykrywa martwą pętlę klatek, okno blokujące grę bez okna i stojący czas. Diagnostyka w konsoli: `__lasDiag()`.

@@ -1,14 +1,15 @@
 // Kto mieszka w lesie i kto do niego przyjeżdża: zwierzyna w grupach, ruch na drodze, grzybiarze, spacerowicze, rowerzyści, myśliwy.
 import {cal,hash,state,clamp,SEASON_DAYS,toast} from '../core.js';
 import {banned} from '../health.js';
-import {EDGES,NODES,POLANA,AMBONA,roadClearance,oddzial} from '../map.js';
+import {EDGES,NODES,POLANA,roadClearance,oddzial} from '../map.js';
+import {AMB,AMB_R} from './ambony.js';
 import {goalNode,pointOn,nearestRoad,ENTRY,exitNode} from '../roads.js';
 import {E,NAV} from '../ents.js';
 import {Vehicle,Ped,Wild,Group,rand} from './agents.js';
 import {addTrash,U} from '../incidents.js';
 import {bumpProtect,ECO} from '../economy.js';
 import {sfx} from '../sound.js';
-import {FA,FH,cull,planLeft,likesNow} from './fauna.js';
+import {FA,FH,cull,cullBatch,planLeft,likesNow,pressure} from './fauna.js';
 
 const CAR_COLS=['#8c9b95','#a4684f','#6f86a0','#b9a56a','#7a8f6f','#a8a6a0','#5a5f6a','#9a4a3a'];
 const pick=a=>a[Math.floor(rand()*a.length)];
@@ -90,27 +91,42 @@ function target(q,R){
  return best;
 }
 function kill(q,a){shot(q);a.dead=true;const c={x:a.x,y:a.y,a:a.heading,kind:a.kind};FA.carcasses.push(c);cull(a.kind,true);return c}
-function spawnHunter(dawn){
- const e=EDGES.find(q=>q.a==='b1'&&q.b==='b2'),car=spawnFrom('car',{color:'#4a5a3a'});car.label='myśliwy (koło łowieckie)';
- car.goTo({edge:e,s:60},{park:true,onArrive:v=>{
+// 0.9: każda ambona ma własnego myśliwego; ten parkuje przy najbliższej drodze leśnej, idzie na ambonę (zasięg 420 px) i po powrocie
+// zgłasza pozyskanie: widoczny strzał + porcja „z obwodu” zależna od presji zwierzyny (więcej ambon → plan do wykonania).
+const huntersOut=()=>E.people.filter(p=>p.kind==='hunter'&&!p.dead&&p.amb!=null).length;
+const outingYield=()=>{const x=1.7*clamp(pressure(),.7,2.2)*(FA.wolf.present?.8:1);return Math.floor(x)+(rand()<x%1?1:0)};
+function spawnHunter(A,dawn){
+ A.outings++;
+ const rp=nearestRoad(A.x,A.y,['forest'],{margin:60})||nearestRoad(A.x,A.y,['main'],{margin:60}),car=spawnFrom('car',{color:'#4a5a3a'});car.label='myśliwy (koło łowieckie)';
+ const stand=[A.x-14,A.y+18];
+ car.goTo({edge:rp.edge,s:rp.s},{park:true,onArrive:v=>{
   const [cx,cy]=sideSpot(v,18);
-  const h=new Ped({kind:'hunter',x:cx,y:cy,prop:'rifle',speed:13});h.label='myśliwy';
+  const h=new Ped({kind:'hunter',x:cx,y:cy,prop:'rifle',speed:13});h.label='myśliwy';h.amb=A.id;
   const dog=new Wild({kind:'dog',x:cx,y:cy+6,seed:Math.floor(rand()*1e5),nav:'foot',group:new Group(cx,cy,2,{fixed:true}),follow:h,leash:40,idleMin:.4,idleVar:1.5,col:'#8a5a32',col2:'#e8e0d0',flee:0});
   const leave=[{go:[cx,cy]},{call:q=>{q.dead=true;dog.dead=true;leaveMap(v)}}];
-  h.run([{go:[AMBONA.x-14,AMBONA.y+18]},{call:q=>{q.onStand=true;q.x=AMBONA.x;q.y=AMBONA.y-2;q.label='myśliwy na ambonie'}},
+  h.run([{go:stand},{call:q=>{q.onStand=true;q.x=A.x;q.y=A.y-2;q.label='myśliwy na ambonie'}},
    {wait:420,until:q=>{const t=cal.hour();return q.kill||(dawn?t>8.6:(t>22.3||t<5))},pose:'stand',face:[POLANA.x,POLANA.y],tick:(q,dt)=>{
     q.aimT=(q.aimT||0)+dt;
-    if(q.aim&&(q.aim.dead||q.aim.state==='run'||Math.hypot(q.aim.x-q.x,q.aim.y-q.y)>440)){q.aim=null;q.aimT=0}
-    if(!q.aim){if(q.aimT<1)return;q.aimT=0;q.aim=target(q,420);if(q.aim)q.need=3+rand()*6;return}
+    if(q.aim&&(q.aim.dead||q.aim.state==='run'||Math.hypot(q.aim.x-q.x,q.aim.y-q.y)>AMB_R+20)){q.aim=null;q.aimT=0}
+    if(!q.aim){if(q.aimT<1)return;q.aimT=0;q.aim=target(q,AMB_R);if(q.aim)q.need=3+rand()*6;return}
     q.heading=Math.atan2(q.aim.y-q.y,q.aim.x-q.x);
     if(q.aimT>=q.need){const a=q.aim;q.aim=null;q.aimT=0;if(rand()<.85)q.kill=kill(q,a);else shot(q)}}},
-   {call:q=>{q.onStand=false;q.x=AMBONA.x-14;q.y=AMBONA.y+18;
+   {call:q=>{q.onStand=false;q.x=stand[0];q.y=stand[1];
+    // porcja z obwodu: tyle, ile wynika z presji zwierzyny, pomniejszona o widoczny strzał
+    const bag=Math.max(0,outingYield()-(q.kill?1:0)),got=bag?cullBatch(bag,'Ambona '+(A.id+1)):0;A.got+=got+(q.kill?1:0);if(got||q.kill)q.prop='bag';
     if(q.kill){const c=q.kill;q.label='myśliwy zabiera pozyskaną zwierzynę';
      q.run([{go:[c.x-8,c.y]},{wait:6,pose:'kneel',face:[c.x,c.y]},{call:()=>{c.dead=true;q.prop='bag'}},...leave]);return}
-    // bez strzału na polanie — czasem pozyskanie gdzie indziej w obwodzie
-    const left=GAME.filter(k=>FA.culled[k]<FA.plan[k]);if(left.length&&rand()<.35*(FA.wolf.present?.7:1))cull(left[Math.floor(rand()*left.length)],false);
     q.run(leave)}}]);
  }});
+}
+// harmonogram: wieczorem i o świcie każda ambona wystawia myśliwego (przesunięci w czasie); gdy jest ich już 3 w lesie, reszta „wychodzi” bez widocznej sceny
+function scheduleHunters(h,se,we,dayN){
+ if(se===0)return;
+ const want=FA.reduction?1:planLeft()<=0?.15:we?.85:.55;
+ for(const A of AMB.list){
+  if(h>18+A.off*.9&&h<19.6&&A.hDay!==dayN){A.hDay=dayN;if(rand()<want){if(huntersOut()<3)spawnHunter(A,false);else{A.outings++;const g=cullBatch(Math.max(1,Math.round(outingYield()*.7)),'Ambona '+(A.id+1));A.got+=g}}}
+  if(h>4.3+A.off*.5&&h<5.3&&A.dDay!==dayN){A.dDay=dayN;if(rand()<want*.6){if(huntersOut()<3)spawnHunter(A,true);else{A.outings++;const g=cullBatch(Math.max(1,Math.round(outingYield()*.7)),'Ambona '+(A.id+1));A.got+=g}}}
+ }
 }
 // Polowanie zbiorowe (0.6): jesienią i zimą w sobotę. Linia myśliwych przy drodze, naganka przechodzi oddział i wypędza
 // zwierzynę na linię. Na koniec pokot — podsumowanie pozyskania.
@@ -183,9 +199,7 @@ export function updateVisitors(dt){
   t.dead=true;if(t.inc&&t.inc.status!=='done'){t.inc.status='done';for(const u of U)u.queue=u.queue.filter(q=>q!==t.inc)}bumpProtect(.5);
   toast((p.kind==='picker'?(p.berry?'Zbieracz jagód':'Grzybiarz'):'Spacerowicz')+' pozbierał śmieci w oddz. '+oddzial(t.x,t.y)+' — dziękujemy!')}}
  const dayN=Math.floor(state.days);
- const want=FA.reduction?1:planLeft()<=0?.15:we?.85:.55;
- if(h>18&&h<19.5&&se!==0&&T.huntDay!==dayN){T.huntDay=dayN;if(rand()<want)spawnHunter(false)}
- if(h>4.3&&h<5.2&&se!==0&&T.dawnDay!==dayN){T.dawnDay=dayN;if(rand()<want*.6)spawnHunter(true)}
+ scheduleHunters(h,se,we,dayN);
  // polowanie zbiorowe: jesień i zima, sobota rano, raz na porę roku
  const sk=Math.floor(state.days/SEASON_DAYS);
  if((se===2||se===3)&&cal.dow()===5&&h>7.5&&h<8.5&&T.driveSeason!==sk&&!T.drive&&(planLeft()>=2||FA.reduction)){T.driveSeason=sk;spawnDrive()}

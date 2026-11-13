@@ -7,7 +7,7 @@ import {paintRut} from './paint.js';
 import {E,NAV} from './ents.js';
 import {Vehicle,Ped,rand,cartRear,cartFront} from './life/agents.js';
 import {trees,STAND,STUMP,CUT_AGE,THIN_AGE,SP,startFall,finishTree,plantTree,volume,crownR,fallLen,speciesFor,treesIn,SAPLING_AGE,sortSplit,SORTS} from './forest.js';
-import {pay,earn,planProgress,stat,canAfford,ECO} from './economy.js';
+import {pay,earn,planProgress,stat,canAfford,ECO,DEBT_LIM} from './economy.js';
 import {sfx} from './sound.js';
 import {pileTop} from './life/sprites.js';
 
@@ -110,6 +110,8 @@ export function addCrewTasks(tasks,msg){launch(distribute(tasks),msg)}
 // Ekipy pracują pon.–pt. 7:00–17:00 i w sobotę do 13:00 (nowe zlecenie przyjmują do 16:30). Zimą nie sadzą (zamarznięta ziemia), wiosną nie tną w oddz. 103 (okres lęgowy).
 function startCrew(C){C.van=new Vehicle('van',ENTRY(rand()<.5));C.van.label='ekipa '+C.id;nextCluster(C)}
 const shiftOn=()=>cal.work(7,17);
+const WALK=210;   // maks. zasięg chodzenia ekipy od auta (px)
+const isSan=k=>k.type==='fell'&&!!(k.t.san||k.t.kb);
 function holdReason(k){if(k.type==='plant'&&cal.season()===3)return 'zima';if(k.type==='fell'&&birdBan(k.t))return 'lęgi';return null}
 function nextCluster(C){
  const v=C.van;
@@ -118,11 +120,18 @@ function nextCluster(C){
   const left=C.tasks.length;C.phase='leaving';v.label=left?'ekipa '+C.id+' — koniec dniówki':'ekipa '+C.id+' wraca do bazy';
   if(left)toast('Ekipa '+C.id+': koniec dniówki, wróci '+cal.nextStart(7,17)+' (zostało zadań: '+left+').');
   v.goTo(goalNode(exitNode(v.pos[0])),{leave:true,onArrive:()=>{C.phase='idle';C.van=null}});return}
- const [vx,vy]=v.pos;C.tasks.sort((a,b)=>{const A=tpos(a),B=tpos(b);return Math.hypot(A[0]-vx,A[1]-vy)-Math.hypot(B[0]-vx,B[1]-vy)});
+ const [vx,vy]=v.pos;
+ // 0.9: zadania sanitarne (kornik, wiatrołomy) mają pierwszeństwo, dalej najbliższe
+ C.tasks.sort((a,b)=>{const A=tpos(a),B=tpos(b);return Math.hypot(A[0]-vx,A[1]-vy)-(isSan(a)?1e5:0)-(Math.hypot(B[0]-vx,B[1]-vy)-(isSan(b)?1e5:0))});
  const [fx,fy]=tpos(C.tasks[0]),rp=nearestRoad(fx,fy,['forest'],{margin:50});
- C.cluster=C.tasks.filter(k=>{const [x,y]=tpos(k);return Math.hypot(x-fx,y-fy)<260});
+ // klaster: tylko zadania w zasięgu chodzenia od miejsca postoju auta (nie dalej niż WALK, chyba że pierwsze zadanie samo jest dalej)
+ const R=Math.max(WALK,Math.hypot(fx-rp.x,fy-rp.y)+60);
+ C.cluster=C.tasks.filter((k,i)=>{if(i===0)return true;const [x,y]=tpos(k);return Math.hypot(x-rp.x,y-rp.y)<=R&&Math.hypot(x-fx,y-fy)<260});
  C.tasks=C.tasks.filter(k=>!C.cluster.includes(k));
- C.phase='driving';C.odd=oddzial(fx,fy);v.label='ekipa '+C.id+' jedzie do oddz. '+C.odd;
+ C.odd=oddzial(fx,fy);
+ // auto już stoi przy tym miejscu (kilkadziesiąt px) — nie ruszamy go, ekipa od razu pracuje
+ if((v.parked||v.arrived)&&!v.off&&Math.hypot(v.pos[0]-rp.x,v.pos[1]-rp.y)<90){startWork(C);return}
+ C.phase='driving';v.label='ekipa '+C.id+' jedzie do oddz. '+C.odd;
  v.goTo({edge:rp.edge,s:rp.s},{park:true,onArrive:()=>startWork(C)});
 }
 function startWork(C){
@@ -135,8 +144,23 @@ function startWork(C){
  }
 }
 const vanDoor=C=>{const v=C.van,h=v.heading;return[v.pos[0]+Math.cos(h)*16,v.pos[1]+Math.sin(h)*16]};
+// Najbliższe zadanie z klastra dla danego pracownika; sanitarne najpierw.
+function pickTask(C,w){
+ if(!C.cluster.length)return null;let bi=0,bs=1e9;
+ C.cluster.forEach((k,i)=>{const [x,y]=tpos(k),d=Math.hypot(x-w.x,y-w.y)-(isSan(k)?400:0);if(d<bs){bs=d;bi=i}});
+ return C.cluster.splice(bi,1)[0];
+}
+// Gdy w klastrze nic nie zostało, a w zasięgu chodzenia od auta są kolejne zadania — bierzemy je bez przejazdu. Zadania sanitarne gdzie indziej mają pierwszeństwo.
+function pullNear(C){
+ const v=C.van;if(!v||v.dead||v.off)return false;
+ const near=C.tasks.filter(k=>{const [x,y]=tpos(k);return Math.hypot(x-v.pos[0],y-v.pos[1])<=WALK+30});
+ if(!near.length)return false;
+ if(C.tasks.some(k=>isSan(k)&&!near.includes(k))&&!near.some(isSan))return false;
+ C.cluster=near.slice(0,12);C.tasks=C.tasks.filter(k=>!C.cluster.includes(k));return true;
+}
 function assignNext(w){
- const C=w.crew;let task=C.cluster.shift();
+ const C=w.crew;let task=pickTask(C,w);
+ if(!task&&shiftOn()&&pullNear(C)&&C.cluster.length)task=pickTask(C,w);   // kolejne zadania w zasięgu auta — bez wracania do auta
  if(task&&!shiftOn()){C.tasks.push(task,...C.cluster);C.cluster=[];task=null}
  if(!task){w.onIdle=null;w.run([{go:vanDoor(C)},{call:q=>{q.hidden=true;q.dead=true;C.workers=C.workers.filter(x=>x!==q);if(!C.workers.length)nextCluster(C)}}]);return}
  if(task.type==='fell'){
@@ -270,7 +294,7 @@ export function buyForwarder(){
 const anchor=v=>J.skid.mach==='forwarder'?cartFront(v.cart):cartRear(v.cart);
 export function rutWork(v,step){v.rutAcc=(v.rutAcc||0)+step;if(v.rutAcc>2){v.rutAcc=0;paintRut(v.pos[0],v.pos[1],v.heading,v.spec.hw*.65);if(v.cart){const c=v.cart;paintRut(c.x,c.y,c.angle,12)}}}
 function pathTo(v,tx,ty,stop){
- let p=NAV.foot.findPath(v.pos[0],v.pos[1],tx,ty);if(!p||!p.length)p=[[tx,ty]];
+ let p=NAV.veh.findPath(v.pos[0],v.pos[1],tx,ty);if(!p||!p.length)p=[[tx,ty]];
  const out=[];let px=v.pos[0],py=v.pos[1];
  for(const q of p){
   if(Math.hypot(q[0]-tx,q[1]-ty)<=stop){let lo=0,hi=1;
@@ -408,7 +432,17 @@ function truckUpdate(dt){
 }
 // Drewno opałowe dla ludności: kupujący odbiera je sam ze stosu.
 export function opalStack(vol){const c=J.stacks.filter(s=>s.sort==='opal'&&s.vol>=vol+.2&&s!==J.truck.cur&&!J.truck.route.includes(s));if(!c.length)return null;return c.sort((a,b)=>Math.hypot(a.x-560,a.y-300)-Math.hypot(b.x-560,b.y-300))[0]}
+let sanT=0;
+// 0.9: drzewa oznaczone przez patrol do cięcia sanitarnego (kornik) trafiają do ekip same, bez klawisza E
+function autoSanitary(){
+ if(state.elapsed<sanT)return;sanT=state.elapsed+300;
+ const list=trees.filter(t=>t.marked&&t.san&&!t.assigned&&t.st===STAND);if(!list.length)return;
+ if(state.money-COST.fell*Math.min(list.length,8)<-DEBT_LIM)return;
+ const tasks=[];for(const t of list){t.assigned=true;tasks.push({type:'fell',t})}
+ launch(distribute(tasks),'Cięcie sanitarne: '+list.length+' drzew (kornik) trafia do ekip od razu —');
+}
 export function updateJobs(dt){
+ autoSanitary();
  for(const C of J.crews){
   if(C.held.length&&!(cal.season()===3&&C.held.some(k=>k.type==='plant'))){const back=C.held.filter(k=>!holdReason(k));C.held=C.held.filter(k=>holdReason(k));C.tasks.push(...back)}
   if(C.phase==='idle'&&C.tasks.length&&cal.work(7,16.5)&&(sortHeld(C,true),C.tasks.length))startCrew(C);

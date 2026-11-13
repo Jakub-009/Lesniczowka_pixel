@@ -10,8 +10,9 @@ import {spawnWildlife,updateVisitors,groups} from './life/populate.js';
 import {updateHealth,HL} from './health.js';
 import {initPatrol,updateIncidents,U,spawnRider,spawnSmoke,spawnIntruder,addTrash,dispatch,hirePod} from './incidents.js';
 import {initFauna,updateFauna,FA} from './life/fauna.js';
+import {initAmbony,AMB} from './life/ambony.js';
 import {initBase,updateBase,BASE,buildNursery,buildGarage,hireDeputy} from './base.js';
-import {initJobs,updateJobs,J,orderTruck,hireCrewB} from './jobs.js';
+import {initJobs,updateJobs,J,orderTruck,hireCrewB,dispatchCrew} from './jobs.js';
 import {updateRenew,R,createPlot,orderPrep,orderPlant} from './renew.js';
 import {initEconomy,updateEconomy,ECO} from './economy.js';
 import {spawnWildlife as respawnWild} from './life/populate.js';
@@ -114,7 +115,7 @@ setInterval(()=>{
 },1000);
 window.__lasDiag=()=>({stalls:DIAG.stalls,slow:DIAG.slow,errors:[...ERR],frame:RT.frame,where:RT.where,elapsed:state.elapsed,paused:state.paused,modal:state.modal,trees:trees.length,vehicles:E.vehicles.length,people:E.people.length,animals:E.animals.length,tasks:J.crews.map(c=>c.tasks.length)});
 // ── budowa świata ──
-buildGround();generate();buildNavs();initEconomy();initFauna();spawnWildlife();initPatrol();initJobs();initBase();
+buildGround();generate();buildNavs();initEconomy();initFauna();initAmbony();spawnWildlife();initPatrol();initJobs();initBase();
 ECO.seasonHooks.push(()=>{respawnWild();return null});   // widoczna zwierzyna według nowej liczebności
 bindUI();bindInput(zoom);
 VIEW.zoom=1;size();centerOn(720,520);clampCamera();
@@ -133,5 +134,5 @@ addEventListener('beforeunload',saveGame);
 document.addEventListener('visibilitychange',()=>{if(document.hidden){saveGame();if(state.playing&&!state.paused)$('#pausebtn').click()}});
 document.title='Leśniczówka '+VERSION;
 // Diagnostyka do testów
-window.__las={startCrossing,dispatchPolice,buyCams,toggleBarriers,buyParking,spawnDump,MAIL,mail,HL,R,createPlot,orderPrep,orderPlant,dirtyAll,seasonGrow,cal,spawnIntruder,saveGame,loadGame,state,E,J,U,FA,BASE,ECO,buildNursery,buildGarage,hireDeputy,hireCrewB,orderTruck,trees,counts,camera,VIEW,centerOn,spawnRider,spawnSmoke,addTrash,dispatch,step:(s)=>{for(let i=0;i<Math.ceil(s*60);i++)sim(STEP)},zoom};
+window.__las={dispatchCrew,AMB,startCrossing,dispatchPolice,buyCams,toggleBarriers,buyParking,spawnDump,MAIL,mail,HL,R,createPlot,orderPrep,orderPlant,dirtyAll,seasonGrow,cal,spawnIntruder,saveGame,loadGame,state,E,J,U,FA,BASE,ECO,buildNursery,buildGarage,hireDeputy,hireCrewB,orderTruck,trees,counts,camera,VIEW,centerOn,spawnRider,spawnSmoke,addTrash,dispatch,step:(s)=>{for(let i=0;i<Math.ceil(s*60);i++)sim(STEP)},simStep:(s,dt)=>{for(let i=0;i<Math.ceil(s/dt);i++)sim(dt)},zoom};
 hud();startLoop();

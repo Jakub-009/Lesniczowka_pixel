@@ -6,9 +6,10 @@ import {MAILBOX} from './lodge.js';
 import {E} from './ents.js';
 import {J,toggleMark,togglePlant,dispatchCrew,orderTruck,UNDO,cancelCrewTasks,clearOrders} from './jobs.js';
 import {plotAt,createPlot,createPolyPlot,planAreaPlants} from './renew.js';
-import {setTool,hud,toggleBase,toggleMail,toggleOdd} from './ui.js';
+import {setTool,hud,toggleBase,toggleMail,toggleOdd,closeInfoWin} from './ui.js';
 import {toggleMap,mapOpen} from './mapview.js';
-import {feederAt} from './life/fauna.js';
+import {feederAt,feederSlotAt,buildFeeder} from './life/fauna.js';
+import {ambonaAt,buildAmbona} from './life/ambony.js';
 import {opalPileAt} from './base.js';
 import {toggleSound,resumeSound} from './sound.js';
 import {dispatch} from './incidents.js';
@@ -25,6 +26,7 @@ export function pick(x,y){
  for(const st of J.stacks)if(st.vol>.05)test(st,st.x,st.y,22);
  if(best)return best;
  const f=feederAt(x,y);if(f)return f;
+ const am=ambonaAt(x,y);if(am)return am;
  const o=opalPileAt(x,y);if(o)return o;
  if(Math.hypot(x-MAILBOX.x,y-(MAILBOX.y-14))<14)return{isMailbox:true,x:MAILBOX.x,y:MAILBOX.y};
  if(inRect(x,y,HOUSE,2))return{isHouse:true,x:HOUSE.x+HOUSE.w/2,y:HOUSE.y+HOUSE.h/2};
@@ -43,13 +45,14 @@ function finishPoly(){const P=state.poly;state.poly=null;if(!P)return;const p=cr
 export function bindInput(zoomFn){
  C.addEventListener('contextmenu',e=>e.preventDefault());
  // w narzędziach wycinki, sadzenia i odnowienia lewy przycisk zaznacza obszar; mapę przesuwa prawy (albo lewy w podglądzie)
- C.addEventListener('pointerdown',e=>{C.focus();resumeSound();down={x:e.clientX,y:e.clientY,cx:camera.x,cy:camera.y,btn:e.button,drag:false,box:e.button===0&&state.tool!=='select',shift:e.shiftKey,w:toWorld(e)};C.setPointerCapture(e.pointerId)});
+ C.addEventListener('pointerdown',e=>{C.focus();resumeSound();down={x:e.clientX,y:e.clientY,cx:camera.x,cy:camera.y,btn:e.button,drag:false,box:e.button===0&&state.tool!=='select'&&state.tool!=='build',shift:e.shiftKey,w:toWorld(e)};C.setPointerCapture(e.pointerId)});
  C.addEventListener('pointermove',e=>{
   if(down){const dx=e.clientX-down.x,dy=e.clientY-down.y;if(!down.drag&&Math.hypot(dx,dy)>5)down.drag=true;
    if(down.drag){if(down.box){state.box=[down.w,toWorld(e)]}else{const r=C.getBoundingClientRect();camera.x=down.cx-dx*VIEW.w/r.width;camera.y=down.cy-dy*VIEW.h/r.height;state.follow=null}}return}
   const [x,y]=toWorld(e);
   if(state.tool==='mark')state.hover=treeAt(x,y,t=>t.st===STAND);
   else if(state.tool==='plant'){state.hover={x,y,plant:true}}
+  else if(state.tool==='build'){state.hover={x,y,build:true}}
   else{const p=pick(x,y);state.hover=p&&p.st!==undefined?p:null}
  });
  C.addEventListener('pointerup',e=>{
@@ -72,6 +75,7 @@ export function bindInput(zoomFn){
   const [x,y]=toWorld(e);
   if(state.tool==='mark'){const t=treeAt(x,y,t=>t.st===STAND);if(t){toggleMark(t);state.selected=t}else toast('Kliknij koronę drzewa.')}
   else if(state.tool==='plant')togglePlant(x,y);
+  else if(state.tool==='build'){if((state.buildKind||'ambona')==='ambona')buildAmbona(x,y);else{const sl=feederSlotAt(x,y,90);if(sl==null)toast('Paśnik można postawić tylko w jednym ze stałych miejsc (żółte ramki na mapie).');else buildFeeder(sl)}}
   else if(state.tool==='plot'){
    if(state.poly){const P=state.poly;if(P.length>=3&&Math.hypot(x-P[0][0],y-P[0][1])<16)finishPoly();else P.push([x,y])}
    else{const p=plotAt(x,y);if(p)state.selected=p;else{state.poly=[[x,y]];toast('Wielokąt: klikaj kolejne narożniki. Enter albo klik w pierwszy punkt kończy, Esc anuluje. (Prostokąt: przeciągnij.)')}}}
@@ -88,7 +92,7 @@ export function bindInput(zoomFn){
   if(mapOpen()&&(k==='tab'||k==='escape')){toggleMap(false);return}
   if(state.modal){if(state.panel){if(k==='escape'||k==='l')toggleBase(false)}else if(k==='enter'||k===' '||k==='escape')$('#report-close')?.click();return}
   if(e.repeat&&!['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k))return;
-  if(k==='1')setTool('select');else if(k==='2')setTool('mark');else if(k==='3')setTool('plant');else if(k==='4')setTool('plot');
+  if(k==='1')setTool('select');else if(k==='2')setTool('mark');else if(k==='3')setTool('plant');else if(k==='4')setTool('plot');else if(k==='5')setTool('build');
   else if(k==='l')toggleBase(true);
   else if(k==='c')toggleMail();
   else if(k==='o')toggleOdd(true);
@@ -102,7 +106,7 @@ export function bindInput(zoomFn){
   else if(k==='n'){state.noFF=!state.noFF;toast(state.noFF?'Noc płynie normalnie (N).':'Noc przewija się sama (N).')}
   else if(k==='f3')DEBUG.on=!DEBUG.on;
   else if(k==='f1'||k==='h')$('#help').classList.toggle('hidden');
-  else if(k==='escape'){setTool('select');state.selected=null;state.follow=null;$('#help').classList.add('hidden');toggleMail(false);toggleOdd(false)}
+  else if(k==='escape'){closeInfoWin();setTool('select');state.selected=null;state.follow=null;$('#help').classList.add('hidden');toggleMail(false);toggleOdd(false)}
   else if(k==='z')zoomFn(e.shiftKey?-1:1);else if(k==='+'||k==='=')zoomFn(-1);else if(k==='-')zoomFn(1);
   keys.add(k);hud();
  });
