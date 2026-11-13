@@ -166,8 +166,8 @@ class Unit{
  onSite(inc){
   this.phase='onsite';this.car.beacon=false;
   if(inc.status==='gone'||(inc.ref&&inc.ref.dead&&inc.type!=='fire'&&inc.type!=='feed')){this.finish(inc,false);return}
-  const r=this.out(),U=this,tx=inc.type==='quad'?inc.ref.pos[0]:inc.x,ty=inc.type==='quad'?inc.ref.pos[1]:inc.y,back={go:this.carDoor()};
-  const done=ok=>({call:q=>{q.hidden=true;q.prop=null;U.finish(inc,ok)}});
+  const r=this.out(),self=this,tx=inc.type==='quad'?inc.ref.pos[0]:inc.x,ty=inc.type==='quad'?inc.ref.pos[1]:inc.y,back={go:this.carDoor()};
+  const done=ok=>({call:q=>{q.hidden=true;q.prop=null;self.finish(inc,ok)}});
   if(inc.type==='trash'){
    // przy okazji zbiera inne śmieci i wnyki w promieniu ok. 18 m (także te jeszcze niezgłoszone)
    const near=E.trash.filter(t=>t!==inc.ref&&!t.dead&&!t.fire&&t.kind!=='dump'&&Math.hypot(t.x-tx,t.y-ty)<220).slice(0,3),steps=[];

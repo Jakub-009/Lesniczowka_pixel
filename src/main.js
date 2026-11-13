@@ -24,16 +24,23 @@ import {hasSave,clearSave,saveGame,loadGame} from './save.js';
 
 const STEP=1/60,RATES=[1,3,10],NIGHT_FF=8;
 const falling=()=>trees.filter(t=>t.falling);
+// Ochrona przed zawieszeniem: wyjątek w jednym podsystemie lub u jednego obiektu nie może zatrzymać całej gry.
+const ERR=new Map();let errToast=false;
+function fail(where,e){
+ const k=where+':'+(e&&e.message),n=(ERR.get(k)||0)+1;ERR.set(k,n);
+ if(n===1){console.error('[Leśniczówka] błąd w '+where,e);DEBUG.errors=(DEBUG.errors||0)+1}
+ if(!errToast){errToast=true;toast('Wystąpił błąd w grze ('+where+'), ale gra działa dalej. Jeśli coś przestanie reagować, odśwież stronę — zapis jest automatyczny.')}
+}
+const safe=(where,fn,dt)=>{try{fn(dt)}catch(e){fail(where,e)}};
+const each=(where,list,dt)=>{for(const o of list){try{o.update(dt)}catch(e){fail(where,e);o.dead=true}}};
 function sim(dt){
- state.elapsed+=dt;const d0=Math.floor(state.days);state.days+=dt/DAY_S;if(Math.floor(state.days)!==d0)fadeMarks(.12);
- updateFalls(dt,falling());
- for(const g of groups)g.update(dt);
- for(const a of E.animals)a.update(dt);
- for(const p of E.people)p.update(dt);
- for(const v of E.vehicles)v.update(dt);
- updateVisitors(dt);updateIncidents(dt);updateJobs(dt);updateRenew(dt);updateFauna(dt);updateBase(dt);updateOrder(dt);updateCrossing(dt);updateHealth();updateEconomy(dt);
+ state.elapsed+=dt;const d0=Math.floor(state.days);state.days+=dt/DAY_S;if(Math.floor(state.days)!==d0)safe('znaczniki',()=>fadeMarks(.12));
+ safe('drzewa',()=>updateFalls(dt,falling()));
+ each('grupy',groups,dt);each('zwierzęta',E.animals,dt);each('ludzie',E.people,dt);each('pojazdy',E.vehicles,dt);
+ safe('goście',updateVisitors,dt);safe('incydenty',updateIncidents,dt);safe('ekipy',updateJobs,dt);safe('odnowienia',updateRenew,dt);safe('fauna',updateFauna,dt);
+ safe('baza',updateBase,dt);safe('porządek',updateOrder,dt);safe('przejścia',updateCrossing,dt);safe('zdrowie lasu',updateHealth,dt);safe('ekonomia',updateEconomy,dt);
  for(let i=fx.length-1;i>=0;i--){const p=fx[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.life<=0)fx.splice(i,1)}
- prune();
+ safe('sprzątanie',prune);
 }
 function step(dt){
  if(!active())return;
@@ -74,14 +81,14 @@ function zoom(d,at){
 addEventListener('resize',size);
 let fpsT=0,fpsN=0;
 function run(ts){
+ requestAnimationFrame(run);   // pierwsze: nawet po błędzie kolejna klatka i tak się odbędzie
  const frame=RT.last?Math.min((ts-RT.last)/1000,.1):0;RT.last=ts;RT.frame++;
- RT.acc+=frame;let n=0;while(RT.acc>=STEP&&n<4){step(STEP);RT.acc-=STEP;n++}if(n===4)RT.acc=0;
- clampCamera();
+ RT.acc+=frame;let n=0;while(RT.acc>=STEP&&n<4){safe('krok',step,STEP);RT.acc-=STEP;n++}if(n===4)RT.acc=0;
+ safe('kamera',clampCamera);
  fpsT+=frame;fpsN++;if(fpsT>=.5){DEBUG.fps=Math.round(fpsN/fpsT);fpsT=0;fpsN=0}
- drawWorld();updateMap(frame);
- repositionInfo();RT.hudT+=frame;if(RT.hudT>=.15){RT.hudT=0;hud()}
- RT.saveT=(RT.saveT||0)+frame;if(RT.saveT>=30){RT.saveT=0;saveGame()}
- requestAnimationFrame(run);
+ safe('rysowanie',drawWorld);safe('mapa',updateMap,frame);
+ safe('panel',repositionInfo);RT.hudT+=frame;if(RT.hudT>=.15){RT.hudT=0;safe('interfejs',hud)}
+ RT.saveT=(RT.saveT||0)+frame;if(RT.saveT>=30){RT.saveT=0;safe('zapis',saveGame)}
 }
 // ── budowa świata ──
 buildGround();generate();buildNavs();initEconomy();initFauna();spawnWildlife();initPatrol();initJobs();initBase();
