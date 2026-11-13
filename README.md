@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.8.3 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.8.4 — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -223,6 +223,14 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
+
+## Zmiany w 0.8.4 „Stabilność”
+- **Zawieszenia:** błąd w jednym podsystemie nie zatrzymuje już pętli gry (wyjątek w `incidents.js`: zmienna `U` przesłaniała listę jednostek). Dodany strażnik wykrywa martwą pętlę klatek, okno blokujące grę bez okna i stojący czas. Diagnostyka w konsoli: `__lasDiag()`.
+- **Wydajność:** lista padających drzew zamiast filtrowania wszystkich, rzadsze przeliczanie odnowień, zabezpieczenia przed nieskończonymi pętlami.
+- **Poza mapą:** kłody nie padają i nie leżą poza krawędzią świata, a wszystko, co wystaje za krawędź, jest przycięte.
+- **Sadzenie:** rzędy rzadsze (26×22 px zamiast 18×16), kliknięcie wybiera drzewo o najbliższym pniu.
+- **Parking** leży pod szlabanem, **pogorzelisko jaśnieje** przez rok gry, **straż pożarna** nie krąży przy leśniczówce.
+- Auta zwalniają tylko przy skręcie, maszyny leśne nie pracują na drodze głównej, quady i crossy zjeżdżają w las.
 
 ## Zmiany w 0.8.3 „Poprawki i wędrowne wilki”
 - **Godziny pracy:** ekipy 7–17 (nowe zlecenie do 16:30), zrywka bez zmian (7–17), ciężarówki 6–22; sobota do 13:00, niedziela wolna (dla wszystkich).

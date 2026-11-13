@@ -1,12 +1,12 @@
 // Prace leśne (0.5): wyznaczanie drzew, ekipy pilarzy A i B (ścinka, wyrzynka, sadzenie), zrywka szlakami do stosów przy drogach,
 // ciężarówka z żurawiem (HDS) objeżdżająca stosy. Wszystko jeździ samo — gracz wydaje polecenia i pilnuje budżetu.
-import {state,toast,particle,clamp,zl,displayNumber,ctx,cal,rect} from './core.js';
+import {state,toast,particle,clamp,zl,displayNumber,ctx,cal,rect,WORLD} from './core.js';
 import {PLAC,PLAC_SPOTS,roadClearance,oddzial,inRect,YARD,pointBlocked,NODES,EDGES,ptAt} from './map.js';
 import {nearestRoad,goalNode,edgeOf,pointOn,ENTRY,exitNode} from './roads.js';
 import {paintRut} from './paint.js';
 import {E,NAV} from './ents.js';
 import {Vehicle,Ped,rand,cartRear,cartFront} from './life/agents.js';
-import {trees,STAND,STUMP,CUT_AGE,THIN_AGE,SP,startFall,finishTree,plantTree,volume,crownR,speciesFor,treesIn,SAPLING_AGE,sortSplit,SORTS} from './forest.js';
+import {trees,STAND,STUMP,CUT_AGE,THIN_AGE,SP,startFall,finishTree,plantTree,volume,crownR,fallLen,speciesFor,treesIn,SAPLING_AGE,sortSplit,SORTS} from './forest.js';
 import {pay,earn,planProgress,stat,canAfford,ECO} from './economy.js';
 import {sfx} from './sound.js';
 import {pileTop} from './life/sprites.js';
@@ -56,6 +56,7 @@ function distribute(tasks){
  while(rest.length){
   // skupisko: do 260 px od pierwszego zadania, najwyżej 10 zadań (duże zlecenie dzieli się między ekipy)
   const [fx,fy]=tpos(rest[0]),d=k=>{const [x,y]=tpos(k);return Math.hypot(x-fx,y-fy)},cl=rest.filter(k=>d(k)<260).sort((a,b)=>d(a)-d(b)).slice(0,J.crews.length>1?10:1e9);
+  if(!cl.includes(rest[0]))cl.unshift(rest[0]);   // także gdy pozycja jest niepoprawna (NaN) — inaczej pętla nigdy by się nie skończyła
   for(const k of cl)rest.splice(rest.indexOf(k),1);
   const C=J.crews.slice().sort((a,b)=>load_(a)-load_(b))[0];C.tasks.push(...cl);out.set(C,out.get(C)+cl.length);
  }
@@ -118,7 +119,7 @@ function nextCluster(C){
   if(left)toast('Ekipa '+C.id+': koniec dniówki, wróci '+cal.nextStart(7,17)+' (zostało zadań: '+left+').');
   v.goTo(goalNode(exitNode(v.pos[0])),{leave:true,onArrive:()=>{C.phase='idle';C.van=null}});return}
  const [vx,vy]=v.pos;C.tasks.sort((a,b)=>{const A=tpos(a),B=tpos(b);return Math.hypot(A[0]-vx,A[1]-vy)-Math.hypot(B[0]-vx,B[1]-vy)});
- const [fx,fy]=tpos(C.tasks[0]),rp=nearestRoad(fx,fy,['main','forest'],{margin:50});
+ const [fx,fy]=tpos(C.tasks[0]),rp=nearestRoad(fx,fy,['forest'],{margin:50});
  C.cluster=C.tasks.filter(k=>{const [x,y]=tpos(k);return Math.hypot(x-fx,y-fy)<260});
  C.tasks=C.tasks.filter(k=>!C.cluster.includes(k));
  C.phase='driving';C.odd=oddzial(fx,fy);v.label='ekipa '+C.id+' jedzie do oddz. '+C.odd;
@@ -141,7 +142,7 @@ function assignNext(w){
  if(task.type==='fell'){
   const t=task.t;if(t.st!==STAND){assignNext(w);return}
   const rp=nearestRoad(t.x,t.y,['main','forest']);
-  let dir=Math.atan2(t.y-rp.y,t.x-rp.x)+(rand()-.5)*1.2;   // obalanie od drogi
+  let dir=inward(t,Math.atan2(t.y-rp.y,t.x-rp.x)+(rand()-.5)*1.2);   // obalanie od drogi, ale nigdy za krawędź mapy
   const stand=[t.x-Math.cos(dir)*9+Math.cos(dir+1.57)*5,t.y-Math.sin(dir)*9+Math.sin(dir+1.57)*5];
   w.label='pilarz '+C.id+' — ścina '+SP[t.sp].name.split(' ')[0];
   w.run([{go:stand,face:[t.x,t.y]},
@@ -160,12 +161,19 @@ function assignNext(w){
 }
 // sadzonka danego gatunku ze szkółki (0.6.2: zapas osobno dla każdego gatunku)
 export function takeNursery(sp){const N=ECO.nursery;if(!N)return false;if(!N.sp)N.sp={sosna:N.stock||0};if((N.sp[sp]||0)<=0)return false;N.sp[sp]--;N.stock=Math.max(0,(N.stock||0)-1);return true}
+// Kierunek obalania: jeśli kłoda wyleciałaby poza mapę, obracamy go w stronę wnętrza.
+function inward(t,dir){
+ const L=fallLen(t)+14,ok=d=>{const x=t.x+Math.cos(d)*L,y=t.y+Math.sin(d)*L;return x>10&&x<WORLD.w-10&&y>10&&y<WORLD.h-10};
+ if(ok(dir))return dir;
+ for(let k=1;k<=12;k++)for(const sg of [1,-1]){const d=dir+sg*k*.26;if(ok(d))return d}
+ return Math.atan2(WORLD.h/2-t.y,WORLD.w/2-t.x);
+}
 const fallMid=t=>(t.falling?t.falling.L:t.lying?t.lying.L:60)*.45;
 // Kłody z drzewa od razu dzielone na sortymenty (tartaczne / papierówka / opał) według grubości i jakości.
 function makePile(t,dir){
  const L=t.lying?t.lying.L:60,vol=Math.max(.08,volume(t)),f=sortSplit(t),sorts={},vals={};
  for(const k in f){sorts[k]=vol*f[k];vals[k]=vol*f[k]*SP[t.sp].price*SORTS[k].k}
- E.piles.push({x:t.x+Math.cos(dir)*L*.45,y:t.y+Math.sin(dir)*L*.45,a:dir,vol,sp:t.sp,sorts,vals,logs:clamp(Math.round(vol*3)+1,1,6),bark:SP[t.sp].bark[1]==='#2e2c28'?'#e6e2d6':SP[t.sp].bark[1],state:'ground',dead:false});
+ E.piles.push({x:clamp(t.x+Math.cos(dir)*L*.45,8,WORLD.w-8),y:clamp(t.y+Math.sin(dir)*L*.45,8,WORLD.h-8),a:dir,vol,sp:t.sp,sorts,vals,logs:clamp(Math.round(vol*3)+1,1,6),bark:SP[t.sp].bark[1]==='#2e2c28'?'#e6e2d6':SP[t.sp].bark[1],state:'ground',dead:false});
 }
 // kłody bez podziału (zapis z 0.6.1): całość jako papierówka i opał po połowie
 export const pileSorts=p=>p.sorts||{tart:0,pap:p.vol*.5,opal:p.vol*.5};
@@ -291,7 +299,7 @@ function skidUpdate(dt){
   if(!cal.work(7,17)){goHome();return}
   const free=freePiles();if(!free.length){goHome();return}
   const [vx,vy]=v.pos;free.sort((a,b)=>Math.hypot(a.x-vx,a.y-vy)-Math.hypot(b.x-vx,b.y-vy));
-  const p=free[0],rp=nearestRoad(p.x,p.y,['main','forest'],{margin:60});
+  const p=free[0],rp=nearestRoad(p.x,p.y,['forest'],{margin:60});
   S.target=p;S.went=false;S.phase='driving';S.watch=0;S.atHome=false;
   v.label=M.name+' jedzie po drewno do oddz. '+oddzial(p.x,p.y);
   const near=Math.hypot(p.x-rp.x,p.y-rp.y)<=M.reach-12;
@@ -358,7 +366,7 @@ function comeBack(){
   v.goTo({edge:st.edge,s:st.s},{park:true,onArrive:()=>{S.phase='unload';S.watch=0;v.label='układanie stosu przy drodze'}});
  };
  if(!S.went){toStack();return}
- const rp=nearestRoad(v.pos[0],v.pos[1],['main','forest'],{margin:40});
+ const rp=nearestRoad(v.pos[0],v.pos[1],['forest'],{margin:40});
  const pts=pathTo(v,rp.x,rp.y,0);S.phase='out';S.went=false;v.label=M.name+' wraca szlakiem na drogę';
  v.driveOff(pts,{work:rutWork,onArrive:()=>{v.rejoin();toStack()}});
 }

@@ -11,7 +11,7 @@ import {pay,canAfford} from './economy.js';
 import {paintFurrowRow,paintFurrow,paintRut} from './paint.js';
 
 export const R={plots:[],plow:{v:null,phase:'idle',queue:[],cur:null},nextId:1};
-const ROW=18,STEP=16,PREP_PER_M=3,FENCE_PER_M=7;
+const ROW=26,STEP=22,PREP_PER_M=4,FENCE_PER_M=7;   // 0.8.4: rzadsze rzędy (było 18×16) — mniej zadań, korony się nie zlewają
 // ── kształt powierzchni (0.7.2): prostokąt albo wielokąt (p.poly); rzeczywisty obszar = kształt minus drogi, podwórze i plac ──
 export const outline=p=>p.poly||[[p.x,p.y],[p.x+p.w,p.y],[p.x+p.w,p.y+p.h],[p.x,p.y+p.h]];
 const pip=(P,x,y)=>{let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const [xi,yi]=P[i],[xj,yj]=P[j];if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c}return c};

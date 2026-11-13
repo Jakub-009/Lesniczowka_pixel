@@ -82,7 +82,7 @@ export class Vehicle{
    return P[P.length-1]}
   let from=this.from,to=this.to,len=this.len,s=this.s+LA,k=0,cur=true;
   const stopOn=kk=>this.stopS!=null&&(this.final?kk===0:this.route&&kk===this.route.length);
-  for(;;){
+  for(let guard=0;guard<64;guard++){
    if(stopOn(k)&&s>this.stopS){s=this.stopS;break}
    if(s<=len)break;
    const nx=this.peek(k);if(!nx){s=len;break}
@@ -126,9 +126,15 @@ export class Vehicle{
   let rem=null;
   if(this.off)rem=this.offRemaining();
   else if(this.final&&this.stopS!=null)rem=this.stopS-this.s;
-  else if(this.len-this.s<50&&this.route&&this.route.length)sp=Math.min(sp,24);   // zwalnia przed skrzyżowaniem
+  else if(this.len-this.s<50&&this.route&&this.route.length&&this.turnAhead())sp=Math.min(sp,24);   // zwalnia przed skrętem (nie przy jeździe prosto)
   if(rem!=null)sp=Math.min(sp,Math.max(2.5,Math.sqrt(2*30*Math.max(0,rem-2))));
   return sp;
+ }
+ // Czy na najbliższym węźle trasa skręca (kąt > ok. 25°)? Przy jeździe prosto pojazd nie zwalnia.
+ turnAhead(){
+  const nx=this.route[0],e2=nx&&edgeOf(this.to,nx);if(!e2)return true;
+  const a=dirPt(this.edge,this.from,this.len),b=dirPt(e2,this.to,0);
+  return a[2]*b[2]+a[3]*b[3]<.9;
  }
  offRemaining(){const O=this.off,P=O.pts;let r=0;for(let k=O.i;k<P.length-1;k++){const L=Math.hypot(P[k+1][0]-P[k][0],P[k+1][1]-P[k][1]);r+=k===O.i?Math.max(0,L-O.t):L}return r}
  probe(){const h=this.heading,sp=this.spec,reach=14+this.v*.55,d=sp.hh+reach/2;return obb(this.pos[0]+Math.sin(h)*d,this.pos[1]-Math.cos(h)*d,Math.max(3,sp.hw*.7),reach/2,h)}

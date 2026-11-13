@@ -155,7 +155,7 @@ function barGeo(b){
   let dx=b.x-c[0],dy=b.y-c[1];const d=Math.hypot(dx,dy)||1;dx/=d;dy/=d;
   let tx=tg[2],ty=tg[3];if(tx*(c[0]-c[0])+ty*(c[1]-hy(c[0]))<0){tx=-tx;ty=-ty}   // otwarty szlaban leży w stronę od szosy
   g={A:[b.x,b.y],B:[c[0]-dx*d,c[1]-dy*d],a0:Math.atan2(ty,tx),a1:Math.atan2(-dy,-dx),L:2*d+8};
-  let df=g.a1-g.a0;while(df>Math.PI)df-=2*Math.PI;while(df<-Math.PI)df+=2*Math.PI;g.df=df;geoC.set(b,g);
+  let df=g.a1-g.a0;if(!isFinite(df))df=0;df=((df+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;g.df=df;geoC.set(b,g);
  }
  return g;
 }
@@ -173,12 +173,7 @@ function drawBarrier(c,b){
  rect(c,ex-1,ey-4,3,5,'#7a1d17');
  if(k>.97){rect(c,ex-2,ey-1,5,5,'#2c2a26');rect(c,ex-1,ey,3,3,'#d4b24a')}   // kłódka
 }
-export function drawOrder(c,winter){
- for(const b of BARRIERS)if(vis_(b.x,b.y))drawBarrier(c,b);
- if(ECO.ord.cams)for(const b of CAM_SPOTS){
-  const x=Math.round(b.x),y=Math.round(b.y)-4;rect(c,x-1,y-10,3,12,'#2c3a32');rect(c,x-5,y-18,11,8,'#14201a');rect(c,x-4,y-17,9,6,'#7d8a82');rect(c,x-4,y-17,9,1,'#a9b5ad');rect(c,x-1,y-15,4,3,'#14201a');rect(c,x,y-14,2,1,'#5d8790');
-  if(Math.floor(performance.now()/700)%2)rect(c,x+3,y-17,2,2,'#ff4a3a');
- }
+function drawParking(c,winter){
  if(ECO.ord.parking){
   const [mx,my]=lb(40,140);if(!vis_(mx,my,150))return;
   // żwir
@@ -199,6 +194,14 @@ export function drawOrder(c,winter){
   {const [x,y]=lb(94,140),A=ang;c.save();c.translate(Math.round(x),Math.round(y));c.rotate(A);
    c.fillStyle='#00000030';c.fillRect(-4,-9,12,20);rect(c,-3,-9,6,18,'#6b5238');rect(c,-2,-9,4,18,'#8b6c48');rect(c,-8,-8,3,16,'#6b5238');rect(c,-7,-8,1,16,'#8b6c48');rect(c,5,-8,3,16,'#6b5238');rect(c,5,-8,1,16,'#8b6c48');c.restore()}
   if(winter){const pts=LAYBY.poly;c.globalAlpha=.6;poly(pts,'#e8eef2');c.globalAlpha=1}
+ }
+}
+export function drawOrder(c,winter){
+ drawParking(c,winter);   // żwir i wyposażenie parkingu leżą pod szlabanami
+ for(const b of BARRIERS)if(vis_(b.x,b.y))drawBarrier(c,b);
+if(ECO.ord.cams)for(const b of CAM_SPOTS){
+  const x=Math.round(b.x),y=Math.round(b.y)-4;rect(c,x-1,y-10,3,12,'#2c3a32');rect(c,x-5,y-18,11,8,'#14201a');rect(c,x-4,y-17,9,6,'#7d8a82');rect(c,x-4,y-17,9,1,'#a9b5ad');rect(c,x-1,y-15,4,3,'#14201a');rect(c,x,y-14,2,1,'#5d8790');
+  if(Math.floor(performance.now()/700)%2)rect(c,x+3,y-17,2,2,'#ff4a3a');
  }
 }
 export const CAM_COUNT=CAM_SPOTS.length;

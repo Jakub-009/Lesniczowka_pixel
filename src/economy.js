@@ -63,7 +63,7 @@ export function updateEconomy(dt){
   }
  }
  if(cal.season()!==ECO.lastSeason){ECO.lastSeason=cal.season();endSeason()}
- accT+=dt;if(accT<.5)return;accT=0;
+ accT+=dt;if(accT<2)return;accT=0;
  // odnowienie: pień jest „odnowiony”, gdy w pobliżu rośnie młode drzewko
  let stumps=0,ren=0;
  for(const t of trees){if(t.st!==STUMP||t.stumpAge>40)continue;stumps++;
@@ -73,6 +73,6 @@ export function updateEconomy(dt){
  const unren=stumps-ren;ECO.unrenewed=unren;
  const cover=Math.min(1,coverSum()/ECO.cover0),trash=E.trash.reduce((n,t)=>n+(t.dead||t.fire?0:t.kind==='dump'?4:1),0),fires=E.incidents.filter(q=>q.type==='fire'&&q.status!=='done'&&q.status!=='gone').length;
  const target=clamp(32+50*cover-Math.min(15,unren*.35)-1.2*trash-3*fires-ECO.damage,0,100);
- state.health+=clamp(target-state.health,-.8,.8);
+ state.health+=clamp(target-state.health,-3.2,3.2);   // tick co 2 s (było co .5 s i ±.8) — to samo tempo, 4× mniej pracy
  ECO.cover=cover;
 }

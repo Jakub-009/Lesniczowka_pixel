@@ -23,7 +23,6 @@ import {toggleMap,updateMap} from './mapview.js';
 import {hasSave,clearSave,saveGame,loadGame} from './save.js';
 
 const STEP=1/60,RATES=[1,3,10],NIGHT_FF=8;
-const falling=()=>trees.filter(t=>t.falling);
 // Ochrona przed zawieszeniem: wyjątek w jednym podsystemie lub u jednego obiektu nie może zatrzymać całej gry.
 const ERR=new Map();let errToast=false;
 function fail(where,e){
@@ -31,11 +30,14 @@ function fail(where,e){
  if(n===1){console.error('[Leśniczówka] błąd w '+where,e);DEBUG.errors=(DEBUG.errors||0)+1}
  if(!errToast){errToast=true;toast('Wystąpił błąd w grze ('+where+'), ale gra działa dalej. Jeśli coś przestanie reagować, odśwież stronę — zapis jest automatyczny.')}
 }
-const safe=(where,fn,dt)=>{try{fn(dt)}catch(e){fail(where,e)}};
-const each=(where,list,dt)=>{for(const o of list){try{o.update(dt)}catch(e){fail(where,e);o.dead=true}}};
+// Diagnostyka zacięć: czas każdego podsystemu; wolne wywołania (>40 ms) trafiają do __lasDiag().
+const DIAG={slow:[],stalls:[]};
+const noteSlow=(where,ms)=>{if(ms>40){DIAG.slow.push({t:Math.round(performance.now()/1000),where,ms:Math.round(ms)});if(DIAG.slow.length>40)DIAG.slow.shift();if(ms>150&&!noteSlow[where]){noteSlow[where]=1;console.warn('[Leśniczówka] wolny podsystem: '+where+' '+Math.round(ms)+' ms')}}};
+const safe=(where,fn,dt)=>{const t0=performance.now();RT.where=where;try{fn(dt)}catch(e){fail(where,e)}noteSlow(where,performance.now()-t0)};
+const each=(where,list,dt)=>{const t0=performance.now();RT.where=where;for(const o of list){try{o.update(dt)}catch(e){fail(where,e);o.dead=true}}noteSlow(where,performance.now()-t0)};
 function sim(dt){
  state.elapsed+=dt;const d0=Math.floor(state.days);state.days+=dt/DAY_S;if(Math.floor(state.days)!==d0)safe('znaczniki',()=>fadeMarks(.12));
- safe('drzewa',()=>updateFalls(dt,falling()));
+ safe('drzewa',updateFalls,dt);
  each('grupy',groups,dt);each('zwierzęta',E.animals,dt);each('ludzie',E.people,dt);each('pojazdy',E.vehicles,dt);
  safe('goście',updateVisitors,dt);safe('incydenty',updateIncidents,dt);safe('ekipy',updateJobs,dt);safe('odnowienia',updateRenew,dt);safe('fauna',updateFauna,dt);
  safe('baza',updateBase,dt);safe('porządek',updateOrder,dt);safe('przejścia',updateCrossing,dt);safe('zdrowie lasu',updateHealth,dt);safe('ekonomia',updateEconomy,dt);
@@ -81,7 +83,7 @@ function zoom(d,at){
 addEventListener('resize',size);
 let fpsT=0,fpsN=0;
 function run(ts){
- requestAnimationFrame(run);   // pierwsze: nawet po błędzie kolejna klatka i tak się odbędzie
+ RT.beat=performance.now();
  const frame=RT.last?Math.min((ts-RT.last)/1000,.1):0;RT.last=ts;RT.frame++;
  RT.acc+=frame;let n=0;while(RT.acc>=STEP&&n<4){safe('krok',step,STEP);RT.acc-=STEP;n++}if(n===4)RT.acc=0;
  safe('kamera',clampCamera);
@@ -90,6 +92,27 @@ function run(ts){
  safe('panel',repositionInfo);RT.hudT+=frame;if(RT.hudT>=.15){RT.hudT=0;safe('interfejs',hud)}
  RT.saveT=(RT.saveT||0)+frame;if(RT.saveT>=30){RT.saveT=0;safe('zapis',saveGame)}
 }
+// Pętla klatek ma „generację”: po zawieszeniu uruchamiamy nową, a stara kończy się sama.
+function startLoop(){
+ const g=RT.gen=(RT.gen||0)+1;
+ const tick=ts=>{if(g!==RT.gen)return;requestAnimationFrame(tick);run(ts)};
+ RT.beat=performance.now();requestAnimationFrame(tick);
+}
+// Strażnik: wykrywa martwą pętlę klatek, „wiszące” okno (pauza bez okna) i stojący czas — i naprawia, co się da.
+let lastEl=-1,stillN=0;
+setInterval(()=>{
+ if(!state.playing||document.hidden)return;
+ const now=performance.now();
+ if(now-RT.beat>2500){DIAG.stalls.push({t:Math.round(now/1000),what:'pętla klatek stała',where:RT.where});startLoop();toast('Wykryto zacięcie gry — wznowiono pętlę.')}
+ // pauza z okna, którego nie ma na ekranie: zdejmujemy blokadę
+ const winOpen=!$('#report').classList.contains('hidden')||!$('#base').classList.contains('hidden');
+ if(state.modal&&!winOpen){DIAG.stalls.push({t:Math.round(now/1000),what:'blokada okna bez okna'});state.modal=false;state.panel=false;state.paused=false;toast('Gra była zablokowana bez okna — odblokowano.')}
+ const pb=$('#pausebtn'),want=state.paused?'▶':'❚❚';if(pb.textContent!==want)pb.textContent=want;
+ // czas stoi mimo braku pauzy
+ if(active()&&!state.modal&&Math.abs(state.elapsed-lastEl)<1e-9){if(++stillN===5){DIAG.stalls.push({t:Math.round(now/1000),what:'czas gry stoi',frame:RT.frame,where:RT.where});console.warn('[Leśniczówka] czas gry stoi mimo braku pauzy',DIAG.stalls[DIAG.stalls.length-1])}}else stillN=0;
+ lastEl=state.elapsed;
+},1000);
+window.__lasDiag=()=>({stalls:DIAG.stalls,slow:DIAG.slow,errors:[...ERR],frame:RT.frame,where:RT.where,elapsed:state.elapsed,paused:state.paused,modal:state.modal,trees:trees.length,vehicles:E.vehicles.length,people:E.people.length,animals:E.animals.length,tasks:J.crews.map(c=>c.tasks.length)});
 // ── budowa świata ──
 buildGround();generate();buildNavs();initEconomy();initFauna();spawnWildlife();initPatrol();initJobs();initBase();
 ECO.seasonHooks.push(()=>{respawnWild();return null});   // widoczna zwierzyna według nowej liczebności
@@ -111,4 +134,4 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){saveGame()
 document.title='Leśniczówka '+VERSION;
 // Diagnostyka do testów
 window.__las={startCrossing,dispatchPolice,buyCams,toggleBarriers,buyParking,spawnDump,MAIL,mail,HL,R,createPlot,orderPrep,orderPlant,dirtyAll,seasonGrow,cal,spawnIntruder,saveGame,loadGame,state,E,J,U,FA,BASE,ECO,buildNursery,buildGarage,hireDeputy,hireCrewB,orderTruck,trees,counts,camera,VIEW,centerOn,spawnRider,spawnSmoke,addTrash,dispatch,step:(s)=>{for(let i=0;i<Math.ceil(s*60);i++)sim(STEP)},zoom};
-hud();requestAnimationFrame(run);
+hud();startLoop();

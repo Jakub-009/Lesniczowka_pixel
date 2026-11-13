@@ -189,8 +189,8 @@ export function renderOdd(force){
 let baseSig='';
 export function toggleBase(open){
  const el=$('#base');open=open??el.classList.contains('hidden');
- if(open){if(state.modal&&!state.panel)return;el.classList.remove('hidden');state.panel=true;state.modal=true;state.paused=true;baseSig='';renderBase()}
- else{el.classList.add('hidden');state.panel=false;state.modal=false;state.paused=false}
+ if(open){if(state.modal&&!state.panel)return;if(!state.modal)state.wasPaused=state.paused;el.classList.remove('hidden');state.panel=true;state.modal=true;state.paused=true;baseSig='';renderBase()}
+ else{el.classList.add('hidden');if(state.panel&&state.modal){state.modal=false;state.paused=!!state.wasPaused}state.panel=false}
 }
 export function renderBase(){
  const row=(a,b)=>`<div class="rrow"><span>${a}</span><b>${b}</b></div>`,btn=(k,t,dis,sec)=>`<button data-b="${k}" ${dis?'disabled':''} class="${sec?'sec':''}">${t}</button>`;
@@ -265,8 +265,9 @@ export function showReport(r){
   ${r.next===3?'<p><b>Zima:</b> ekipa nie sadzi, a paśniki trzeba uzupełniać karmą.</p>':r.next===0?'<p><b>Wiosna:</b> okres lęgowy — w oddz. 103 wycinka czeka do lata. Uwaga na wypalanie traw.</p>':r.next===2?'<p><b>Jesień:</b> grzybiarze w lesie i rykowisko o zmierzchu.</p>':''}
   <p><b>Teraz ${SEASONS[r.next]}.</b> Nowy plan: ${N.cut} m³ drewna, ${N.plant?N.plant+' sadzonek, ':''}${N.handle} zgłoszenia${N.plant?'':' (zimą bez sadzenia)'} — premia ${zl(N.reward)}.</p>
   <button id="report-close">DALEJ</button>`;
+ if(!state.modal)state.wasPaused=state.paused;
  $('#report').classList.remove('hidden');state.paused=true;state.modal=true;
- $('#report-close').onclick=()=>{$('#report').classList.add('hidden');state.paused=false;state.modal=false;taskSig='';hud()};
+ $('#report-close').onclick=()=>{$('#report').classList.add('hidden');state.paused=!!state.wasPaused;state.modal=false;taskSig='';hud()};
 }
 export function bindUI(){
  for(const b of document.querySelectorAll('[data-tool]'))b.addEventListener('click',()=>setTool(b.dataset.tool));

@@ -1,6 +1,6 @@
 // Kolejność warstw: podłoże → las (cienie, pnie, sadzonki) → przedmioty na ziemi → zwierzęta, ludzie, pojazdy →
 // korony → „prześwit” postaci pod koronami → padające drzewa, dym, znaczniki → noc i światła.
-import {ctx,VIEW,camera,state,fx,clamp,cal,DEBUG,rect,SETTINGS,RT,LIGHT} from './core.js';
+import {ctx,VIEW,WORLD,camera,state,fx,clamp,cal,DEBUG,rect,SETTINGS,RT,LIGHT} from './core.js';
 import {ground,markChunks,drawAmbona,PROPS} from './paint.js';
 import {drawForest,prefetchForest,trees,crownR,paintCrown,SP,STAND,QUAL,SAPLING_AGE,treesIn} from './forest.js';
 import {outlinedDraw} from './sprite.js';
@@ -16,6 +16,7 @@ import {drawLodge,drawMailbox} from './lodge.js';
 import {unreadMail} from './mail.js';
 import {drawOrder} from './order.js';
 
+const BURN_FADE=12;
 const vis=(x,y,r=60)=>x>camera.x-r&&x<camera.x+VIEW.w+r&&y>camera.y-r&&y<camera.y+VIEW.h+r;
 function blitGround(cv=ground){
  const cx=Math.floor(camera.x),cy=Math.floor(camera.y),sx=Math.max(0,cx),sy=Math.max(0,cy),ex=Math.min(cv.width,cx+VIEW.w),ey=Math.min(cv.height,cy+VIEW.h);
@@ -35,7 +36,9 @@ function drawTrash(){
   else if(t.kind==='snare'){ctx.strokeStyle='#a8b0ae';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x+.5,y+.5,4,0,6.28);ctx.stroke();rect(ctx,x+4,y-1,4,2,'#6b563d');rect(ctx,x-1,y-1,2,2,'#cfd6d4')}
   else{for(let k=0;k<4;k++){rect(ctx,x-6+k*4,y-2+(k%2)*3,2,4,k%2?'#4a8a5a':'#c8d8d0');rect(ctx,x-6+k*4,y-3+(k%2)*3,2,1,'#e8e4dc')}rect(ctx,x+5,y+2,5,3,'#d8d0b8')}
  }
- for(const b of (E.burns||[])){if(!vis(b.x,b.y,90))continue;ctx.globalAlpha=.55;ctx.fillStyle='#1c1a16';ctx.beginPath();ctx.ellipse(b.x,b.y,b.r,b.r*.8,.3,0,6.28);ctx.fill();ctx.globalAlpha=1}
+ if(E.burns&&E.burns.length){   // pogorzelisko jaśnieje przez rok gry (12 dni), potem znika
+  if(E.burns.some(b=>state.days-(b.d??state.days)>=BURN_FADE))E.burns=E.burns.filter(b=>state.days-(b.d??state.days)<BURN_FADE);
+  for(const b of E.burns){if(!vis(b.x,b.y,90))continue;const age=state.days-(b.d??(b.d=state.days));ctx.globalAlpha=.55*(1-age/BURN_FADE);ctx.fillStyle='#1c1a16';ctx.beginPath();ctx.ellipse(b.x,b.y,b.r,b.r*.8,.3,0,6.28);ctx.fill();ctx.globalAlpha=1}}
 }
 function drawLying(){
  for(const t of trees){if(!t.lying&&!t.falling)continue;if(!vis(t.x,t.y,200))continue;
@@ -103,6 +106,20 @@ function drawFire(){
  for(const t of E.trash){if(!t.fire||t.dead||!vis(t.x,t.y))continue;const r=4+t.grow*14,fl=Math.sin(state.elapsed*18)*1.5;
   ctx.globalAlpha=.85;ctx.fillStyle='#d8442a';ctx.beginPath();ctx.ellipse(t.x,t.y,r+fl,r*.7,0,0,6.28);ctx.fill();ctx.fillStyle='#ffb04a';ctx.beginPath();ctx.ellipse(t.x,t.y-1,r*.55,r*.38,0,0,6.28);ctx.fill();ctx.globalAlpha=1}
 }
+// Tło poza mapą zakrywa wszystko, co wystaje za krawędź świata.
+function edgeCover(){
+ const x0=Math.floor(camera.x)-2,y0=Math.floor(camera.y)-2,x1=x0+VIEW.w+4,y1=y0+VIEW.h+4,W=WORLD.w,H=WORLD.h;
+ ctx.fillStyle='#2b3b2a';
+ if(x0<0)ctx.fillRect(x0,y0,-x0,y1-y0);
+ if(x1>W)ctx.fillRect(W,y0,x1-W,y1-y0);
+ if(y0<0)ctx.fillRect(x0,y0,x1-x0,-y0);
+ if(y1>H)ctx.fillRect(x0,H,x1-x0,y1-H);
+ ctx.fillStyle='#1d2b24';
+ if(x0<0&&x1>0){ctx.fillRect(-2,Math.max(y0,-2),2,Math.min(y1,H+2)-Math.max(y0,-2))}
+ if(x1>W&&x0<W){ctx.fillRect(W,Math.max(y0,-2),2,Math.min(y1,H+2)-Math.max(y0,-2))}
+ if(y0<0&&y1>0){ctx.fillRect(Math.max(x0,-2),-2,Math.min(x1,W+2)-Math.max(x0,-2),2)}
+ if(y1>H&&y0<H){ctx.fillRect(Math.max(x0,-2),H,Math.min(x1,W+2)-Math.max(x0,-2),2)}
+}
 export function drawWorld(){
  ctx.save();ctx.translate(-Math.floor(camera.x),-Math.floor(camera.y));
  ctx.fillStyle='#2b3b2a';ctx.fillRect(Math.floor(camera.x),Math.floor(camera.y),VIEW.w+1,VIEW.h+1);
@@ -123,6 +140,7 @@ export function drawWorld(){
  // prześwit: zwierzęta i ludzie pod koronami widoczni jako półprzezroczyste sylwetki
  if(SETTINGS.ghosts){ctx.globalAlpha=.5;for(const a of E.animals)if(!a.dead)a.draw();for(const p of E.people)if(!p.onStand)p.draw();for(const v of E.vehicles)if(v.off&&!v.dead)v.draw();ctx.globalAlpha=1}
  drawFire();drawFalling();drawParticles();drawPlots(ctx,state.selected);drawMarkers();
+ edgeCover();   // poza mapą nic nie wystaje: korony, cienie i kłody przy krawędzi są obcięte
  birds(ctx,state.elapsed,camera,VIEW);
  if(DEBUG.on){ctx.strokeStyle='#40e0ff';for(const e of EDGES){const A=NODES[e.a],B=NODES[e.b];ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(B[0],B[1]);ctx.stroke()}}
  ctx.restore();

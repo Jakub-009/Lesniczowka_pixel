@@ -1,7 +1,7 @@
 // Zapis gry w localStorage (jak w farmie: wszystko w try/catch). Zapisujemy las, wskaźniki, kalendarz, stosy przy drogach,
 // kłody w lesie, plany, powierzchnie z grodzeniem, szlaki (blakną z czasem), kadry, budynki, populacje zwierzyny i paśniki.
 // Pojedyncze zwierzęta, goście i pojazdy pojawiają się na nowo po wczytaniu.
-import {state,SEASON_DAYS} from './core.js';
+import {state,SEASON_DAYS,WORLD} from './core.js';
 import {serializeTrees,loadTrees,trees,removeTree,STAND,fillVerges} from './forest.js';
 import {inRect} from './map.js';
 import {roadClearance} from './map.js';
@@ -26,7 +26,7 @@ export function clearSave(){try{localStorage.removeItem(KEY)}catch(e){}}
 export function saveGame(){
  if(!state.playing)return;
  try{
-  const o={v:3,ver:'0.8.3',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
+  const o={v:3,ver:'0.8.4',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
    stacks:J.stacks.filter(s=>s.vol>.05).map(s=>[s.edge.id,Math.round(s.s),+s.vol.toFixed(2),Math.round(s.value),s.sort||'tart',s.truck!==false]),sold:J.sold,
    plants:J.plants.map(p=>[Math.round(p.x),Math.round(p.y),p.sp]),
    piles:E.piles.filter(p=>!p.dead).map(p=>[Math.round(p.x),Math.round(p.y),+p.a.toFixed(2),+p.vol.toFixed(3),p.sp,p.logs,p.bark,p.sorts||null,p.vals||null]),
@@ -60,7 +60,7 @@ export function loadGame(){
   for(const t of J.trails){markAlpha(FADE**(state.days-t.d));paintTrail(t.p)}
   markAlpha(1);
   if(o.forwarder&&!J.skid.owned){J.skid.owned=true;placeForwarder()}
-  E.piles=(o.piles||[]).map(([x,y,a,vol,sp,logs,bark,sorts,vals])=>({x,y,a,vol,sp,logs,bark,sorts:sorts||undefined,vals:vals||undefined,state:'ground',dead:false}));
+  E.piles=(o.piles||[]).map(([x,y,a,vol,sp,logs,bark,sorts,vals])=>({x:Math.min(Math.max(x,8),WORLD.w-8),y:Math.min(Math.max(y,8),WORLD.h-8),a,vol,sp,logs,bark,sorts:sorts||undefined,vals:vals||undefined,state:'ground',dead:false}));
   const ec=o.eco||{};ECO.cover0=ec.cover0;ECO.goneRen=ec.goneRen||0;ECO.damage=ec.damage;ECO.plan=ec.plan;ECO.lastDay=Math.floor(o.days);ECO.lastSeason=Math.floor(o.days/SEASON_DAYS)%4;
   if(ec.ord)Object.assign(ECO.ord,ec.ord);
   if(ec.market)ECO.market=ec.market;if(ec.nursery)ECO.nursery=ec.nursery;if(ec.feedCost)ECO.feedCost=ec.feedCost;

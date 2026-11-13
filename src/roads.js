@@ -18,7 +18,7 @@ const turnCost=(k,allow,tc)=>{const n=live(k,allow);return n<=1?0:n>=3?tc:null};
 // Dijkstra po stanach (węzeł, skąd przyjechał): nie wolno wrócić tym samym odcinkiem, chyba że to ślepy koniec drogi.
 function dijkstra(src,prevNode,allow,tc){
  const dist=new Map(),prev=new Map(),done=new Set(),K=(n,p)=>n+'|'+p;dist.set(K(src,prevNode),0);
- for(;;){let u=null,b=1e9;for(const [k,d] of dist)if(!done.has(k)&&d<b){b=d;u=k}
+ for(let guard=0;guard<20000;guard++){let u=null,b=1e9;for(const [k,d] of dist)if(!done.has(k)&&d<b){b=d;u=k}
   if(!u)break;done.add(u);const [n,p]=u.split('|');
   for(const q of ADJ[n]){if(!allow.includes(q.edge.kind))continue;let extra=0;if(q.to===p){const t=turnCost(n,allow,tc);if(t==null)continue;extra=t}
    const k=K(q.to,n),d=b+q.edge.len+extra+(q.edge.blocked?4000:0);if(d<(dist.get(k)??1e9)){dist.set(k,d);prev.set(k,u)}}}
@@ -26,7 +26,7 @@ function dijkstra(src,prevNode,allow,tc){
 }
 // Najlepszy stan w węźle gx, z którego wolno wjechać na odcinek prowadzący do gy.
 function bestAt(D,gx,gy,allow,tc){let best=null;for(const [k,d0] of D.dist){const [n,p]=k.split('|');if(n!==gx)continue;let d=d0;if(p===gy){const t=turnCost(gx,allow,tc);if(t==null)continue;d+=t}if(!best||d<best.d)best={k,d}}return best}
-const pathTo=(D,k)=>{const p=[k];while(D.prev.has(p[0]))p.unshift(D.prev.get(p[0]));return p.map(q=>q.split('|')[0])};
+const pathTo=(D,k)=>{const p=[k];let g=0;while(D.prev.has(p[0])&&g++<5000)p.unshift(D.prev.get(p[0]));return p.map(q=>q.split('|')[0])};
 
 // Punkt na krawędzi: s mierzone od węzła e.a (krzywa).
 export function pointOn(e,s){const p=ptAt(e,s);return[p[0],p[1]]}

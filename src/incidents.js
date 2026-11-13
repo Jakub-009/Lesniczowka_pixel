@@ -8,6 +8,7 @@ import {Vehicle,Ped,Wild,Group,rand} from './life/agents.js';
 import {pay,earn,bumpProtect,bumpDamage,planProgress,stat,ECO,canAfford} from './economy.js';
 import {treesIn,STAND,STUMP,dirtyTree,crownR,trees,removeTree,SAPLING_AGE,THIN_AGE,QUAL} from './forest.js';
 import {sfx} from './sound.js';
+import {paintRut} from './paint.js';
 import {J,takeFromStack} from './jobs.js';
 import {fireMult,fireSpeed,sanitaryMark,clearBlock,HL} from './health.js';
 import {mail,PRIO,prio,MAXOPEN,TTL,slowDown} from './mail.js';
@@ -32,6 +33,26 @@ export function addTrash(x,y,kind){
 // ───────── quad / cross ─────────
 export const forestEdgesList=()=>EDGES.filter(e=>e.kind==='forest'&&e.a!=='a3'&&e.b!=='a3'&&e.b!=='l1');
 const forestEdges=()=>EDGES.filter(e=>e.kind==='forest'&&e.a!=='a3'&&e.b!=='l1');
+// 0.8.4: quad lub crossowiec od czasu do czasu zjeżdża z drogi w las (80–230 px), zostawia koleiny, czasem rozjeżdża sadzonkę, i wraca na drogę.
+function quadWork(v,step){
+ v.rutAcc=(v.rutAcc||0)+step;if(v.rutAcc>4){v.rutAcc=0;paintRut(v.pos[0],v.pos[1],v.heading,v.spec.hw*.65)}
+ v.dmgAcc=(v.dmgAcc||0)+step;
+ if(v.dmgAcc>14){v.dmgAcc=0;for(const t of treesIn(v.pos[0]-9,v.pos[1]-9,v.pos[0]+9,v.pos[1]+9))if(t.st===STAND&&t.age<SAPLING_AGE&&Math.hypot(t.x-v.pos[0],t.y-v.pos[1])<9&&rand()<.3){removeTree(t);bumpDamage(.15);break}}
+}
+function quadExcursion(v){
+ v.exc=state.elapsed+8;                        // chwilowa blokada, także gdy się nie uda
+ const h=v.heading,fx=Math.sin(h),fy=-Math.cos(h),sx=Math.cos(h),sy=Math.sin(h),sg=rand()<.5?1:-1;
+ for(const side of [sg,-sg]){
+  const D=80+rand()*150,tx=v.pos[0]+(fx*.35+sx*side*.94)*D+fx*40,ty=v.pos[1]+(fy*.35+sy*side*.94)*D+fy*40;
+  if(!NAV.foot||!NAV.foot.walkable(tx,ty)||roadClearance(tx,ty)<45)continue;
+  const rp=nearestRoad(tx+fx*80,ty+fy*80,['forest'],{margin:30});if(!rp)continue;
+  const a=NAV.foot.findPath(v.pos[0],v.pos[1],tx,ty),b=a&&a.length?NAV.foot.findPath(tx,ty,rp.x,rp.y):null;
+  if(!a||!a.length||!b||!b.length)continue;
+  v.driveOff([...a,...b],{work:quadWork,onArrive:q=>{q.rejoin();q.arrived=false;q.final=false;q.stopS=null;q.route=null;q.roam=['forest'];q.exc=state.elapsed+25+rand()*40;q.label=(q.kind==='quad'?'quad':'crossowiec')+' wrócił na drogę'}});
+  if(v.off)v.off.workSpeed=40;
+  v.label=(v.kind==='quad'?'quad zjechał':'crossowiec zjechał')+' w las';return;
+ }
+}
 export function spawnRider(){
  const w=rand()<.5,kind=rand()<.6?'quad':'cross';
  const v=new Vehicle(kind,{...ENTRY(w),color:['#c23a2b','#2f6a3a','#2a4a8a'][Math.floor(rand()*3)]});
@@ -78,8 +99,10 @@ function updateFire(dt){
   if(t.at!=null){f.grow=Math.max(0,f.grow-dt*.12);t.at-=dt;if(rand()<dt*10)particle('dust',f.x+(rand()-.5)*30,f.y+(rand()-.5)*30,{col:'#c9d8e0',size:3+rand()*3});
    if(t.at<=0||f.grow<=0)extinguish(f,'straż pożarna');continue}
   const d=Math.hypot(t.car.pos[0]-f.x,t.car.pos[1]-f.y);
-  if(d<150||(t.car.arrived&&t.rt>5)){t.at=9;t.car.stopped=true;t.car.v=0;t.car.label='straż gasi pożar';continue}
-  t.rt-=dt;if(t.rt<=0||t.car.arrived){t.rt=2.5;const rp=nearestRoad(f.x,f.y,['main','forest']);t.car.goTo({edge:rp.edge,s:rp.s},{park:true,pen:600})}
+  // 0.8.4: wóz, który dojechał na miejsce na drodze (nawet dalej niż 150 px od ognia), zaczyna gaszenie — wcześniej jeździł w kółko, bo co 2,5 s dostawał nową trasę
+  t.life=(t.life||0)+dt;t.stuck=Math.abs(t.car.v)<1&&!t.car.arrived?(t.stuck||0)+dt:0;
+  if(d<150||t.car.arrived||t.life>240||t.stuck>30){t.at=9;t.car.stopped=true;t.car.v=0;t.car.label='straż gasi pożar';continue}
+  if(!t.sent||t.stuck>10){t.sent=true;t.stuck=t.stuck>10?0:t.stuck;const rp=nearestRoad(f.x,f.y,['main','forest']);t.car.goTo({edge:rp.edge,s:rp.s},{park:true,pen:600})}
  }
  for(let i=FT.length-1;i>=0;i--)if(FT[i].done)FT.splice(i,1);
 }
@@ -277,6 +300,7 @@ export function updateIncidents(dt){
  }
  for(const v of E.vehicles){if(!v.illegal)continue;
   v.life-=dt;
+  if(v.roam&&!v.off&&!v.stopped&&!v.leaving&&v.dwell<=0&&v.life>25&&state.elapsed>(v.exc||0)&&rand()<dt*.07)quadExcursion(v);
   if(v.roam&&!v.stopped&&v.dwell<=0&&rand()<dt*.05){v.dwell=4+rand()*5;v.label=(v.kind==='quad'?'quad':'crossowiec')+' kręci kółka na poboczu'}
   if(v.dwell>0&&rand()<dt*8)particle('dust',v.pos[0]+(rand()-.5)*20,v.pos[1]+(rand()-.5)*20,{col:'#b8a27a',size:2+rand()*3});
   if(v.report!=null){v.report-=dt;if(v.report<=0){v.report=null;if(!v.dead)v.inc=report('quad',v.pos[0],v.pos[1],(v.kind==='quad'?'Quad':'Motocykl crossowy')+' na drodze leśnej, '+odd(v.pos[0],v.pos[1])+'.',v)}}
@@ -334,7 +358,7 @@ function expireStale(){
 function burn(f,R=70){
  let n=0;
  for(const t of treesIn(f.x-R,f.y-R,f.x+R,f.y+R)){if(t.st!==STAND||Math.hypot(t.x-f.x,t.y-f.y)>R)continue;t.stumpR=clamp(crownR(t)*.2,3,8);t.st=STUMP;t.stumpAge=20;t.burnt=true;t.marked=false;dirtyTree(t);n++}
- E.burns=E.burns||[];E.burns.push({x:f.x,y:f.y,r:Math.round(R*1.15)});return n;
+ E.burns=E.burns||[];E.burns.push({x:f.x,y:f.y,r:Math.round(R*1.15),d:state.days});return n;
 }
 export const openIncidents=()=>E.incidents.filter(open_);
 // Zadanie „dowieź karmę” (paśniki zimą) — zgłasza moduł zwierzyny.

@@ -150,7 +150,7 @@ export function treeAt(x,y,filter){
  for(const t of treesIn(x-50,y-50,x+50,y+50)){
   if(filter&&!filter(t))continue;
   const r=t.st===STUMP?8:Math.max(7,crownR(t)*.8),d=Math.hypot(t.x-x,t.y-y);
-  if(d<r&&d/r<bd){bd=d/r;best=t}
+  if(d<r&&d<bd){bd=d;best=t}   // w gęstwinie wygrywa drzewo o najbliższym pniu
  }
  return best;
 }
@@ -341,8 +341,9 @@ export function seasonGrow(years){
 }
 export function testGrow(years){for(const t of trees)if(t.st===STAND&&t.age<60){t.age+=years;t.rI=Math.round(crownR(t));dirtyTree(t)}}
 // Wycinka: start (korona znika z warstwy), upadek (rysowany dynamicznie), leżące drzewo, wyrzynka (pień + gałęzie).
-export function startFall(t,dir){t.marked=false;t.falling={p:0,dir,L:fallLen(t),r:crownR(t)};dirtyTree(t)}
-export function updateFalls(dt,list){for(const t of list)if(t.falling){t.falling.p+=dt/1.5;if(t.falling.p>=1){t.lying={dir:t.falling.dir,L:t.falling.L,r:t.falling.r};t.falling=null;t.onLand&&t.onLand()}}}
+export const FALLING=new Set();   // tylko drzewa w trakcie padania (zamiast filtrowania wszystkich co krok)
+export function startFall(t,dir){t.marked=false;t.falling={p:0,dir,L:fallLen(t),r:crownR(t)};FALLING.add(t);dirtyTree(t)}
+export function updateFalls(dt){for(const t of FALLING){if(!t.falling){FALLING.delete(t);continue}t.falling.p+=dt/1.5;if(t.falling.p>=1){t.lying={dir:t.falling.dir,L:t.falling.L,r:t.falling.r};t.falling=null;FALLING.delete(t);t.onLand&&t.onLand()}}}
 export function finishTree(t){
  const L=t.lying;t.slash={x:t.x+Math.cos(L.dir)*L.L*.85,y:t.y+Math.sin(L.dir)*L.L*.85,a:L.dir};
  t.stumpR=clamp(L.r*.2,3,8);t.st=STUMP;t.stumpAge=0;t.lying=null;dirtyTree(t);
