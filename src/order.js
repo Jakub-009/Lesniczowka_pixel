@@ -49,7 +49,7 @@ export function spawnDump(){
   const p=new Ped({kind:'driver',x:cx,y:cy,speed:13});p.label='kierowca wyrzuca odpady';
   p.run([{go:[sx,sy]},{wait:9,pose:'kneel'},{call:()=>{
     const d={x:sx,y:sy,kind:'dump',dead:false,seed:Math.floor(rand()*1e4),t:0,report:camsOn()?2:25+rand()*30};E.trash.push(d);
-    if(camsOn()){earn(450,'mandat — nagranie z fotopułapki');bumpProtect(2);mail('dump','Fotopułapka przy wjeździe zarejestrowała samochód sprawcy dzikiego wysypiska w '+odd(sx,sy)+' — mandat 450 zł.',{x:sx,y:sy,quiet:true})}}},
+    if(camsOn()){earn(450,'mandat — nagranie z fotopułapki');bumpProtect(2);mail('dump','Fotopułapka przy wjeździe nagrała sprawcę wysypiska w '+odd(sx,sy)+': mandat 450 zł.',{x:sx,y:sy,quiet:true})}}},
    {go:[cx,cy]},{call:q=>{q.dead=true;v.label='odjeżdża';v.goTo(goalNode(exitNode(v.pos[0])),{leave:true})}}]);
   v.label='samochód z przyczepą (rozładunek)';
  }});
@@ -60,7 +60,7 @@ export function orderWaste(inc){
  if(!inc||inc.status!=='new')return;
  if(!canAfford(COSTS.waste))return;
  pay(COSTS.waste,'firma wywozowa — dzikie wysypisko');inc.status='queued';W.q.push(inc);
- toast('Zlecono wywóz odpadów ('+zl(COSTS.waste)+'). Śmieciarka przyjedzie w godzinach pracy firmy (7–16).');
+ toast('Wywóz odpadów zlecony ('+zl(COSTS.waste)+'). Śmieciarka przyjedzie w godz. 7–16.');
 }
 function startWaste(inc){
  const d=inc.ref,rp=nearestRoad(d.x,d.y,['main','forest']),truck=new Vehicle('waste',{...ENTRY(rand()<.5)});
@@ -85,7 +85,7 @@ function startWaste(inc){
 const POL=[];
 export function dispatchPolice(inc,cb){
  POL.push({inc,wait:10+rand()*10,car:null,t:0,done:false,cb,at:null});
- toast('Wezwano Policję — wszyscy czekają na miejscu, radiowóz jest w drodze.');
+ toast('Wezwano Policję. Radiowóz jedzie.');
 }
 function policeAway(p){if(p.car&&!p.car.dead){p.car.beacon=false;p.car.stopped=false;p.car.label='radiowóz odjeżdża';p.car.goTo(goalNode(exitNode(p.car.pos[0])),{leave:true})}}
 function policeDone(p,why){
@@ -127,18 +127,18 @@ function updatePolice(dt){
 export function buyCams(){
  if(camsOn()){toast('Fotopułapki już działają.');return}
  if(!canAfford(COSTS.cams))return;pay(COSTS.cams,'fotopułapki przy wjazdach');ECO.ord.cams=true;
- toast('Fotopułapki zamontowane przy wjazdach: nielegalne wjazdy i wysypiska są zgłaszane od razu, a sprawców karze mandat z nagrania ('+zl(COSTS.camsDay)+' dziennie).');
+ toast('Fotopułapki zamontowane ('+zl(COSTS.camsDay)+' dziennie).');
 }
 export function toggleBarriers(){
  ECO.ord.bar=!ECO.ord.bar;
- toast(ECO.ord.bar?'Szlabany zamknięte: mniej nielegalnych wjazdów od szosy (dukty na skraju lasu nie mają szlabanów)'+(parkingOn()?'.':', ale grzybiarzy i spacerowiczów też będzie mniej. Parking leśny przy szosie to zmniejsza.'):'Szlabany otwarte.');
+ toast(ECO.ord.bar?'Szlabany zamknięte.'+(parkingOn()?'':' Ubędzie też grzybiarzy i spacerowiczów.'):'Szlabany otwarte.');
 }
 export function buyParking(){
  if(parkingOn()){toast('Parking leśny już stoi.');return}
  if(!canAfford(COSTS.parking))return;pay(COSTS.parking,'parking leśny z koszem');ECO.ord.parking=true;
  for(const B of LAYBYS){const pts=B.poly.flatMap(([v,t])=>[lb(B,v,t),lb(B,v+34,t)]),x0=Math.min(...pts.map(q=>q[0]))-16,x1=Math.max(...pts.map(q=>q[0]))+16,y0=Math.min(...pts.map(q=>q[1]))-16,y1=Math.max(...pts.map(q=>q[1]))+16;
   for(const t of treesIn(x0,y0,x1,y1).slice())if(t.x>x0&&t.x<x1&&t.y>y0&&t.y<y1)removeTree(t)}
- toast('Dwie zatoki parkingowe z koszem i stołem gotowe przy obu wjazdach w las, tuż za szosą: odwiedzający zostawiają mniej śmieci, a przy zamkniętych szlabanach nadal mają gdzie zaparkować ('+zl(COSTS.parkingDay)+' dziennie za wywóz kosza).');
+ toast('Parking przy szosie gotowy ('+zl(COSTS.parkingDay)+' dziennie za wywóz kosza).');
 }
 export const ordDaily=()=>(ECO.ord.cams?COSTS.camsDay:0)+(ECO.ord.parking?COSTS.parkingDay:0);
 
@@ -150,7 +150,7 @@ export function updateOrder(dt){
  if(O.dumpAt&&state.days>=O.dumpAt){O.dumpAt=null;spawnDump()}
  for(const t of E.trash){
   if(t.kind!=='dump'||t.dead||t.inc)continue;
-  t.t+=dt;if(t.t>t.report)t.inc=report('dump',t.x,t.y,'Dzikie wysypisko w '+odd(t.x,t.y)+' — ktoś wywiózł do lasu odpady. Potrzebny wywóz ('+zl(COSTS.waste)+').',t);
+  t.t+=dt;if(t.t>t.report)t.inc=report('dump',t.x,t.y,'Dzikie wysypisko w '+odd(t.x,t.y)+'. Potrzebny wywóz ('+zl(COSTS.waste)+').',t);
  }
  if(!W.cur&&W.q.length&&cal.work(7,16)){const inc=W.q.shift();if(inc.status==='queued'&&!inc.ref.dead)startWaste(inc)}
  if(W.cur&&(W.cur.truck.dead)){W.cur.inc.status='new';W.cur=null}

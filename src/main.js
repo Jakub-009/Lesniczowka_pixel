@@ -32,7 +32,7 @@ const ERR=new Map();let errToast=false;
 function fail(where,e){
  const k=where+':'+(e&&e.message),n=(ERR.get(k)||0)+1;ERR.set(k,n);
  if(n===1){console.error('[Leśniczówka] błąd w '+where,e);DEBUG.errors=(DEBUG.errors||0)+1}
- if(!errToast){errToast=true;toast('Wystąpił błąd w grze ('+where+'), ale gra działa dalej. Jeśli coś przestanie reagować, odśwież stronę — zapis jest automatyczny.')}
+ if(!errToast){errToast=true;toast('Błąd w grze ('+where+'). Jeśli coś przestanie działać, odśwież stronę (zapis jest automatyczny).')}
 }
 // Diagnostyka zacięć: czas każdego podsystemu; wolne wywołania (>40 ms) trafiają do __lasDiag().
 const DIAG={slow:[],stalls:[]};
@@ -114,10 +114,10 @@ let lastEl=-1,stillN=0;
 setInterval(()=>{
  if(!state.playing||document.hidden)return;
  const now=performance.now();
- if(now-RT.beat>2500){DIAG.stalls.push({t:Math.round(now/1000),what:'pętla klatek stała',where:RT.where});startLoop();toast('Wykryto zacięcie gry — wznowiono pętlę.')}
+ if(now-RT.beat>2500){DIAG.stalls.push({t:Math.round(now/1000),what:'pętla klatek stała',where:RT.where});startLoop();toast('Wykryto zacięcie, gra wznowiona.')}
  // pauza z okna, którego nie ma na ekranie: zdejmujemy blokadę
  const winOpen=!$('#report').classList.contains('hidden')||!$('#base').classList.contains('hidden');
- if(state.modal&&!winOpen){DIAG.stalls.push({t:Math.round(now/1000),what:'blokada okna bez okna'});state.modal=false;state.panel=false;state.paused=false;toast('Gra była zablokowana bez okna — odblokowano.')}
+ if(state.modal&&!winOpen){DIAG.stalls.push({t:Math.round(now/1000),what:'blokada okna bez okna'});state.modal=false;state.panel=false;state.paused=false;toast('Odblokowano grę.')}
  if(state.skipTo!=null&&(state.modal||state.paused))stopSkip();
  {const sb=$('#skipbtn');if(sb&&state.skipTo==null&&sb.textContent!==skipLabel())sb.textContent=skipLabel()}
  const pb=$('#pausebtn'),want=state.paused?'▶':'❚❚';if(pb.textContent!==want)pb.textContent=want;
@@ -141,7 +141,7 @@ $('#skipbtn').addEventListener('click',()=>{
  if(state.paused)$('#pausebtn').click();
  const d=Math.floor(state.days),h=(state.days%1)*24;   // cel: najbliższe 6:00
  SKIP_SEEN.clear();for(const q of E.incidents)SKIP_SEEN.add(q);state.skipTo=h<6?d+6/24:d+1+6/24;state.rate=1;$('#speedbtn').textContent='Czas ×1';
- $('#skipbtn').textContent='Przerwij';toast('Czas przewija się do 6:00 — przerwie go zgłoszenie albo zdarzenie.')});
+ $('#skipbtn').textContent='Przerwij';toast('Przewijanie do 6:00. Przerwie je zgłoszenie.')});
 $('#zoomin').addEventListener('click',()=>zoom(-1));$('#zoomout').addEventListener('click',()=>zoom(1));
 $('#pausebtn').addEventListener('click',()=>{if(!state.playing||state.modal)return;state.paused=!state.paused;$('#pausebtn').textContent=state.paused?'▶':'❚❚';toast(state.paused?'Pauza (P).':'Gra wznowiona.')});
 $('#soundbtn').addEventListener('click',toggleSound);
@@ -152,8 +152,8 @@ $('#help-tut').addEventListener('click',()=>{$('#help').classList.add('hidden');
 initGuide();
 const begin=msg=>{state.playing=true;$('#overlay').classList.add('hidden');C.focus();if(state.mute)toggleSound();resumeSound();toast(msg)};
 if(hasSave()){$('#continue').style.display='block';$('#start').textContent='NOWA GRA'}
-$('#start').addEventListener('click',()=>{clearSave();begin('Witaj w leśnictwie! Przeciągnij mapę, kółko myszy przybliża. H — pomoc.');startTempo();if(SET.tut)openTutor()});
-$('#continue').addEventListener('click',()=>{if(loadGame()){hud();begin('Wczytano zapis. Gra zapisuje się sama co 30 s.')}else{toast('Nie udało się wczytać zapisu.');$('#continue').style.display='none'}});
+$('#start').addEventListener('click',()=>{clearSave();begin('Witaj w leśnictwie. H: pomoc.');startTempo();if(SET.tut)openTutor()});
+$('#continue').addEventListener('click',()=>{if(loadGame()){hud();begin('Zapis wczytany.')}else{toast('Nie udało się wczytać zapisu.');$('#continue').style.display='none'}});
 $('#newgame').addEventListener('click',()=>{clearSave();state.playing=false;location.reload()});
 addEventListener('beforeunload',saveGame);
 document.addEventListener('visibilitychange',()=>{if(document.hidden){saveGame();if(state.playing&&!state.paused)$('#pausebtn').click()}});

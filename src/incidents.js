@@ -71,7 +71,7 @@ export function spawnSmoke(spring){
   const x=spring?100+rand()*3400:300+rand()*3000,y=spring?(rand()<.6?1560+rand()*250:POLANA.y+(rand()-.5)*260):200+rand()*1450;
   if(roadClearance(x,y)<(spring?20:90)||Math.hypot(x-POLANA.x,y-POLANA.y)<POLANA.r-20)continue;
   const f={x,y,t:0,grow:0,dead:false,fire:true};E.trash.push(f);
-  f.inc=report('fire',x,y,(spring?'Ktoś wypala trawy — dym w ':'Dym nad lasem w ')+odd(x,y)+'!',f);
+  f.inc=report('fire',x,y,(spring?'Wypalanie traw, dym w ':'Dym nad lasem w ')+odd(x,y)+'!',f);
   if(HL.tower)callFire(f.inc,'Dyżurny z wieży przeciwpożarowej zauważył dym w '+odd(x,y)+' i od razu wezwał straż pożarną.');return}
 }
 // ───────── straż pożarna (0.8.3) ─────────
@@ -131,9 +131,9 @@ function askDec(inc,canWarn,cb){DEC.inc=inc;DEC.t=30;DEC.warn=canWarn;DEC.cb=cb;
 export function decide(ch){if(!DEC.inc)return;const cb=DEC.cb;DEC.inc=null;DEC.cb=null;cb&&cb(ch)}
 const callPol=inc=>{inc.dec='police';inc.polDone=false;HK.police?HK.police(inc,()=>{inc.polDone=true}):inc.polDone=true};
 const INTR={
- poacher:{label:'kłusownik',car:'samochód bez świateł',text:x=>'Nocą w '+x+' stoi samochód bez świateł — możliwe kłusownictwo.'},
- thief:{label:'złodziej drewna',car:'samochód z przyczepką',text:x=>'Nocą przy stosie drewna w '+x+' ktoś ładuje przyczepkę!'},
- xmas:{label:'złodziej choinek',car:'samochód z bagażnikiem dachowym',text:x=>'O zmierzchu w '+x+' ktoś wycina choinki!'}
+ poacher:{label:'kłusownik',car:'samochód bez świateł',text:x=>'Samochód bez świateł w '+x+', możliwe kłusownictwo.'},
+ thief:{label:'złodziej drewna',car:'samochód z przyczepką',text:x=>'Ktoś ładuje drewno ze stosu w '+x+'.'},
+ xmas:{label:'złodziej choinek',car:'samochód z bagażnikiem dachowym',text:x=>'Ktoś wycina choinki w '+x+'.'}
 };
 export function spawnIntruder(kind){
  const I=INTR[kind];let goal=null,stack=null,young=[];
@@ -259,8 +259,8 @@ class Unit{
   inc.status='done';this.cur=null;
   if(ok){
    const k=inc.type==='intruder'?inc.ref.intruder:inc.type,snare=inc.type==='trash'&&inc.ref.kind==='snare';
-   if(k==='assess'){const A=inc.ref;selectThinning(A);const wb=markWindthrow(A);mail('assess','Ocena drzewostanu (oddz. '+oddzial(A.x,A.y)+'): dorodne '+A.n[0]+', przeciętne '+A.n[1]+', wadliwe '+A.n[2]+'. '+(wb?'Oznaczono też '+wb+' wiatrołomów do cięcia sanitarnego. ':'')+(A.marked?'Do trzebieży oznaczono '+A.marked+' drzew — E: wyślij ekipę.':'Bez cechowania: '+A.why+'.'),{x:A.x,y:A.y});this.startNext();return}
-   if(k==='beetle'){const n=inc.ref.n;mail('beetle',n?'Kornik potwierdzony ('+odd(inc.x,inc.y)+'): do cięcia sanitarnego oznaczono '+n+' drzew — E: wyślij ekipę. Im szybciej, tym mniejsza strata.':'Patrol nie znalazł zasiedlonych drzew — fałszywy alarm albo już uprzątnięte.',{x:inc.x,y:inc.y});bumpProtect(1);planProgress('handle',1);this.startNext();return}
+   if(k==='assess'){const A=inc.ref;selectThinning(A);const wb=markWindthrow(A);mail('assess','Ocena drzewostanu (oddz. '+oddzial(A.x,A.y)+'): dorodne '+A.n[0]+', przeciętne '+A.n[1]+', wadliwe '+A.n[2]+'. '+(wb?'Oznaczono też '+wb+' wiatrołomów do cięcia sanitarnego. ':'')+(A.marked?'Do trzebieży oznaczono '+A.marked+' drzew. E: wyślij ekipę.':'Bez cechowania: '+A.why+'.'),{x:A.x,y:A.y});this.startNext();return}
+   if(k==='beetle'){const n=inc.ref.n;mail('beetle',n?'Kornik potwierdzony ('+odd(inc.x,inc.y)+'): do cięcia sanitarnego oznaczono '+n+' drzew. E: wyślij ekipę.':'Patrol nie znalazł zasiedlonych drzew.',{x:inc.x,y:inc.y});bumpProtect(1);planProgress('handle',1);this.startNext();return}
    const pol=inc.dec==='police',warn=inc.dec==='warn';
    const gain=warn?2:pol?{quad:8,poacher:10,thief:10,xmas:8}[k]??8:{block:4,quad:6,poacher:9,thief:7,xmas:5,fire:5,feed:1}[k]??(snare?3:2);bumpProtect(gain);
    if(pol&&['quad','poacher','thief','xmas'].includes(k)){earn(250,'mandat i grzywna (Policja)');mail(inc.type==='intruder'?'intruder':'quad','Policja przejęła sprawę w '+odd(inc.x,inc.y)+': mandat i sprawa w sądzie, wpływ 250 zł.',{x:inc.x,y:inc.y,quiet:true})}
@@ -331,7 +331,7 @@ export function updateIncidents(dt){
     else callFire(t.inc,'Dyżurny z wieży wezwał straż pożarną.')}
    continue}
   if(t.dead)continue;t.t+=dt;
-  if(!t.inc&&t.t>t.report)t.inc=report('trash',t.x,t.y,t.kind==='snare'?'Spacerowicz znalazł wnyki w '+odd(t.x,t.y)+'.':'Śmieci w lesie, '+odd(t.x,t.y)+'.',t);
+  if(!t.inc&&t.t>t.report)t.inc=report('trash',t.x,t.y,t.kind==='snare'?'Wnyki w '+odd(t.x,t.y)+'.':'Śmieci w lesie, '+odd(t.x,t.y)+'.',t);
  }
  for(const inc of E.incidents){
   inc.t+=dt;const u=inc.unit;if(u){inc.wasSent=true;if(u.car&&inc.ref&&inc.ref.pos)inc.patrolD=Math.hypot(u.car.pos[0]-inc.ref.pos[0],u.car.pos[1]-inc.ref.pos[1])}
@@ -339,7 +339,7 @@ export function updateIncidents(dt){
    const q=inc.ref;
    if(q.dead){inc.status='gone';
     // 0.9: kara tylko, gdy zgłoszenie leżało bez reakcji — jeśli patrol był wysłany albo minęło mniej niż ok. 1,5 min, sprawca po prostu uciekł
-    if(escaped(inc)){mail('quad',(q.kind==='quad'?'Quad':'Crossowiec')+' zdążył uciec z lasu, zanim patrol mógł dojechać (bez kary).',{x:inc.x,y:inc.y})}
+    if(escaped(inc)){mail('quad',(q.kind==='quad'?'Quad':'Crossowiec')+' uciekł z lasu przed patrolem.',{x:inc.x,y:inc.y})}
     else{stat('ignored');bumpProtect(-5);bumpDamage(1);mail('quad',(q.kind==='quad'?'Quad':'Crossowiec')+' odjechał bezkarnie. Ochrona −5%.',{x:inc.x,y:inc.y})}if(u&&u.cur===inc){u.cur=null;u.startNext()}continue}
    inc.seen+=dt;if(inc.seen>4){inc.seen=0;inc.x=q.pos[0];inc.y=q.pos[1]}
    if(u&&u.cur===inc&&u.phase==='driving'){
@@ -351,7 +351,7 @@ export function updateIncidents(dt){
   if(inc.type==='trash'&&inc.ref.dead&&inc.status==='new')inc.status='done';
   if(inc.type==='intruder'&&inc.ref.dead&&open_(inc)){
    inc.status='gone';const k=inc.ref.intruder;if(!escaped(inc)){stat('ignored');bumpProtect(k==='thief'?-4:-3)}
-   mail('intruder',k==='thief'?'Złodziej odjechał z drewnem ('+(inc.ref.stolen||0).toFixed(1).replace('.',',')+' m³).':k==='xmas'?'Złodziej choinek odjechał — wycięto '+(inc.ref.stolen||0)+' młodych drzewek.':'Samochód bez świateł odjechał. W lesie mogły zostać wnyki.',{x:inc.x,y:inc.y});
+   mail('intruder',k==='thief'?'Złodziej odjechał z drewnem ('+(inc.ref.stolen||0).toFixed(1).replace('.',',')+' m³).':k==='xmas'?'Złodziej choinek odjechał — wycięto '+(inc.ref.stolen||0)+' młodych drzewek.':'Samochód bez świateł odjechał. Mogły zostać wnyki.',{x:inc.x,y:inc.y});
    if(u&&u.cur===inc&&u.phase==='driving'){u.cur=null;u.startNext()}}
  }
  if(DEC.inc){if(!open_(DEC.inc)){DEC.inc=null;DEC.cb=null}else{DEC.t-=dt;if(DEC.t<=0)decide(DEC.warn?'warn':'police')}}
@@ -373,7 +373,7 @@ function expireStale(){
   for(const q of c){if(n<=MAXOPEN)break;drop(q);n--}
  }
  // jeden list zbiorczy co najwyżej raz na dzień gry, żeby poczta nie tonęła w powtórkach
- if(STALE.n&&state.days-STALE.last>=1){mail('trash','Wygasło niepilnych zgłoszeń: '+STALE.n+' (śmieci i propozycje, którymi nikt się nie zajął). Śmieci nadal leżą w lesie i wrócą do zgłoszeń.',{quiet:true});STALE.n=0;STALE.last=state.days}
+ if(STALE.n&&state.days-STALE.last>=1){mail('trash','Wygasło niepilnych zgłoszeń: '+STALE.n+'. Śmieci nadal leżą w lesie.',{quiet:true});STALE.n=0;STALE.last=state.days}
 }
 function burn(f,R=70){
  let n=0;
@@ -411,8 +411,8 @@ function selectThinning(A){
 export const assessing=(x,y)=>E.incidents.some(q=>q.type==='assess'&&q.status!=='done'&&q.status!=='gone'&&Math.hypot(q.x-x,q.y-y)<q.ref.r);
 export function orderAssess(x,y){
  if(assessing(x,y)){toast('Ocena w tym miejscu jest już zlecona.');return}
- const inc=report('assess',x,y,'Ocena drzewostanu i cechowanie — oddz. '+oddzial(x,y)+'.',{x,y,r:250,n:[0,0,0],marked:0},true);
+ const inc=report('assess',x,y,'Ocena drzewostanu, oddz. '+oddzial(x,y)+'.',{x,y,r:250,n:[0,0,0],marked:0},true);
  toast('Zlecono ocenę drzewostanu w oddz. '+oddzial(x,y)+': leśniczy obejdzie okolicę i oznaczy wadliwe drzewa do trzebieży.');dispatch(inc);
 }
-export function feedTask(f,name){return report('feed',f.x,f.y,'Paśnik '+name+' pusty — trzeba dowieźć karmę.',f)}
+export function feedTask(f,name){return report('feed',f.x,f.y,'Paśnik '+name+' pusty. Dowieź karmę.',f)}
 RENEW_HOOK.report=report;

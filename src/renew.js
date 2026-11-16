@@ -71,13 +71,13 @@ export function plotStats(p){
 }
 export function createPlot(x0,y0,x1,y1){
  const x=Math.round(Math.min(x0,x1)),y=Math.round(Math.min(y0,y1)),w=Math.round(Math.abs(x1-x0)),h=Math.round(Math.abs(y1-y0));
- if(w<48||h<40){toast('Za mała powierzchnia — zaznacz większy obszar.');return null}
+ if(w<48||h<40){toast('Za mała powierzchnia.');return null}
  return addPlot({x,y,w,h});
 }
 function addPlot(g){
  const sp0=speciesFor(g.x+g.w/2,g.y+g.h/2),p={id:R.nextId++,...g,state:'new',prepared:false,planted:0,toPlant:0,sp:sp0,mix:mixFor(sp0),odd:oddzial(g.x+g.w/2,g.y+g.h/2)};
- if(areaHa(p)<.012){R.nextId--;toast('Za mała powierzchnia (drogi i pasy ochronne są wyłączone) — zaznacz większy obszar.');return null}
- R.plots.push(p);toast('Powierzchnia odnowieniowa P'+p.id+' ('+displayNumber(areaHa(p),2)+' ha, bez dróg). Wybierz pracę na karcie.');
+ if(areaHa(p)<.012){R.nextId--;toast('Za mała powierzchnia (bez dróg i pasów ochronnych).');return null}
+ R.plots.push(p);toast('Powierzchnia P'+p.id+' ('+displayNumber(areaHa(p),2)+' ha). Wybierz pracę na karcie.');
  return p;
 }
 // Wielokąt: min. 3 punkty; obszar liczony po odjęciu dróg, podwórza i placu
@@ -91,7 +91,7 @@ export const plotAt=(x,y)=>R.plots.slice().reverse().find(p=>inShape(p,x,y));
 // ── przygotowanie gleby: usługa zewnętrzna (ciągnik z pługiem LPz) ──
 export function orderPrep(p){
  if(p.prepared||p.state==='prepping'||R.plow.queue.includes(p)){toast('Ta powierzchnia jest już przygotowana albo w kolejce.');return}
- if(!passesOf(p).length){toast('Brak miejsca na bruzdy — obszar jest za wąski albo leży na drogach.');return}
+ if(!passesOf(p).length){toast('Brak miejsca na bruzdy.');return}
  const st=plotStats(p);if(!canAfford(prepCost(p)))return;
  pay(prepCost(p),'przygotowanie gleby (pług LPz)');p.state='queued';R.plow.queue.push(p);
  toast('Zlecono przygotowanie gleby P'+p.id+(st.stand?' — uwaga: stoi tam '+st.stand+' drzew, pług je ominie':'')+'. Ciągnik przyjedzie '+(cal.work(7,16)?'za chwilę':cal.nextStart(7,17))+'.');
@@ -158,7 +158,7 @@ export function orderFence(p){
  if(p.fence&&p.fence!=='gone'){toast('Ta powierzchnia jest już grodzona.');return}
  const c=fenceCost(p);if(!canAfford(c))return;
  pay(c,'grodzenie uprawy siatką');p.fence='building';p.fenceP=0;p.dismOffered=0;
- toast('Zlecono grodzenie P'+p.id+' ('+Math.round(perimOf(p)/PX_PER_M)+' m siatki, bramy na drogach). Montaż w godzinach pracy.');
+ toast('Grodzenie P'+p.id+' zlecone ('+Math.round(perimOf(p)/PX_PER_M)+' m siatki).');
 }
 // Repelent (0.6): środek odstraszający na sadzonki — tani, chroni przez bieżącą porę roku (ok. 75% mniej zgryzania).
 export const seasonKey=()=>Math.floor(state.days/SEASON_DAYS);
@@ -167,21 +167,21 @@ export function orderRepel(p){
  if(p.fence==='done'){toast('Powierzchnia jest ogrodzona — repelent niepotrzebny.');return}
  if(p.repel===seasonKey()){toast('Repelent już naniesiony w tej porze roku.');return}
  const c=repelCost(p);if(!canAfford(c))return;
- pay(c,'repelent na sadzonki');p.repel=seasonKey();toast('Naniesiono repelent na sadzonki w P'+p.id+' — chroni do końca tej pory roku.');
+ pay(c,'repelent na sadzonki');p.repel=seasonKey();toast('Repelent na P'+p.id+' do końca pory roku.');
 }
 export function updateRenew(dt){
  plowUpdate();
- if(cal.work(7,16))for(const p of R.plots)if(p.fence==='building'){p.fenceP+=dt*6;if(p.fenceP>=perimOf(p)){p.fence='done';p.fenceDay=state.days;rebuildWild();toast('Grodzenie P'+p.id+' gotowe — sadzonki są bezpieczne od zgryzania.')}}
+ if(cal.work(7,16))for(const p of R.plots)if(p.fence==='building'){p.fenceP+=dt*6;if(p.fenceP>=perimOf(p)){p.fence='done';p.fenceDay=state.days;rebuildWild();toast('Grodzenie P'+p.id+' gotowe.')}}
  // 0.7.4: gdy sadzonki wyrosną (ok. 10 lat), pojawia się zgłoszenie demontażu siatki; zaniedbana siatka po ok. 15 latach niszczeje sama
  if(state.days>=(R.fenceCheck||0)){R.fenceCheck=state.days+1;
   for(const p of R.plots){if(p.fence!=='done')continue;
    if(!p.dismOffered){
     const tt=treesIn(p.x,p.y,p.x+p.w,p.y+p.h).filter(t=>t.planted&&t.st===STAND&&inShape(p,t.x,t.y));
-    if(tt.length>=5&&tt.filter(t=>t.age>=SAPLING_AGE+2).length>=tt.length*.6&&HOOK.report){p.dismOffered=state.days;HOOK.report('fence',p.x+p.w/2,p.y+p.h/2,'Sadzonki na P'+p.id+' wyrosły — można zdemontować siatkę (zbędna i pogarsza przejścia zwierzyny).',p)}}
-   else if(state.days-p.dismOffered>15){p.fence='gone';for(const q of E.incidents)if(q.type==='fence'&&q.ref===p&&q.status==='new')q.status='gone';rebuildWild();toast('Siatka na P'+p.id+' zniszczała ze starości i została rozebrana przez nieznanych sprawców.')}}}
+    if(tt.length>=5&&tt.filter(t=>t.age>=SAPLING_AGE+2).length>=tt.length*.6&&HOOK.report){p.dismOffered=state.days;HOOK.report('fence',p.x+p.w/2,p.y+p.h/2,'Sadzonki na P'+p.id+' wyrosły. Można zdjąć siatkę.',p)}}
+   else if(state.days-p.dismOffered>15){p.fence='gone';for(const q of E.incidents)if(q.type==='fence'&&q.ref===p&&q.status==='new')q.status='gone';rebuildWild();toast('Siatka na P'+p.id+' zniszczała i została rozebrana.')}}}
 }
 export const HOOK={report:null};
-export function dismantleFence(p){if(p.fence!=='done')return;p.fence='gone';rebuildWild();toast('Siatka na P'+p.id+' zdemontowana — zwierzyna ma znów wolny przejazd.')}
+export function dismantleFence(p){if(p.fence!=='done')return;p.fence='gone';rebuildWild();toast('Siatka na P'+p.id+' zdemontowana.')}
 // Siatka grodzenia (na poziomie gruntu): słupki co ~2,5 m, rysowana do miejsca, gdzie doszli monterzy.
 export function drawFences(g){
  for(const p of R.plots){if(!p.fence||p.fence==='gone')continue;
@@ -207,6 +207,8 @@ export function drawPlots(g,sel){
   g.strokeStyle='#ffe9a0';g.lineWidth=1;g.stroke();for(const [x,y] of P)rect(g,x-2,y-2,5,5,'#ffe9a0');rect(g,P[0][0]-3,P[0][1]-3,7,7,'#fff')}
  for(const p of R.plots){
   const col=p.state==='new'?'#f1e6c2':p.state==='queued'||p.state==='prepping'?'#e8b06a':p.state==='prepared'?'#c89a62':p.state==='planting'?'#9fd27a':'#7ac27a';
+  // 1.0.1: mgła, etykieta i grube obrysy tylko przy narzędziach sadzenia/odnowienia albo przy zaznaczonej powierzchni; poza tym cienka linia
+  if(!(state.tool==='plot'||state.tool==='plant'||sel===p)){g.globalAlpha=.55;g.strokeStyle=col;g.lineWidth=1;g.setLineDash([3,4]);path(g,outline(p));g.stroke();g.setLineDash([]);g.globalAlpha=1;continue}
   g.drawImage(shade(p),p.x,p.y);
   g.strokeStyle='#1d2b24';g.lineWidth=3;g.setLineDash([6,4]);path(g,outline(p));g.stroke();
   g.strokeStyle=col;g.lineWidth=1;path(g,outline(p));g.stroke();g.setLineDash([]);

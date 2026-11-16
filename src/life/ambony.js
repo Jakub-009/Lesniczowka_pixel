@@ -20,7 +20,7 @@ export function buyAmbona(slot){
  const a=mkAmb(slot);
  for(const t of treesIn(a.x-18,a.y-18,a.x+18,a.y+18).slice())if(Math.hypot(t.x-a.x,t.y-a.y)<16)removeTree(t);
  AMB.list.push(a);AMB.list.sort((p,q)=>p.slot-q.slot);colliders.push({shape:'circle',x:a.x,y:a.y,r:9,id:'ambona',br:9,amb:a.slot});
- toast('Ambona '+AMBONY[slot].name+' gotowa. Koło łowieckie wystawi tu własnego myśliwego wieczorem i o świcie.');
+ toast('Ambona '+AMBONY[slot].name+' gotowa.');
  return true;
 }
 export const ambonaAt=(x,y)=>AMB.list.find(a=>Math.hypot(a.x-x,a.y-y)<20)||null;

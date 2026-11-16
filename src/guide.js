@@ -6,12 +6,12 @@ export const SET={tempo:1,tips:true,tut:true,volume:.8};
 try{Object.assign(SET,JSON.parse(localStorage.getItem(KEY)||'{}'))}catch(e){}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(SET))}catch(e){}};
 const STEPS=[
- ['Cel i rytm gry','Prowadzisz niewielkie leśnictwo. Patrzysz na trzy liczby u góry: <b>budżet</b>, <b>stan lasu</b> i <b>ochronę terenu</b>. Nie ma tu przegranej ani pośpiechu — gra jest spokojną piaskownicą. Czas płynie sam, możesz go zatrzymać (P), przyspieszyć (T, ×1–×3) albo przewinąć do rana („Do jutra”).'],
- ['Mapa i narzędzia','Przeciągnij mapę myszą (albo prawym przyciskiem), kółko myszy przybliża. Klawisze <b>1–4</b> to narzędzia: podgląd, wycinka, sadzenie, odnowienie. Kliknięcie drzewa, zwierzęcia, pojazdu, zgłoszenia lub budynku pokazuje jego kartę z przyciskami akcji. <b>Esc</b> albo ✕ zamyka każde okno.'],
- ['Pierwsza wycinka','Wybierz <b>2 — Wycinka</b> i kliknij dojrzałe drzewa (albo przeciągnij obszar). Potem <b>E — Wyślij ekipę</b>: pilarze ścinają i tną na kłody, ciągnik zwozi je do drogi, a <b>K — Wywóz drewna</b> sprowadza ciężarówkę, która płaci za drewno. Drzewa wadliwe znajdziesz zlecając „Ocenę drzewostanu” na karcie drzewa.'],
- ['Odnowienie lasu','Po wycince zostają pniaki. Posadź młode drzewa: narzędzie <b>3</b> (klik lub przeciągnięcie = rzędy) albo <b>4</b> na większym zrębie (przygotowanie gleby, sadzenie w rzędach, grodzenie przed zwierzyną). Bez odnowienia stan lasu spada.'],
- ['Zgłoszenia, poczta i faktury','Po prawej pojawiają się <b>zgłoszenia</b> (pożar, wysypisko, intruzi, kornik) — <b>Q</b> wysyła patrol. Ważne wiadomości trafiają do poczty (<b>C</b>). Praca ekip rozlicza się fakturami: zapłać je w poczcie albo w oknie Leśniczówki — nie zostawiaj ich na długo.'],
- ['Leśniczówka (L)','Okno <b>L</b> to Twoja baza: kadry i kancelaria, budynki i sprzęt, finanse (pożyczka, płacenie automatyczne), zdrowie lasu, ochrona przyrody oraz koło łowieckie. Wszystko jest podzielone na zakładki; „ⓘ Jak to działa” rozwija wyjaśnienia. Pomoc znajdziesz pod <b>?</b> (H), ustawienia pod <b>⚙</b>.']
+ ['Cel gry','Prowadzisz małe leśnictwo. Patrz na budżet, stan lasu i ochronę terenu u góry. Nie ma przegranej ani pośpiechu. Czas możesz zatrzymać (P), przyspieszyć (T) albo przewinąć do rana („Do jutra”).'],
+ ['Mapa i narzędzia','Przeciągnij mapę myszą, kółko przybliża. Narzędzia (1–4) są na dolnym pasku: podgląd, wycinka, sadzenie, odnowienie. Kliknięcie obiektu otwiera jego kartę. Esc lub ✕ zamyka okno.'],
+ ['Pierwsza wycinka','Wybierz Wycinkę (2) i kliknij dojrzałe drzewa albo przeciągnij obszar. Potem E: ekipa ścina, ciągnik zwozi kłody do drogi. K sprowadza ciężarówkę, która płaci za drewno.'],
+ ['Odnowienie','Po wycince zostają pniaki. Sadź narzędziem 3 (klik lub rzędy) albo zaznacz zrąb narzędziem 4: przygotowanie gleby, sadzenie, grodzenie przed zwierzyną.'],
+ ['Zgłoszenia i faktury','Zgłoszenia (pożar, wysypisko, intruzi, kornik) pojawiają się po prawej. Q wysyła patrol. Wiadomości i faktury są w poczcie (C). Zapłać faktury w terminie.'],
+ ['Leśniczówka (L)','Okno L zawiera kadry, budynki i sprzęt, finanse, zdrowie lasu, przyrodę i koło łowieckie. Pomoc: H. Ustawienia: ⚙.']
 ];
 let step=0,wasPaused=false;
 const open=el=>!$(el).classList.contains('hidden');
@@ -36,7 +36,7 @@ function renderSettings(){
  const row=(a,b,btn)=>`<div class="rrow"><span>${a}</span><span>${btn}</span></div>`,tog=(k,v)=>`<button data-set="${k}">${v}</button>`;
  $('#settingscard').innerHTML=`<div class="whead"><div><div class="kicker">Leśnictwo Zielony Gaj</div><h1>Ustawienia</h1></div><button class="xbtn" data-x="settings" title="Zamknij (Esc)" aria-label="Zamknij">✕</button></div>
  <div class="rep">${row('Dźwięk','',tog('sound',state.mute?'wyłączony':'włączony'))}${row('Głośność','',tog('vol',Math.round(SET.volume*100)+'%'))}${row('Tempo na początku gry','',tog('tempo','×'+SET.tempo))}${row('Podpowiedzi przy narzędziach','',tog('tips',SET.tips?'włączone':'wyłączone'))}${row('Samouczek przy nowej grze','',tog('tut',SET.tut?'pokazuj':'nie pokazuj'))}</div>
- <p class="hint2">Ustawienia zapisują się osobno od zapisu gry (nie znikają po „Nowej grze”). Gra sama zapisuje się co 30 s.</p>
+ <p class="hint2">Ustawienia są zapamiętywane osobno od zapisu gry.</p>
  <div class="wnav"><button class="sec" data-set="tutor">Pokaż samouczek</button><button data-set="close">Gotowe</button></div>`;
 }
 export function initGuide(){

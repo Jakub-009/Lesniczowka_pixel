@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Leśniczówka 0.8.3</title>
+<title>Leśniczówka</title>
 <link rel="stylesheet" href="./style.css">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Cpath d=%22M8 1 2 11h4v4h4v-4h4z%22 fill=%22%233f744c%22/%3E%3C/svg%3E">
 </head>
@@ -15,63 +15,52 @@
    <div class="gauge"><div class="lbl">Budżet leśnictwa</div><div class="val"><strong id="money">24 500</strong> zł</div></div>
    <div class="gauge"><div class="lbl">Stan lasu <strong id="health">82%</strong></div><div class="bar"><div id="healthbar"></div></div></div>
    <div class="gauge"><div class="lbl">Ochrona terenu <strong id="protect">64%</strong></div><div class="bar"><div id="protectbar"></div></div></div>
+   <button id="planbtn" class="topbtn planbtn" title="Plan na sezon">Plan sezonu <b id="plansum">0/3</b></button>
   </div>
   <div class="plate topright"><div class="clock" id="time">07:00</div><div class="sub" id="date">Rok 1 · lato · dzień 2</div><div class="sub" id="wx"></div><div class="sub" id="dow">piątek</div><div class="ff" id="ff" style="display:none">NOC · czas ×8</div>
    <div class="btns"><button id="pausebtn" class="topbtn" title="Pauza (P)">❚❚</button><button id="speedbtn" class="topbtn" title="Tempo ×1 / ×2 / ×3 (T). Shift + klik: tryb szybki ×10">Czas ×1</button><button id="soundbtn" class="topbtn" title="Dźwięk (M)">Dźwięk: wył.</button><button id="mapbtn" class="topbtn" title="Mapa leśnictwa (Tab)">Mapa</button><button id="helpbtn" class="topbtn" title="Pomoc (H)">?</button></div>
    <div class="btns"><button id="skipbtn" class="topbtn" title="Przewiń czas do rana / do jutra. Przerywa się przy zgłoszeniu lub interwencji.">Do jutra</button><button id="zoomout" class="topbtn" title="Oddal (kółko myszy)">−</button><button id="zoomin" class="topbtn" title="Przybliż (kółko myszy)">+</button><button id="setbtn" class="topbtn" title="Ustawienia">⚙</button></div></div>
  </div>
- <div class="left">
-  <div class="plate tools"><div class="kick">NARZĘDZIA</div>
-   <button class="tool" data-tool="select"><b>1</b>Podgląd</button>
-   <button class="tool" data-tool="mark"><b>2</b>Wycinka</button>
-   <button class="tool" data-tool="plant"><b>3</b>Sadzenie</button>
-   <button class="tool" data-tool="plot"><b>4</b>Odnowienie</button>
-   <div class="toolhint" id="toolhint"></div>
-   <div class="sep"></div>
-   <button id="crewbtn" class="act"><b>E</b>Wyślij ekipę <span id="crewn"></span></button>
-   <button id="cancelbtn" class="act" style="display:none"><b>X</b>Anuluj zlecenia <span id="canceln"></span></button>
-   <button id="sellbtn" class="act"><b>K</b>Wywóz drewna</button>
-   <button id="mailbtn" class="act"><b>C</b>Poczta <span id="mailn"></span></button>
-   <div class="btns" style="justify-content:stretch"><button id="undobtn" class="topbtn" style="flex:1" title="Cofnij ostatnie zaznaczenie obszaru (Ctrl+Z)">Cofnij</button><button id="followbtn" class="topbtn" style="flex:1" title="Kamera śledzi zaznaczony pojazd, osobę albo zwierzę (F)">Śledź</button></div>
-   <div class="sep"></div>
-   <div class="srow"><span>Ekipa A</span><i id="crewstate">wolna</i></div>
-   <div class="srow" id="crewBrow" style="display:none"><span>Ekipa B</span><i id="crewBstate">wolna</i></div>
-   <div class="srow"><span>Zrywka</span><i id="skidstate">czeka</i></div>
-   <div class="srow"><span>Patrol</span><i id="patrolstate">w leśniczówce</i></div>
-   <div class="srow"><span>Przy drogach</span><i id="stackinfo">0 m³</i></div>
-   <div class="srow"><span>Cena</span><i id="market">×1,00</i></div>
-   <div class="srow"><span>Koszty/dzień</span><i id="daily">300 zł</i></div>
-   <div class="srow"><span>Do zapłaty</span><i id="owed">—</i></div>
-   <div class="srow"><span>Pług</span><i id="plowstate">—</i></div>
-   <div class="sep"></div>
-   <button id="basebtn" class="act"><b>L</b>Leśniczówka — kadry, sprzęt</button>
+ <div class="plate hud plan" id="plan" style="display:none"><div class="wh"><b>Plan na sezon</b><button class="xbtn sm" data-x="plan" aria-label="Zamknij">✕</button></div><div id="tasks"></div></div>
+ <div class="plate hud status" id="status">
+  <div class="srow"><span>Ekipa A</span><i id="crewstate">wolna</i></div>
+  <div class="srow" id="crewBrow" style="display:none"><span>Ekipa B</span><i id="crewBstate">wolna</i></div>
+  <div class="srow"><span>Zrywka</span><i id="skidstate">czeka</i></div>
+  <div class="srow"><span>Patrol</span><i id="patrolstate">w leśniczówce</i></div>
+  <div class="srow"><span>Przy drogach</span><i id="stackinfo">0 m³</i></div>
+  <div class="srow" id="owedrow"><span>Do zapłaty</span><i id="owed">—</i></div>
+  <div class="srow" id="plowrow" style="display:none"><span>Pług</span><i id="plowstate">—</i></div>
+ </div>
+ <div class="plate hud toolbar" id="toolbar">
+  <div class="toolhint" id="toolhint"></div>
+  <div class="trow2">
+   <div class="grp"><button class="tool" data-tool="select"><b>1</b>Podgląd</button><button class="tool" data-tool="mark"><b>2</b>Wycinka</button><button class="tool" data-tool="plant"><b>3</b>Sadzenie</button><button class="tool" data-tool="plot"><b>4</b>Odnowienie</button></div>
+   <div class="grp"><button id="crewbtn" class="act"><b>E</b>Wyślij ekipę <span id="crewn"></span></button><button id="cancelbtn" class="act" style="display:none"><b>X</b>Anuluj <span id="canceln"></span></button><button id="sellbtn" class="act"><b>K</b>Wywóz drewna</button></div>
+   <div class="grp"><button id="mailbtn" class="act"><b>C</b>Poczta <span id="mailn"></span></button><button id="basebtn" class="act"><b>L</b>Leśniczówka</button></div>
+   <div class="grp"><button id="undobtn" class="topbtn" title="Cofnij ostatnie zaznaczenie obszaru (Ctrl+Z)">Cofnij</button><button id="followbtn" class="topbtn" title="Kamera śledzi zaznaczony pojazd, osobę albo zwierzę (F)">Śledź</button></div>
   </div>
-  <div class="plate tasks"><div class="kick">PLAN NA SEZON</div><div id="tasks"></div></div>
  </div>
  <div class="right"><div class="plate incidents"><div class="kick">ZGŁOSZENIA <span class="muted">(Q — patrol do najstarszego)</span></div><div id="incidents"><div class="muted">Spokojnie w lesie.</div></div></div></div>
- <div class="plate info" id="info" style="display:none"></div>
- <div class="plate mailbox" id="mailbox" style="display:none"></div>
- <div class="plate oddcard" id="oddcard" style="display:none"></div>
- <div class="plate decide" id="decide" style="display:none"></div>
+ <div class="ocard info" id="info" style="display:none"></div>
+ <div class="ocard mailbox" id="mailbox" style="display:none"></div>
+ <div class="ocard oddcard" id="oddcard" style="display:none"></div>
+ <div class="ocard decide" id="decide" style="display:none"></div>
  <div id="msg" role="status" aria-live="polite"></div>
 </div>
 <div id="overlay"><div class="card"><div class="kicker">Leśnictwo Zielony Gaj</div><h1>Leśniczówka</h1>
- <p>Prowadzisz niewielkie leśnictwo: wyznaczasz drzewa do wycinki, wysyłasz ekipę, sadzisz nowe pokolenie lasu i pilnujesz porządku. Ciągnik zrywkowy układa drewno w stosach przy drogach, a ciężarówka z żurawiem je objeżdża. W lesie żyją sarny, jelenie, dziki, lisy i wilki; latem przyjeżdżają zbieracze jagód, jesienią grzybiarze.</p>
- <p>Uważaj na trzy wskaźniki: <b>budżet</b>, <b>stan lasu</b> i <b>ochronę terenu</b>. Wycinka daje pieniądze, ale każde zlecenie kosztuje, a pensje i utrzymanie płacisz codziennie. Bez odnowienia stan lasu spada, a zgłoszenia, które zostawisz, obniżają ochronę. Leśniczówka (L) to Twoja baza: kancelaria, kadry, szkółka i sprzęt.</p>
- <div class="keys"><span><b>Mysz</b> przeciągnij mapę (prawy przycisk zawsze)</span><span><b>Kółko</b> przybliżenie</span><span><b>1 2 3 4</b> podgląd · wycinka · sadzenie · odnowienie</span><span><b>Przeciągnij</b> w narzędziu = obszar</span><span><b>E</b> wyślij ekipę</span><span><b>X</b> anuluj zlecenia i oznaczenia</span><span><b>K</b> wywóz drewna</span><span><b>Q</b> wyślij patrol</span><span><b>F</b> śledź wybrany obiekt</span><span><b>WASD</b> przesuwanie widoku</span><span><b>T P M</b> czas · pauza · dźwięk</span><span><b>N</b> nie przewijaj nocy</span></div>
- <p class="hint2">Dzień płynie spokojnie (1 minuta gry = 1 sekunda), noc przewija się sama. Ekipa pracuje pon.–pt. 7–17 (sobota do 13:00), zwierzyna wychodzi o zmierzchu, a las rośnie przy zmianie pory roku.</p>
- <button id="continue" style="display:none">WCZYTAJ ZAPIS</button><button id="start">ZACZNIJ</button><div class="hint">wersja 1.0 · spokojna piaskownica</div></div></div>
+ <p>Prowadzisz małe leśnictwo: wyznaczasz drzewa do wycinki, wysyłasz ekipę, sadzisz nowy las i pilnujesz porządku. Wycinka daje pieniądze, ale ekipy, pensje i utrzymanie kosztują. Bez odnowienia stan lasu spada, a zgłoszenia, którymi nikt się nie zajmie, obniżają ochronę terenu.</p>
+ <div class="keys"><span><b>Mysz</b> przeciągnij mapę</span><span><b>Kółko</b> przybliżenie</span><span><b>1 2 3 4</b> narzędzia</span><span><b>E</b> wyślij ekipę</span><span><b>K</b> wywóz drewna</span><span><b>Q</b> patrol</span><span><b>C</b> poczta</span><span><b>L</b> leśniczówka</span><span><b>P T</b> pauza, tempo</span><span><b>H</b> pomoc</span></div>
+ <button id="continue" style="display:none">WCZYTAJ ZAPIS</button><button id="start">ZACZNIJ</button><div class="hint">wersja 1.0.1</div></div></div>
 <div id="report" class="hidden panel"><div class="card" id="reportcard"></div></div>
 <div id="base" class="hidden panel"><div class="card wide" id="basecard"></div></div>
 <div id="mapov" class="hidden"><div class="mapcard"><div class="maphead"><b>MAPA LEŚNICTWA</b><span><button data-mapmode="sp">Gatunki</button><button data-mapmode="age">Wiek</button><button data-mapmode="q">Jakość</button><button id="mapclose">Zamknij (Tab)</button></span></div>
  <canvas id="mapcv"></canvas><div id="maplegend"></div><div class="maphint">Kliknij miejsce na mapie, aby tam przejść.</div></div></div>
-<div id="help" class="hidden panel"><div class="card wide"><div class="whead"><div><div class="kicker">Leśnictwo Zielony Gaj</div><h1>Jak grać</h1></div><button class="xbtn" data-x="help" title="Zamknij (Esc)" aria-label="Zamknij">✕</button></div>
- <div class="keys"><span><b>Mysz</b> przeciągnij mapę, kliknij obiekt</span><span><b>Kółko / Z</b> przybliżenie</span><span><b>1</b> podgląd</span><span><b>2</b> wycinka: klik / przeciągnij</span><span><b>3</b> sadzenie: klik / przeciągnij = rzędy</span><span><b>4</b> odnowienie: przeciągnij = powierzchnia</span><span><b>Prawy przycisk</b> przesuwa mapę</span><span><b>E</b> wyślij ekipę</span><span><b>K</b> zamów wywóz</span><span><b>Q</b> patrol do zgłoszenia</span><span><b>F</b> kamera śledzi</span><span><b>WASD</b> widok</span><span><b>T</b> tempo ×1/×2/×3 (Shift+klik na „Czas”: ×10)</span><span><b>Do jutra / Do rana</b> przewija czas do 6:00</span><span><b>P</b> pauza · <b>M</b> dźwięk</span><span><b>G</b> wzrost lasu (test)</span><span><b>F3</b> debug</span><span><b>Esc</b> anuluj</span></div>
-  <p class="hint2"><b>Cykl pracy:</b> oznacz dojrzałe drzewa (2) → <b>E</b> ekipa ścina i tnie → ciągnik zwozi kłody do dróg → <b>K</b> ciężarówka z żurawiem odbiera i płaci. Pniaki odnawiaj sadzonkami (3 / 4). Kliknij drzewo i zleć „Ocenę drzewostanu”, by poznać jakość i oznaczyć wadliwe.</p>
- <p class="hint2"><b>Zgłoszenia i poczta:</b> <b>Q</b> wysyła patrol do najstarszego zgłoszenia, <b>C</b> otwiera pocztę (flaga skrzynki w górze = nowe listy), <b>O</b> kartę oddziału, <b>Tab</b> mapę leśnictwa, <b>U</b> chowa interfejs. Przy pożarze i nocnym intruzie czas sam wraca do ×1.</p>
- <p class="hint2"><b>Pieniądze:</b> praca ekip rozlicza się fakturami (poczta C albo L → Finanse). Nieopłacone długo faktury dostają upomnienia z opłatami, a w końcu windykację. W L znajdziesz też pożyczkę i płacenie automatyczne.</p>
- <p class="hint2"><b>Pory roku:</b> zimą ekipa nie sadzi, a paśniki wymagają karmy; wiosną w oddz. 103 trwa okres lęgowy; niegrodzone sadzonki zgryzają sarny i jelenie; jesienią jest polowanie zbiorowe. Gra zapisuje się sama co 30 s.</p>
- <p class="hint2"><b>L — Leśniczówka</b> (zakładki): kadry i kancelaria, budynki i sprzęt, finanse, las i porządek, przyroda i edukacja, koło łowieckie. W każdej sekcji „ⓘ Jak to działa” rozwija szczegóły.</p>
+<div id="help" class="hidden panel"><div class="card wide"><div class="whead"><div><div class="kicker">Leśnictwo Zielony Gaj</div><h1>Pomoc</h1></div><button class="xbtn" data-x="help" title="Zamknij (Esc)" aria-label="Zamknij">✕</button></div>
+ <div class="keys"><span><b>Mysz</b> przeciągnij mapę, kliknij obiekt</span><span><b>Kółko / Z</b> przybliżenie</span><span><b>1</b> podgląd</span><span><b>2</b> wycinka: klik lub obszar</span><span><b>3</b> sadzenie: klik lub rzędy</span><span><b>4</b> odnowienie: obszar zrębu</span><span><b>E</b> wyślij ekipę</span><span><b>X</b> anuluj zlecenia</span><span><b>K</b> wywóz drewna</span><span><b>Q</b> patrol do zgłoszenia</span><span><b>C</b> poczta</span><span><b>O</b> karta oddziału</span><span><b>L</b> leśniczówka</span><span><b>F</b> kamera śledzi</span><span><b>Tab</b> mapa leśnictwa</span><span><b>WASD</b> ruch kamery</span><span><b>T</b> tempo ×1/×2/×3</span><span><b>P</b> pauza</span><span><b>M</b> dźwięk</span><span><b>U</b> schowaj interfejs</span><span><b>Esc</b> zamknij okno</span><span><b>Ctrl+Z</b> cofnij zaznaczenie</span></div>
+ <p class="hint2"><b>Praca:</b> zaznacz dojrzałe drzewa (2), wyślij ekipę (E). Ciągnik zwozi kłody do dróg, a K sprowadza ciężarówkę, która płaci za drewno. Pniaki odnawiaj sadzonkami (3 lub 4).</p>
+ <p class="hint2"><b>Zgłoszenia:</b> Q wysyła patrol do najstarszego zgłoszenia. Ważne wiadomości trafiają do poczty (C). Przy pożarze i nocnym intruzie czas wraca do ×1.</p>
+ <p class="hint2"><b>Pieniądze:</b> ekipy rozliczają się fakturami (poczta albo L, Finanse). Zaległe faktury dostają upomnienie, wezwanie i windykację. Pożyczka i płacenie automatyczne są w L.</p>
+ <p class="hint2"><b>Pory roku:</b> zimą ekipa nie sadzi, a paśniki wymagają karmy. Wiosną w oddz. 103 trwa okres lęgowy. Niegrodzone sadzonki zgryzają sarny i jelenie. Gra zapisuje się co 30 s.</p>
  <div class="wnav"><button id="help-tut" class="sec">Samouczek</button><button id="help-set" class="sec">Ustawienia</button></div>
  <button id="help-close">ZAMKNIJ</button><button id="newgame" class="sec">NOWA GRA (kasuje zapis)</button></div></div>
 <div id="tutor" class="hidden panel"><div class="card" id="tutorcard"></div></div>

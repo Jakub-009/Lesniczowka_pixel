@@ -57,14 +57,14 @@ function arrive(k){
   const t=pickNestTree(k);if(!t){B.tries++;return false}
   const n=establish(k,t);B.st='arriving';B.day=state.days;
   const f=fly(k,[S.from,[(S.from[0]+n.x)/2+(rand()-.5)*160,(S.from[1]+n.y)/2+(rand()-.5)*160],...orbit(n.x,n.y,100,2,rand()*6.28),[n.x,n.y]],{v:70,arrive:true,nest:n});
-  f.cb=()=>{B.st='settled';const m=mail('nature','Dziennik obserwacji: '+S.name+' osiadł w lesie — para założyła gniazdo na starym drzewie ('+S.place+', oddz. '+oddzial(n.x,n.y)+'). Wokół gniazda obowiązuje strefa ochronna: '+NEST_R_SMALL+' px przez cały rok, w okresie lęgowym (wiosną) '+NEST_R_BIG+' px.',{x:n.x,y:n.y});note('Pierwsza obserwacja: '+S.name+'. Para założyła gniazdo (oddz. '+oddzial(n.x,n.y)+').',{x:n.x,y:n.y});bumpProtect(4);sfx('coin')};
+  f.cb=()=>{B.st='settled';const m=mail('nature','Obserwacja: '+S.name+' osiadł w lesie: gniazdo na starym drzewie ('+S.place+', oddz. '+oddzial(n.x,n.y)+'). Strefa ochronna: '+NEST_R_SMALL+' px, wiosną '+NEST_R_BIG+' px.',{x:n.x,y:n.y});note('Pierwsza obserwacja: '+S.name+'. Para założyła gniazdo (oddz. '+oddzial(n.x,n.y)+').',{x:n.x,y:n.y});bumpProtect(4);sfx('coin')};
   return true}
  // gość: wlatuje, siada na chwilę, odlatuje
  const [sx,sy]=S.stop,out=[S.from[0]+(rand()-.5)*200,-60];
  const f=fly(k,[S.from,[(S.from[0]+sx)/2,(S.from[1]+sy)/2+(rand()-.5)*120],[sx,sy]],{v:66,guest:true});
  B.st='visiting';B.day=state.days;f.stay=(S.night?90:130)+rand()*80;f.exit=[(rand()<.5?-80:WORLD.w+80),rand()*600-100];
  f.cb=()=>{B.st='gone'};
- mail('nature','Dziennik obserwacji: nad lasem '+(S.night?'słychać ':'widać ')+S.name+' — '+S.place+'. Gość zostanie krótko i poleci dalej; drugi raz w tej grze się nie pojawi.',{x:sx,y:sy});
+ mail('nature','Dziennik obserwacji: nad lasem '+(S.night?'słychać ':'widać ')+S.name+', '+S.place+'. Zostanie krótko.',{x:sx,y:sy});
  note('Pierwsza obserwacja: '+S.name+' (gość, '+S.place+').',{x:sx,y:sy});bumpProtect(1.5);sfx('coin');
  return true}
 function dayRoll(){
@@ -120,20 +120,20 @@ export function drawNature(g,camera,VIEW){
 export function canMonument(t){return t&&t.st===STAND&&t.age>=110&&!t.kb&&!t.nest&&!t.mon&&NAT.monuments.length<MON_MAX&&t.x>150&&t.y>150&&t.x<WORLD.w-150&&!offLimits(t.x,t.y)&&roadClearance(t.x,t.y)>30}
 export const MON_COST=600,RES_COST=2500;
 export function makeMonument(t){
- if(!canMonument(t)){toast(NAT.monuments.length>=MON_MAX?'Są już '+MON_MAX+' pomniki przyrody.':'Pomnikiem przyrody może zostać zdrowe drzewo w wieku od 110 lat.');return false}
+ if(!canMonument(t)){toast(NAT.monuments.length>=MON_MAX?'Są już '+MON_MAX+' pomniki przyrody.':'Pomnik: zdrowe drzewo od 110 lat.');return false}
  if(!canAfford(MON_COST))return false;pay(MON_COST,'pomnik przyrody (uchwała, tablica)');
  t.mon=true;t.marked=false;NAT.monuments.push({x:t.x,y:t.y,sp:t.sp,day:state.days});dirtyTree(t);bumpProtect(2);
- mail('nature','Pomnik przyrody ustanowiony (oddz. '+oddzial(t.x,t.y)+'). Drzewo jest chronione na stałe, przy nim stanęła tablica.',{x:t.x,y:t.y});note('Ustanowiono pomnik przyrody (oddz. '+oddzial(t.x,t.y)+').',{x:t.x,y:t.y});return true}
+ mail('nature','Pomnik przyrody ustanowiony (oddz. '+oddzial(t.x,t.y)+'). Drzewo chronione na stałe.',{x:t.x,y:t.y});note('Ustanowiono pomnik przyrody (oddz. '+oddzial(t.x,t.y)+').',{x:t.x,y:t.y});return true}
 export function toggleDeadwood(t){
- if(!t||t.st!==STAND||t.kb!==3){toast('Martwe drewno zostawiamy tylko przy drzewach już martwych.');return false}
- t.dw=!t.dw;if(t.dw){t.marked=false;NAT.dw++;toast('Martwe drzewo zostaje w lesie: schronienie dla owadów, dzięciołów i puszczyka. Nie będzie cięte sanitarnie.')}else{NAT.dw=Math.max(0,NAT.dw-1);toast('Martwe drzewo znów kwalifikuje się do cięcia sanitarnego.')}
+ if(!t||t.st!==STAND||t.kb!==3){toast('Martwe drewno dotyczy tylko martwych drzew.');return false}
+ t.dw=!t.dw;if(t.dw){t.marked=false;NAT.dw++;toast('Martwe drzewo zostaje w lesie: schronienie dla owadów, dzięciołów i puszczyka. Nie będzie cięte sanitarnie.')}else{NAT.dw=Math.max(0,NAT.dw-1);toast('Martwe drzewo wróciło do cięcia sanitarnego.')}
  dirtyTree(t);return true}
 export function makeReserve(id){
  if(NAT.reserve.includes(id)){NAT.reserve=NAT.reserve.filter(q=>q!==id);toast('Zniesiono rezerwat w oddz. '+id+'.');return true}
- if(NAT.reserve.length>=RES_MAX){toast('Można utworzyć najwyżej '+RES_MAX+' rezerwaty.');return false}
+ if(NAT.reserve.length>=RES_MAX){toast('Maksymalnie '+RES_MAX+' rezerwaty.');return false}
  if(!canAfford(RES_COST))return false;pay(RES_COST,'rezerwat przyrody — oddz. '+id);NAT.reserve.push(id);bumpProtect(5);
  for(const t of trees)if(t.marked&&!t.assigned&&t.st===STAND&&oddzial(t.x,t.y)===id)t.marked=false;
- mail('nature','Utworzono rezerwat przyrody w oddz. '+id+': bez wycinki, martwe drzewa zostają w lesie. Rośnie szansa na rzadkie ptaki.',{});note('Utworzono rezerwat w oddz. '+id+'.');return true}
+ mail('nature','Utworzono rezerwat przyrody w oddz. '+id+': bez wycinki, martwe drzewa zostają. Rośnie szansa na rzadkie ptaki.',{});note('Utworzono rezerwat w oddz. '+id+'.');return true}
 // ── zapis ──
 export function saveNature(){
  return {bird:NAT.bird,log:NAT.log.slice(0,40),reserve:NAT.reserve,

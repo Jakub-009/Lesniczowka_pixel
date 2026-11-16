@@ -60,13 +60,13 @@ function doHit(){
  if(X.out==='lies'){
   a.dead=true;const car={x:ox,y:oy,a:X.north?.3:-2.9,kind,road:true,day:state.days};FA.carcasses.push(car);
   car.inc=report('carcass',ox,oy,'Padlina przy szosie ('+NOM[kind]+'), '+odd(ox,oy)+'.',car,true);
-  mail('road','Samochód potrącił '+ACC[kind]+' na szosie w '+odd(ox,oy)+'. Zwierzę leży przy jezdni — wyślij patrol albo zabierze je koło łowieckie.',{x:ox,y:oy});
+  mail('road','Samochód potrącił '+ACC[kind]+' na szosie w '+odd(ox,oy)+'. Zwierzę leży przy jezdni: wyślij patrol albo zabierze je koło łowieckie.',{x:ox,y:oy});
  }else if(X.out==='wounded'){
-  mail('road','Samochód potrącił '+ACC[kind]+' w '+odd(ox,oy)+'. Zwierzę uciekło ranne w las — koło łowieckie wysyła myśliwego z psem do tropienia.',{x:ox,y:oy});
+  mail('road','Samochód potrącił '+ACC[kind]+' w '+odd(ox,oy)+'. Zwierzę uciekło ranne, myśliwy z psem je tropi.',{x:ox,y:oy});
   huntWounded(ox,oy+(X.north?60:-60),kind);
  }else{
   a.dead=true;
-  mail('road','Kierowca potrącił '+ACC[kind]+' w '+odd(ox,oy)+', zabrał zwierzę i odjechał. Nikt niczego nie zgłosił.',{x:ox,y:oy,quiet:true});
+  mail('road','Kierowca potrącił '+ACC[kind]+' w '+odd(ox,oy)+' i odjechał z nim.',{x:ox,y:oy,quiet:true});
  }
 }
 // myśliwy z psem tropi postrzałka: dojeżdża, idzie w las, szuka, wraca
@@ -80,8 +80,8 @@ function huntWounded(x,y,kind){
   const ok=rand()<.7;
   h.run([{go:[x,y]},...spots.flatMap(s=>[{go:s},{wait:5,pose:'kneel',face:s}]),
    {call:q=>{
-     if(ok){mail('road','Myśliwy z psem odnalazł ranne zwierzę w lesie i zakończył jego cierpienie. Padlina zabrana przez koło łowieckie.',{x:q.x,y:q.y,quiet:true})}
-     else mail('road','Tropienie rannego zwierzęcia nie dało rezultatu. Koło łowieckie wróci do sprawy rano.',{x:q.x,y:q.y,quiet:true})}},
+     if(ok){mail('road','Myśliwy z psem odnalazł ranne zwierzę. Padlina zabrana.',{x:q.x,y:q.y,quiet:true})}
+     else mail('road','Tropienie nie dało rezultatu. Myśliwi wrócą rano.',{x:q.x,y:q.y,quiet:true})}},
    {wait:3,pose:'stand'},{go:[cx,cy]},{call:q=>{q.dead=true;dog.dead=true;v.label='myśliwy odjeżdża';v.goTo(goalNode(exitNode(v.pos[0]+(rand()-.5)*1200)),{leave:true})}}]);
  }});
 }

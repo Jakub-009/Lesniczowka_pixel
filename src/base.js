@@ -27,7 +27,7 @@ export function initBase(){
 // plan produkcji szkółki (0.6.2): z jakich gatunków powstają sadzonki
 export const NPLANS=[{name:'sosna (bór)',w:{sosna:1}},{name:'sosna z brzozą',w:{sosna:.75,brzoza:.25}},{name:'liściaste: dąb i buk',w:{dab:.5,buk:.5}},{name:'świerk i buk',w:{swierk:.6,buk:.4}},{name:'mieszane',w:{sosna:.4,swierk:.15,dab:.15,buk:.15,brzoza:.15}}];
 export function nurseryFix(){const N=ECO.nursery;if(N&&!N.sp)N.sp={sosna:N.stock||0}}
-export function cycleNursery(){BASE.nplan=((BASE.nplan||0)+1)%NPLANS.length;toast('Szkółka będzie produkować: '+NPLANS[BASE.nplan].name+' (od następnej pory roku).')}
+export function cycleNursery(){BASE.nplan=((BASE.nplan||0)+1)%NPLANS.length;toast('Szkółka: '+NPLANS[BASE.nplan].name+' (od następnej pory roku).')}
 export const nurseryText=()=>{nurseryFix();const N=ECO.nursery;if(!N)return'—';const SPN={sosna:'so',swierk:'św',dab:'db',buk:'bk',brzoza:'brz'};return Object.entries(N.sp).filter(([,v])=>v>0).map(([k,v])=>SPN[k]+' '+v).join(' · ')||'pusto'};
 function nurseryHook(){
  if(!BASE.nursery||!ECO.nursery)return null;
@@ -41,18 +41,18 @@ export function buildNursery(){
  if(BASE.nursery)return;if(!canAfford(BUILD.nursery))return;
  pay(BUILD.nursery,'budowa szkółki leśnej');BASE.nursery=true;ECO.nursery={stock:200,sp:{sosna:200}};
  for(const t of treesIn(NURSERY.x-12,NURSERY.y-12,NURSERY.x+NURSERY.w+12,NURSERY.y+NURSERY.h+12).slice())if(inRect(t.x,t.y,NURSERY,10))removeTree(t);
- toast('Szkółka leśna gotowa: 200 sadzonek, potem ok. 400 na sezon (bez zimy). Sadzonki ze szkółki kosztują 1 zł i lepiej się przyjmują.');
+ toast('Szkółka gotowa: 200 sadzonek, potem ok. 400 na sezon (bez zimy).');
 }
 export function buildGarage(){
  if(BASE.garage)return;if(!canAfford(BUILD.garage))return;
  pay(BUILD.garage,'budowa garażu z magazynem');BASE.garage=true;ECO.feedCost=70;
- toast('Garaż z magazynem gotowy: miejsce na drugi samochód (podleśniczy) i tańsza karma w paśnikach ('+zl(70)+').');
+ toast('Garaż gotowy. Karma w paśnikach: '+zl(70)+'.');
 }
 export function hireDeputy(){
  if(ECO.staff.pod){toast('Podleśniczy już pracuje.');return}
- if(!BASE.garage){toast('Najpierw zbuduj garaż z magazynem — podleśniczy potrzebuje miejsca na terenówkę.');return}
+ if(!BASE.garage){toast('Najpierw zbuduj garaż.');return}
  if(!canAfford(COST.pod*5))return;
- ECO.staff.pod=true;hirePod();toast('Zatrudniono podleśniczego ('+zl(COST.pod)+' dziennie): drugi patrol i obsługa kancelarii.');
+ ECO.staff.pod=true;hirePod();toast('Zatrudniono podleśniczego ('+zl(COST.pod)+' dziennie).');
 }
 export function fireDeputy(){if(!ECO.staff.pod)return;if(firePod()){ECO.staff.pod=false;toast('Podleśniczy odszedł z leśnictwa.')}}
 
@@ -85,18 +85,18 @@ function deal(u,p){
  if(k==='opal'){
   // chce 2–5 m³; jeśli przy drogach jest mniej, bierze co jest (min. 1 m³)
   const want=2+Math.floor(rand()*4),best=J.stacks.filter(q=>q.sort==='opal'&&q!==J.truck.cur&&!J.truck.route.includes(q)).sort((a,b)=>b.vol-a.vol)[0],st=opalStack(want)||(best&&best.vol>=1.2?best:null),vol=st?Math.min(want,st.vol-.2):want;
-  if(!st){note('Brak drewna opałowego przy drogach — petent odszedł z niczym.');toast('Petent chciał '+want+' m³ drewna opałowego, ale przy drogach nie ma stosów opału (powstają z krzywych drzew, wierzchołków i trzebieży).');leave(p);return}
+  if(!st){note('Brak drewna opałowego przy drogach — petent odszedł z niczym.');toast('Petent chciał '+want+' m³ opału, ale przy drogach nie ma stosów opału.');leave(p);return}
   const {q,val}=takeFromStack(st,vol),price=Math.round(q*PRICE.opal);earn(price,'sprzedaż drewna opałowego');
   BASE.stats.opal++;BASE.stats.opalVol+=q;
   BASE.opalPiles.push({x:st.x+st.ax*26,y:st.y+st.ay*26,a:Math.atan2(st.ay,st.ax),vol:q,logs:clamp(Math.round(q*1.5),2,6),bark:'#7a5a3e',sp:'sosna',edge:st.edge,s:clamp(st.s+26,30,st.edge.len-30),day:state.days,odd:st.odd});
-  toast('Kancelaria: sprzedano '+displayNumber(q,1)+' m³ drewna opałowego za '+zl(price)+'. Nabywca odbierze je spod stosu w oddz. '+st.odd+'.');
+  toast('Kancelaria: sprzedano '+displayNumber(q,1)+' m³ opału za '+zl(price)+'. Odbiór: oddz. '+st.odd+'.');
   note('Sprzedaż opału: '+displayNumber(q,1)+' m³ ('+zl(price)+')');
- }else if(k==='permit'){earn(40,'zezwolenie (wjazd / zbiór chrustu)');BASE.stats.permits++;note('Wydano zezwolenie (40 zł)');toast('Kancelaria: wydano zezwolenie na zbiór chrustu — 40 zł.')}
+ }else if(k==='permit'){earn(40,'zezwolenie (wjazd / zbiór chrustu)');BASE.stats.permits++;note('Wydano zezwolenie (40 zł)');toast('Kancelaria: zezwolenie na zbiór chrustu, 40 zł.')}
  else if(k==='seed'){nurseryFix();const n=Math.min(100,ECO.nursery.stock-20);let left=n;for(const k2 of Object.keys(ECO.nursery.sp).sort((a,b)=>ECO.nursery.sp[b]-ECO.nursery.sp[a])){const d=Math.min(left,ECO.nursery.sp[k2]);ECO.nursery.sp[k2]-=d;left-=d}ECO.nursery.stock-=n;earn(Math.round(n*1.8),'sprzedaż sadzonek ze szkółki');BASE.stats.seedlings+=n;note('Sprzedano '+n+' sadzonek');toast('Kancelaria: sprzedano '+n+' sadzonek ze szkółki ('+zl(Math.round(n*1.8))+').')}
  else{
   const t=E.trash.find(q=>!q.dead&&!q.fire&&!q.inc);
   if(t){t.inc=report('trash',t.x,t.y,(t.kind==='snare'?'Petent zgłasza wnyki':'Petent zgłasza śmieci')+' w oddz. '+oddzial(t.x,t.y)+'.',t);note('Zgłoszenie od petenta')}
-  else{bumpProtect(.5);note('Petent pytał o grzyby i szlaki');toast('Kancelaria: petent pytał o szlaki i grzyby — dobra rozmowa o lesie.')}
+  else{bumpProtect(.5);note('Petent pytał o grzyby i szlaki');toast('Kancelaria: petent pytał o szlaki i grzyby.')}
  }
  leave(p);
 }
@@ -120,7 +120,7 @@ export function updateBase(dt){
   if(p.dead||p.done)continue;p.waitT+=dt;
   if(p.serving&&!p.serving.person.busyOffice&&!p.done){p.serving=null}
   if(!p.serving){const u=U.find(atHome);if(u&&!cal.night())serve(u,p)}
-  if(!p.serving&&p.waitT>50){BASE.stats.missed++;toast('Petent odszedł spod kancelarii — nikogo nie było (leśniczy w terenie).');leave(p,'Petent nie zastał nikogo')}
+  if(!p.serving&&p.waitT>50){BASE.stats.missed++;toast('Petent odszedł: nikogo nie było w kancelarii.');leave(p,'Petent nie zastał nikogo')}
  }
  BASE.queue=BASE.queue.filter(p=>!p.dead&&!p.done);
  // odbiory opału w godzinach 9–17 (pon.–sob.)

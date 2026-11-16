@@ -22,15 +22,15 @@ function issueInvoice(){
  if(sum<1)return;
  const inv={id:FIN.nid++,day:state.days,due:state.days+SEASON_DAYS,amount:sum,base:sum,items:items.map(([k,v])=>[k,Math.round(v)]),paid:false,rem:false,st:0};
  FIN.inv.push(inv);if(FIN.inv.length>40)FIN.inv.splice(0,FIN.inv.length-40);
- const m=mail('invoice','Faktura nr '+inv.id+' od ekipy pozyskowej: '+zl(sum)+' ('+inv.items.map(([k,v])=>k+' '+zl(v)).join(', ')+'). Termin płatności: '+SEASON_DAYS+' dni. Nieopłacona długo faktura kończy się wezwaniem, blokadą nowych zleceń i windykacją.',{quiet:true});m.inv=inv.id;
+ const m=mail('invoice','Faktura nr '+inv.id+': '+zl(sum)+' ('+inv.items.map(([k,v])=>k+' '+zl(v)).join(', ')+'). Termin: '+SEASON_DAYS+' dni.',{quiet:true});m.inv=inv.id;
  if(FIN.auto)payInvoice(inv.id,true);
 }
 export function payInvoice(id,silent){
  const i=FIN.inv.find(q=>q.id===id);if(!i||i.paid)return false;
- if(state.money-i.amount<-DEBT_LIM){if(!silent)toast('Brak środków na fakturę nr '+i.id+' ('+zl(i.amount)+'). Sprzedaj drewno (K) albo zapłać później — ale po terminie dochodzą opłaty, wezwanie i windykacja.');return false}
+ if(state.money-i.amount<-DEBT_LIM){if(!silent)toast('Brak środków na fakturę nr '+i.id+' ('+zl(i.amount)+'). Sprzedaj drewno (K).');return false}
  pay(i.amount,'faktura nr '+i.id+' (ekipa pozyskowa)');i.paid=true;sfx('coin');if(!silent)toast('Zapłacono fakturę nr '+i.id+': '+zl(i.amount)+'.');return true}
 export function payAllInvoices(){let n=0,sum=0;for(const i of invoices().slice()){const a=i.amount;if(payInvoice(i.id,true)){n++;sum+=a}}toast(n?'Zapłacono '+n+' faktur na '+zl(sum)+'.':owedCount()?'Brak środków na zapłatę faktur.':'Nie ma faktur do zapłaty.');return n}
-export const toggleAutoPay=()=>{FIN.auto=!FIN.auto;toast(FIN.auto?'Faktury będą płacone automatycznie.':'Faktury płacisz sam (poczta albo karta leśniczówki).');if(FIN.auto)for(const i of invoices().slice())payInvoice(i.id,true)};
+export const toggleAutoPay=()=>{FIN.auto=!FIN.auto;toast(FIN.auto?'Płacenie automatyczne: włączone.':'Płacenie automatyczne: wyłączone.');if(FIN.auto)for(const i of invoices().slice())payInvoice(i.id,true)};
 // 1.0: kary za zwlekanie z płatnością (bez końca gry): 1) upomnienie po terminie (+5%, min. 40 zł), 2) wezwanie do zapłaty po kolejnej porze roku
 // (+10%, min. 80 zł; do zapłaty ekipy nie przyjmują nowych zleceń), 3) windykacja po trzech porach roku (+15%, min. 150 zł; bank ściąga należność z konta).
 export const dunning=()=>invoices().some(i=>(i.st||0)>=2);
@@ -39,26 +39,26 @@ function remind(){
  for(const i of invoices().slice()){i.st=i.st||(i.rem?1:0);const late=dd-Math.floor(i.due);if(late<0)continue;
   const note=t=>{const m=mail('invoice',t,{quiet:true});m.inv=i.id};
   if(i.st<1){const fee=Math.max(40,Math.round(i.base*.05));i.amount+=fee;i.rem=true;i.st=1;
-   note('Upomnienie do faktury nr '+i.id+': termin minął. Doliczono opłatę '+zl(fee)+' — do zapłaty '+zl(i.amount)+'. Bez zapłaty za jedną porę roku dostaniesz wezwanie, a ekipy przestaną przyjmować nowe zlecenia.')}
+   note('Upomnienie: faktura nr '+i.id+' po terminie. Opłata '+zl(fee)+', do zapłaty '+zl(i.amount)+'.')}
   else if(i.st<2&&late>=SEASON_DAYS){const fee=Math.max(80,Math.round(i.base*.1));i.amount+=fee;i.st=2;
-   note('WEZWANIE DO ZAPŁATY faktury nr '+i.id+'. Doliczono '+zl(fee)+' — do zapłaty '+zl(i.amount)+'. Do czasu zapłaty ekipy nie przyjmują nowych zleceń. Za kolejne trzy pory roku sprawę przejmie windykator.');toast('Wezwanie do zapłaty: ekipy wstrzymały nowe zlecenia do czasu opłacenia faktury nr '+i.id+'.')}
+   note('Wezwanie do zapłaty: faktura nr '+i.id+'. Opłata '+zl(fee)+', do zapłaty '+zl(i.amount)+'. Ekipy nie przyjmą nowych zleceń do czasu zapłaty.');toast('Wezwanie do zapłaty: faktura nr '+i.id+'. Ekipy nie przyjmą nowych zleceń.')}
   else if(i.st<3&&late>=SEASON_DAYS*3){const fee=Math.max(150,Math.round(i.base*.15));i.amount+=fee;i.st=3;
    pay(i.amount,'windykacja faktury nr '+i.id);i.paid=true;i.forced=true;
-   note('WINDYKACJA: należność z faktury nr '+i.id+' wraz z kosztami ('+zl(fee)+') ściągnięto z konta: '+zl(i.amount)+'. Sprawa zamknięta.')}}}
+   note('Windykacja: z konta zeszło '+zl(i.amount)+' za fakturę nr '+i.id+' (w tym koszty '+zl(fee)+').')}}}
 // Pożyczka: jedna naraz, 6 równych rat potrącanych na początku każdej pory roku (nie wstrzymuje gry, gdy saldo jest za niskie — rata idzie na debet).
 export function takeLoan(k=1){
- if(FIN.loan){toast('Pożyczka jest już spłacana — jedna naraz.');return}
+ if(FIN.loan){toast('Masz już pożyczkę.');return}
  const LN=LOANS[k]||LOANS[1],total=Math.round(LN.amount*(1+LN.rate));FIN.loan={total,left:total,inst:Math.round(total/LN.parts),parts:LN.parts,partsLeft:LN.parts,day:state.days};
  state.money+=LN.amount;ECO.log.unshift({t:state.days,n:LN.amount,why:'pożyczka z banku'});sfx('coin');
- mail('money','Bank wypłacił pożyczkę '+zl(LN.amount)+'. Do oddania '+zl(total)+' w '+LN.parts+' ratach po '+zl(FIN.loan.inst)+' — raty schodzą na początku każdej pory roku.',{quiet:true});toast('Pożyczka '+zl(LN.amount)+' wpłynęła na konto.')}
+ mail('money','Pożyczka '+zl(LN.amount)+': do oddania '+zl(total)+' w '+LN.parts+' ratach po '+zl(FIN.loan.inst)+' (raty na początku pory roku).',{quiet:true});toast('Pożyczka '+zl(LN.amount)+' wpłynęła na konto.')}
 export function repayLoan(){
  const L=FIN.loan;if(!L)return;if(!canAfford(L.left,true))return;
- pay(L.left,'spłata pożyczki (całość)');FIN.loan=null;mail('money','Pożyczka spłacona w całości.',{quiet:true});toast('Pożyczka spłacona.')}
+ pay(L.left,'spłata pożyczki (całość)');FIN.loan=null;mail('money','Pożyczka spłacona.',{quiet:true});toast('Pożyczka spłacona.')}
 function installment(){
  const L=FIN.loan;if(!L)return;const a=Math.min(L.left,L.partsLeft<=1?L.left:L.inst);
  pay(a,'rata pożyczki');L.left-=a;L.partsLeft--;
- if(L.left<=0||L.partsLeft<=0){FIN.loan=null;mail('money','Ostatnia rata zapłacona — pożyczka spłacona.',{quiet:true})}
- else mail('money','Rata pożyczki '+zl(a)+' zeszła z konta. Zostało '+zl(L.left)+' ('+L.partsLeft+' rat).',{quiet:true})}
+ if(L.left<=0||L.partsLeft<=0){FIN.loan=null;mail('money','Pożyczka spłacona.',{quiet:true})}
+ else mail('money','Rata pożyczki '+zl(a)+'. Zostało '+zl(L.left)+' ('+L.partsLeft+' rat).',{quiet:true})}
 export const saveFin=()=>({inv:FIN.inv,accr:FIN.accr,auto:FIN.auto,loan:FIN.loan,nid:FIN.nid});
 export function loadFin(o){FIN.inv=(o&&o.inv)||[];FIN.accr=(o&&o.accr)||{};FIN.auto=!!(o&&o.auto);FIN.loan=(o&&o.loan)||null;FIN.nid=(o&&o.nid)||(FIN.inv.reduce((a,i)=>Math.max(a,i.id),0)+1)}
 export function initEconomy(){ECO.cover0=coverSum();ECO.lastDay=Math.floor(state.days);ECO.lastSeason=cal.season();ECO.st=blank();newPlan();setMarket()}
@@ -69,7 +69,7 @@ function setMarket(){const se=cal.season();ECO.market=+((se===3?1.1:se===1?.9:1)
 export function dailyCost(real=false){return ECO.dailyBase+(ECO.ord.cams?25:0)+(ECO.ord.parking?15:0)+(ECO.ord.repel?10:0)+(J.crews.length>1&&(!real||ECO.act.b)?COST.crewB:0)+(ECO.staff.pod?COST.pod:0)+(J.skid.owned&&(!real||ECO.act.f)?COST.fwd:0)}
 // Zlecenia wymagają pieniędzy w kasie — bez nich trzeba najpierw sprzedać drewno.
 // 0.8.3: debet=true — zlecenia, które zarabiają (wycinka), wolno zlecać na debecie do −DEBT_LIM, inaczej z minusu nie da się wyjść.
-export function canAfford(n,debet=false){if(debet?state.money-n>=-DEBT_LIM:state.money>=n)return true;toast(debet?'Limit debetu ('+zl(DEBT_LIM)+') wyczerpany: sprzedaj drewno (K) albo poczekaj na wpływy.':'Brak środków: potrzeba '+zl(n)+', w kasie '+zl(state.money)+'. Sprzedaj drewno (K) albo poczekaj na wpływy.');sfx('unmark');return false}
+export function canAfford(n,debet=false){if(debet?state.money-n>=-DEBT_LIM:state.money>=n)return true;toast(debet?'Limit debetu ('+zl(DEBT_LIM)+') wyczerpany. Sprzedaj drewno (K).':'Brak środków: potrzeba '+zl(n)+', w kasie '+zl(state.money)+'.');sfx('unmark');return false}
 export function pay(n,why){state.money-=n;if(ECO.st)ECO.st.spent+=n;ECO.log.unshift({t:state.days,n:-n,why});ECO.log.length=Math.min(ECO.log.length,30)}
 export function earn(n,why){state.money+=n;if(ECO.st)ECO.st.earned+=n;ECO.log.unshift({t:state.days,n,why});ECO.log.length=Math.min(ECO.log.length,30);sfx('coin')}
 export function bumpProtect(d){state.protect=clamp(state.protect+d,0,100)}
@@ -79,11 +79,11 @@ export function stat(k,n=1){if(ECO.st)ECO.st[k]+=n}
 function newPlan(){
  const se=cal.season();
  ECO.plan={season:se,year:cal.year(),cut:se===3?12:se===1?6:8,plant:se===0?24:se===2?16:se===3?0:8,handle:2,doneCut:0,donePlant:0,doneHandle:0,rewarded:false,reward:2000};
- const P=ECO.plan;if(state.playing)mail('plan','Pismo z nadleśnictwa: plan na '+SEASONS[se]+' — '+P.cut+' m³ drewna'+(P.plant?', '+P.plant+' sadzonek':'')+', '+P.handle+' zgłoszenia do obsłużenia. Premia '+zl(P.reward)+'.',{quiet:true});
+ const P=ECO.plan;if(state.playing)mail('plan','Plan na '+SEASONS[se]+': '+P.cut+' m³ drewna'+(P.plant?', '+P.plant+' sadzonek':'')+', '+P.handle+' zgłoszenia. Premia '+zl(P.reward)+'.',{quiet:true});
 }
 export function planProgress(kind,n){const P=ECO.plan;if(!P)return;
  if(kind==='cut'){P.doneCut+=n;stat('delivered',n)}else if(kind==='plant'){P.donePlant+=n;stat('planted',n)}else{P.doneHandle+=n;stat('handled',n)}
- if(!P.rewarded&&P.doneCut>=P.cut&&P.donePlant>=(P.season===3?0:P.plant)&&P.doneHandle>=P.handle){P.rewarded=true;earn(P.reward,'premia za plan');mail('plan','Plan na '+SEASONS[P.season]+' wykonany! Premia z nadleśnictwa: '+zl(P.reward)+'.')}}
+ if(!P.rewarded&&P.doneCut>=P.cut&&P.donePlant>=(P.season===3?0:P.plant)&&P.doneHandle>=P.handle){P.rewarded=true;earn(P.reward,'premia za plan');mail('plan','Plan na '+SEASONS[P.season]+' wykonany. Premia '+zl(P.reward)+'.')}}
 // Koniec pory roku: podsumowanie, skok wzrostu lasu, nowy plan.
 function endSeason(){
  const P=ECO.plan,S=ECO.st,G=seasonGrow(YEARS_PER_SEASON),grown=G.grown;ECO.goneRen=(ECO.goneRen||0)*.92+(G.rotted||0);

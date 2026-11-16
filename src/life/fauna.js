@@ -34,7 +34,7 @@ export function buyFeeder(slot){
  if(FA.feeders.length>=FEED_MAX){toast('Są już wszystkie '+FEED_MAX+' paśniki.');return false}
  if(!canAfford(FEED_COST))return false;
  pay(FEED_COST,'budowa paśnika');FA.feeders.push(mkFeeder(slot,.5));FA.feeders.sort((a,b)=>a.slot-b.slot);
- toast('Paśnik gotowy: '+FEEDERS[slot].name+'. Zimą zwierzyna rozłoży się po większej liczbie paśników, a ubytki karmy uzupełnia patrol.');return true;
+ toast('Paśnik gotowy: '+FEEDERS[slot].name+'.');return true;
 }
 // zasięg paśników: jeden obejmuje tylko część lasu (reszta zwierzyny głodna zimą)
 const feedCover=()=>[.4,.7,.85,.95,1][Math.min(4,FA.feeders.length)];
@@ -66,9 +66,9 @@ const GAMEK=['roe','deer','boar'];
 // Wniosek o odstrzał redukcyjny: większy plan, myśliwi przychodzą co wieczór.
 export function requestReduction(){
  if(FA.reduction){toast('Wniosek o odstrzał redukcyjny już złożony.');return}
- if(pressure()<1.05){toast('Nadleśnictwo odrzuciło wniosek: zagęszczenie zwierzyny nie jest nadmierne.');return}
+ if(pressure()<1.05){toast('Wniosek odrzucony: zwierzyny nie jest za dużo.');return}
  FA.reduction=true;for(const k of ['roe','deer'])FA.plan[k]+=Math.max(1,Math.round(FA.plan[k]*.5));
- toast('Wniosek przyjęty: koło łowieckie zwiększy odstrzał saren i jeleni. Myśliwi będą na ambonie co wieczór.');
+ toast('Wniosek przyjęty: większy odstrzał saren i jeleni.');
 }
 // Ile widocznych zwierząt danego gatunku (reprezentacja populacji w obwodzie).
 export function visibleCount(kind){
@@ -92,7 +92,7 @@ export function updateFauna(dt){
  // rykowisko: jesienią o zmierzchu i świcie byki ryczą
  if(cal.season()===2&&((h>17.5&&h<22)||(h>4.5&&h<7.5))&&FA.pop.deer>2){
   FA.roarT-=dt;if(FA.roarT<=0){FA.roarT=25+rand()*70;sfx('roar');
-   if(FA.roarSeason!==cal.year()){FA.roarSeason=cal.year();toast('Rykowisko! O zmierzchu w lesie ryczą byki jeleni.')}}
+   if(FA.roarSeason!==cal.year()){FA.roarSeason=cal.year();toast('Rykowisko: o zmierzchu ryczą jelenie.')}}
  }
   fT+=dt;if(fT>1){fT=0;FA.carcasses=FA.carcasses.filter(c=>!c.dead)}
  wolfDaily();
@@ -107,7 +107,7 @@ function wolfDaily(){
   W.days++;W.total++;
   if(state.days>=W.until){
    W.present=false;W.cool=state.days+12+rand()*12;WX.flee=1;FH.wolves&&FH.wolves();
-   mail('wolf','Wataha wilków przeszła dalej, na tereny sąsiedniego nadleśnictwa.',{quiet:false});
+   mail('wolf','Wataha wilków poszła dalej.',{quiet:false});
   }
   return;
  }
@@ -116,8 +116,8 @@ function wolfDaily(){
  if(rand()<.25/12*(FA.pop.roe+FA.pop.deer>30?1.25:.7)){
   const r=rand(),n=r<.25?2:r<.65?3:r<.9?4:5;
   W.present=true;W.size=n;W.until=state.days+3+rand()*5;W.days=0;WX.flee=1.4;FH.wolves&&FH.wolves();
-  mail('wolf','W Twoim lesie pojawiła się wataha wilków ('+OS(n)+'). Wilki wybierają spokojne lasy z dużą ilością zwierzyny, a polując na sarny i jelenie mogą zmniejszać zgryzanie upraw. Zwierzyna będzie bardziej płochliwa. Wilk jest pod ścisłą ochroną — nie wolno go płoszyć ani na niego polować.');
-  if(ECO.ord&&ECO.ord.cams)mail('wolf','Fotopułapka przy wjeździe nagrała wilka — to potwierdzenie obecności watahy.',{quiet:true});
+  mail('wolf','W lesie pojawiła się wataha wilków ('+OS(n)+'). Wilk jest pod ścisłą ochroną. Zwierzyna będzie płochliwa, ale zgryzanie upraw może spaść.');
+  if(ECO.ord&&ECO.ord.cams)mail('wolf','Fotopułapka nagrała wilka.',{quiet:true});
  }
 }
 // ── koniec pory roku (wywoływane z raportu) ──

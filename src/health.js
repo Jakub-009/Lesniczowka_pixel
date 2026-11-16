@@ -52,7 +52,7 @@ function beetleTick(){
   const age=now-t.kbT;
   if(t.kb===1&&age>(trap?.4:.8)){t.kb=2;dirtyTree(t);
    if(!E.incidents.some(q=>q.type==='beetle'&&open_(q)&&Math.hypot(q.x-t.x,q.y-t.y)<320))
-    report('beetle',t.x,t.y,(trap?'Pułapki feromonowe wykazały nalot kornika — ':'Zamierające świerki — podejrzenie kornika w ')+odd(t.x,t.y)+'.',{x:t.x,y:t.y,r:260,n:0})}
+    report('beetle',t.x,t.y,(trap?'Pułapki wykazały kornika w ':'Zamierające świerki, podejrzenie kornika w ')+odd(t.x,t.y)+'.',{x:t.x,y:t.y,r:260,n:0})}
   if(t.kb===2&&age>2.6){t.kb=3;dirtyTree(t)}
   if(t.kb===3&&age>7+((t.dw||inReserve(t.x,t.y))?70:0)){stump(t);continue}   // 0.9: martwe drewno (zostawione albo w rezerwacie) stoi znacznie dłużej
   if(t.kb<3&&rand()<.25*(1+HL.dry*1.5)*(trap?.45:1)*sub){
@@ -87,9 +87,9 @@ export function strike(){
   if(!rp||rp.d>70||rp.edge.a==='l1'||rp.edge.b==='l1'||HL.blocks.some(b=>b.edge===rp.edge&&Math.abs(b.s-rp.s)<150))continue;
   const p=ptAt(rp.edge,rp.s),b={edge:rp.edge,e:rp.edge.id,s:rp.s,x:p[0],y:p[1],ang:Math.atan2(p[3],p[2])+Math.PI/2};
   rp.edge.blocked=true;HL.blocks.push(b);bl++;
-  b.inc=report('block',b.x,b.y,'Drzewa powalone na drodze leśnej w '+odd(b.x,b.y)+' — droga nieprzejezdna.',b)}
+  b.inc=report('block',b.x,b.y,'Drzewa powalone na drodze leśnej w '+odd(b.x,b.y)+': droga nieprzejezdna.',b)}
  HL.stats.storms++;bumpDamage(Math.min(5,n*.08));
- mail('storm','Wichura! W '+odd(cx,cy)+' powalone lub połamane drzewa: '+n+(bl?', zatarasowane drogi: '+bl:'')+'. Wiatrołomy trzeba szybko uprzątnąć — sprzyjają kornikowi.',{x:cx,y:cy});
+ mail('storm','Wichura! W '+odd(cx,cy)+' powalone lub połamane drzewa: '+n+(bl?', zatarasowane drogi: '+bl:'')+'. Uprzątnij wiatrołomy, bo sprzyjają kornikowi.',{x:cx,y:cy});
 }
 export function clearBlock(b){
  b.dead=true;HL.blocks=HL.blocks.filter(q=>q!==b);
@@ -102,7 +102,7 @@ function weatherTick(){
  const se=cal.season(),day=Math.floor(state.days);
  if(day!==HL.dayRoll){HL.dayRoll=day;
   HL.stormAt=rand()<[.05,.05,.14,.1][se]?day+.1+rand()*.8:-1;
-  if(HL.ban&&fireLvl()<=1){HL.ban=false;toast('Zakaz wstępu do lasu zniesiony: zagrożenie pożarowe jest niskie.')}
+  if(HL.ban&&fireLvl()<=1){HL.ban=false;toast('Zakaz wstępu zniesiony (zagrożenie niskie).')}
   if(HL.ban)pay(40,'zakaz wstępu do lasu (tablice, kontrole)');
   if(HL.tower)pay(60,'dyżury na wieży przeciwpożarowej');
  }
@@ -116,7 +116,7 @@ function weatherTick(){
  const w=HL.wx==='rain'||HL.wx==='snow';
  HL.dry=clamp(HL.dry+(w?-.12:[.035,.08,.012,-.03][se]),0,1);
  if(se===3)HL.dry*=.97;
- if(fireLvl()===3&&!HL.ban&&!HL.warned){HL.warned=true;toast('Zagrożenie pożarowe wysokie — rozważ zakaz wstępu do lasu (L).')}
+ if(fireLvl()===3&&!HL.ban&&!HL.warned){HL.warned=true;toast('Wysokie zagrożenie pożarowe. Rozważ zakaz wstępu (L).')}
  if(fireLvl()<3)HL.warned=false;
 }
 export function updateHealth(){
@@ -129,15 +129,15 @@ export const COSTS={traps:1800,tower:6000};
 export function buyTraps(){
  if(trapsOn()){toast('Pułapki feromonowe już wyłożone.');return}
  if(!canAfford(COSTS.traps))return;pay(COSTS.traps,'pułapki feromonowe na kornika');HL.traps=state.days+TEMP_DAYS;
- toast('Pułapki feromonowe wyłożone na rok: nalot kornika wychodzi wcześniej, a jego rozprzestrzenianie spada o połowę.');
+ toast('Pułapki na kornika wyłożone na rok.');
 }
 export function buildTower(){
  if(HL.tower)return;if(!canAfford(COSTS.tower))return;pay(COSTS.tower,'budowa wieży przeciwpożarowej');HL.tower=true;
  for(const t of treesIn(TOWER.x-40,TOWER.y-40,TOWER.x+40,TOWER.y+40).slice())if(Math.hypot(t.x-TOWER.x,t.y-TOWER.y)<38){t.st=STUMP;t.stumpR=3;t.stumpAge=60;t.kb=0;dirtyTree(t)}
- toast('Wieża przeciwpożarowa gotowa: pożary rozwijają się wolniej, bo wcześniej je widać (dyżur '+zl(60)+' dziennie).');
+ toast('Wieża przeciwpożarowa gotowa (dyżur '+zl(60)+' dziennie).');
 }
 export function toggleBan(){
- HL.ban=!HL.ban;toast(HL.ban?'Zakaz wstępu do lasu: grzybiarze, spacerowicze i rowerzyści nie wjadą, ryzyko pożaru spada ('+zl(40)+' dziennie).':'Zakaz wstępu do lasu zniesiony.');
+ HL.ban=!HL.ban;toast(HL.ban?'Zakaz wstępu do lasu ('+zl(40)+' dziennie).':'Zakaz wstępu do lasu zniesiony.');
 }
 
 // ── zapis ──
@@ -145,7 +145,7 @@ export const saveHealth=()=>({dry:+HL.dry.toFixed(3),wx:HL.wx,traps:HL.traps,tow
 export function loadHealth(o){
  if(!o)return;Object.assign(HL,{dry:o.dry??.15,wx:o.wx==='storm'?'rain':o.wx||'clear',traps:o.traps??-1,tower:!!o.tower,ban:!!o.ban,blocks:(o.blocks||[]).map(b=>({...b})),stats:o.stats||HL.stats});
  HL.wxNext=state.days;HL.tickNext=state.days;HL.dayRoll=-1;rebuildHealth();
- for(const b of HL.blocks)if(b.edge&&!b.inc)b.inc=report('block',b.x,b.y,'Drzewa na drodze leśnej w '+odd(b.x,b.y)+' — droga nieprzejezdna.',b,true);
+ for(const b of HL.blocks)if(b.edge&&!b.inc)b.inc=report('block',b.x,b.y,'Drzewa na drodze leśnej w '+odd(b.x,b.y)+': droga nieprzejezdna.',b,true);
 }
 
 // ── rysowanie ──

@@ -20,11 +20,11 @@ const BOARD_TXT=['Runo leśne','Martwe drewno','Ptaki lasu','Wiek drzew'];
 export function buySigns(){
  if(signsOn()){toast('Znaki zakazu wjazdu już stoją.');return false}
  if(!canAfford(VC.signs))return false;pay(VC.signs,'znaki zakazu wjazdu (B-1, B-9) przy wjazdach w las');ECO.ord.signs=true;
- toast('Znaki zakazu wjazdu stoją przy wjazdach w las: nielegalnych wjazdów quadów i crossów będzie wyraźnie mniej (nie znikną całkiem).');return true}
+ toast('Znaki zakazu wjazdu postawione.');return true}
 export function buyRepel(){
  if(repelOn()){toast('Odstraszacze już działają.');return false}
  if(!canAfford(VC.repel))return false;pay(VC.repel,'odstraszacze zwierzyny i znaki A-18b przy szosie');ECO.ord.repel=true;
- toast('Znaki „Uwaga, dzikie zwierzęta” i słupki z odblaskami przy szosie: potrąceń będzie wyraźnie mniej ('+zl(VC.repelDay)+' dziennie na wymianę odblasków).');return true}
+ toast('Odstraszacze przy szosie ustawione ('+zl(VC.repelDay)+' dziennie).');return true}
 export function buyTrail(){
  if(trailOn()){toast('Ścieżka przyrodnicza już jest.');return false}
  if(!canAfford(VC.trail))return false;pay(VC.trail,'ścieżka przyrodnicza (tablice, kładki, wyłożenie ścieżki)');ECO.ord.trail=true;
@@ -32,8 +32,8 @@ export function buyTrail(){
  const pts=[];for(let i=0;i<TRAIL.length-1;i++){const [a,b]=[TRAIL[i],TRAIL[i+1]],L=Math.hypot(b[0]-a[0],b[1]-a[1]);for(let s=0;s<=L;s+=6)pts.push([a[0]+(b[0]-a[0])*s/L,a[1]+(b[1]-a[1])*s/L])}
  for(const [x,y] of [...pts,...BOARDS.map(b=>[b[0],b[1]])])for(const t of treesIn(x-13,y-13,x+13,y+13).slice())if(t.st===STAND&&Math.hypot(t.x-x,t.y-y)<(BOARDS.some(b=>b[0]===x&&b[1]===y)?20:12)&&!t.nest&&!t.mon)removeTree(t);
  for(const t of treesIn(2832,1372,2872,1412).slice())removeTree(t);
- toast('Ścieżka przyrodnicza gotowa (4 tablice). W dni robocze zaglądają tu szkolne wycieczki.');
- mail('nature','Otwarto ścieżkę przyrodniczą w południowo-wschodniej części lasu. Zapraszamy szkoły — wycieczki przyjeżdżają w dni robocze od wiosny do jesieni.',{x:2900,y:1330});return true}
+ toast('Ścieżka przyrodnicza gotowa. W dni robocze przychodzą wycieczki.');
+ mail('nature','Ścieżka przyrodnicza otwarta (południowy wschód). Wycieczki przyjeżdżają w dni robocze, od wiosny do jesieni.',{x:2900,y:1330});return true}
 export const visitDaily=()=>(repelOn()?VC.repelDay:0);
 
 // ───────── wycieczki ─────────
@@ -47,12 +47,12 @@ function spawnTour(){
   s.push({go:[TRAIL[0][0],TRAIL[0][1]+10]},{go:[x0+off[0],y0+off[1]]});return s};
  guide.run([...steps([0,0],true),{call:q=>{q.dead=true;vs().tours++;vs().kids+=n;
    earn(VC.tourFee,'wycieczka szkolna po ścieżce przyrodniczej');bumpProtect(1.2);
-   mail('nature','Wycieczka szkolna na ścieżce przyrodniczej zakończona: '+n+' uczniów obejrzało 4 tablice. Szkoła wpłaciła '+zl(VC.tourFee)+'.',{x:2900,y:1330,quiet:true});
+   mail('nature','Wycieczka szkolna zakończona: '+n+' uczniów. Szkoła wpłaciła '+zl(VC.tourFee)+'.',{x:2900,y:1330,quiet:true});
    NAT.log.unshift({day:state.days,text:'Szkolna wycieczka na ścieżce przyrodniczej ('+n+' uczniów).',x:2900,y:1330});if(NAT.log.length>40)NAT.log.length=40}}]);
  for(let i=0;i<n;i++){
   const off=[(rand()-.5)*26,(rand()-.5)*20+14],p=new Ped({kind:'walker',x:x0+off[0],y:y0+8+rand()*10,speed:10.5+rand()*1.6,coat:COATS[i%COATS.length],cap:COATS[(i+3)%COATS.length]});
   p.label='uczeń na wycieczce';p.run([...steps(off,false),{call:q=>{q.dead=true}}])}
- mail('nature','Szkolna wycieczka idzie na ścieżkę przyrodniczą ('+n+' uczniów z opiekunem).',{x:x0,y:y0-20,quiet:true});
+ mail('nature','Wycieczka szkolna na ścieżce ('+n+' uczniów).',{x:x0,y:y0-20,quiet:true});
 }
 export function updateVisit(dt){
  if(!trailOn())return;

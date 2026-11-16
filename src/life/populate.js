@@ -138,7 +138,7 @@ const lerp=(A,B,t)=>[A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t];
 function spawnDrive(){
  const D=DRIVES[Math.floor(rand()*DRIVES.length)],e=EDGES.find(q=>q.id===D.road),H=5,B=4;
  const st={odd:D.odd,kills:[],people:[],temp:[],beatersDone:0,end:false};T.drive=st;
- toast('Polowanie zbiorowe koła łowieckiego w oddz. '+D.odd+' — linia myśliwych przy drodze, naganka idzie przez oddział.');
+ toast('Polowanie zbiorowe w oddz. '+D.odd+'.');
  // zwierzyna w miedzy: kilka sztuk z obwodu wchodzi do pędzonego oddziału
  const mid=lerp(lerp(D.line[0],D.beat[0],.55),lerp(D.line[1],D.beat[1],.55),.5);
  const G=new Group(mid[0],mid[1],Math.floor(rand()*1e4),{range:[60,160],kind:'drive'});
@@ -170,7 +170,7 @@ function updateDrive(){
   for(const c of st.kills)c.dead=true;for(const a of st.temp)if(!a.dead)a.dead=true;
   const left=GAME.filter(k=>FA.culled[k]<FA.plan[k]);let extra=0;if(left.length&&rand()<.6*(FA.wolf.present?.7:1)){cull(left[Math.floor(rand()*left.length)],false);extra=1}
   const n=st.kills.length+extra,names={roe:'sarny',deer:'jelenie',boar:'dziki'},by={};for(const c of st.kills)by[c.kind]=(by[c.kind]||0)+1;
-  toast('Pokot po polowaniu zbiorowym w oddz. '+st.odd+': '+(n?n+' szt.'+(st.kills.length?' ('+Object.entries(by).map(([k,v])=>names[k]+' '+v).join(', ')+')':''):'bez pozyskania')+'.');
+  toast('Pokot w oddz. '+st.odd+': '+(n?n+' szt.'+(st.kills.length?' ('+Object.entries(by).map(([k,v])=>names[k]+' '+v).join(', ')+')':''):'bez pozyskania')+'.');
  }
  if(st.end&&st.people.every(z=>z.car?(z.car.leaving||z.car.dead):z.p.dead)){T.drive=null;return}
  if(st.end)for(const z of st.people)if(z.car&&!z.car.leaving&&!z.car.dead&&st.people.every(q=>!q.p||q.p.dead)){z.car.leaving=true;leaveMap(z.car)}
@@ -195,7 +195,7 @@ export function updateVisitors(dt){
  T.clean=(T.clean||0)-dt;if(T.clean<=0){T.clean=20;for(const p of E.people){if(p.dead||p.hidden||!(p.kind==='walker'||p.kind==='picker')||p.petent)continue;
   const t=E.trash.find(q=>!q.dead&&!q.fire&&q.kind!=='snare'&&Math.hypot(q.x-p.x,q.y-p.y)<110);if(!t||rand()>.18)continue;
   t.dead=true;if(t.inc&&t.inc.status!=='done'){t.inc.status='done';for(const u of U)u.queue=u.queue.filter(q=>q!==t.inc)}bumpProtect(.5);
-  toast((p.kind==='picker'?(p.berry?'Zbieracz jagód':'Grzybiarz'):'Spacerowicz')+' pozbierał śmieci w oddz. '+oddzial(t.x,t.y)+' — dziękujemy!')}}
+  toast((p.kind==='picker'?(p.berry?'Zbieracz jagód':'Grzybiarz'):'Spacerowicz')+' pozbierał śmieci w oddz. '+oddzial(t.x,t.y)+'.')}}
  const dayN=Math.floor(state.days);
  scheduleHunters(h,se,we,dayN);
  // polowanie zbiorowe: jesień i zima, sobota rano, raz na porę roku

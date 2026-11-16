@@ -105,3 +105,35 @@ body.noui .ui>*:not(#msg){display:none}
 .dots{display:flex;gap:6px;margin:12px 0 0}.dots i{width:9px;height:9px;background:#d4c79f}.dots i.on{background:#4f6d3f}
 #settings .rrow button,#settings .rrow{font-size:12px}#settings .rrow button{cursor:pointer;border:0;font:800 11px ui-monospace,monospace;background:#4f6d3f;color:#f1e6c2;padding:5px 10px;box-shadow:0 3px 0 #2a3b2d;min-width:96px}
 #tutor,#settings{z-index:8}
+
+/* ── 1.0.1: jeden język wizualny — ramka z kory i mchu, nagłówek z paskiem, te same przyciski ── */
+.plate{position:relative;box-shadow:0 0 0 2px #14201a,0 0 0 4px #6f4f2c,0 0 0 6px #8fae5f,0 0 0 8px #14201a,4px 8px 0 6px #0d150f70}
+.plate::before{content:'';position:absolute;left:0;right:0;top:0;height:3px;background:repeating-linear-gradient(90deg,#4f6d3f 0 10px,#6f8f4e 10px 14px,#3f5a35 14px 24px)}
+.plate{padding-top:11px}
+.hud{position:absolute}
+.status{left:22px;bottom:22px;width:240px}
+.plan{top:96px;left:262px;width:290px;z-index:4}
+.plan .wh{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;color:#e8c77a;font-weight:900;letter-spacing:.12em;font-size:10px;text-transform:uppercase}
+.planbtn{align-self:center;white-space:nowrap}.planbtn b{color:#2a3b2d}.planbtn.hot{background:#9fd27a;box-shadow:0 3px 0 #4f7a3a}
+.toolbar{left:50%;bottom:22px;transform:translateX(-50%);width:max-content;max-width:min(800px,calc(100vw - 540px));min-width:420px}
+.toolbar .toolhint{min-height:0;margin:0 0 8px;text-align:center;font-size:10px;color:#c9d2ad}.toolbar .toolhint:empty{display:none}
+.trow2{display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:center}
+.trow2 .grp{display:flex;gap:6px;align-items:center}
+.toolbar .tool,.toolbar .act{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:6px 9px;margin:0;width:auto}
+.toolbar b,.toolbar .tool b{display:inline-block;background:#2a3b2d;color:#f1e6c2;padding:1px 5px;font-size:10px}
+.toolbar .topbtn{font-size:10px;padding:6px 9px}
+#msg{bottom:150px}
+.ocard{position:absolute;pointer-events:auto;background:#f1e6c2 linear-gradient(#f4ebcb,#ede0b8);color:#363d2f;padding:14px 16px 12px;font-size:11px;line-height:1.5;box-shadow:0 0 0 2px #1b2c1f,0 0 0 4px #6f4f2c,0 0 0 6px #8fae5f,0 0 0 8px #1b2c1f,5px 9px 0 6px #0d150f70}
+.ocard::before{content:'';position:absolute;left:0;right:0;top:0;height:4px;background:repeating-linear-gradient(90deg,#4f6d3f 0 10px,#6f8f4e 10px 14px,#3f5a35 14px 24px)}
+.ocard .wh{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 8px;padding-bottom:6px;border-bottom:2px solid #8fae5f}
+.ocard .wh b{font-size:12px;letter-spacing:.05em;color:#384d39}
+.ocard .ln{color:#515c48;margin:3px 0;font-family:system-ui,sans-serif;font-size:12px;line-height:1.45}
+.ocard .srow{border-top:1px solid #d4c79f;color:#6a7260}.ocard .srow i{color:#384d39}
+.ocard .muted{color:#8a8f78}
+.ocard .ibtns{margin-top:10px}.ocard .ibtns button,.ocard .mrow button,.ocard .dbtn button{cursor:pointer;border:0;font:800 10px ui-monospace,monospace;background:#4f6d3f;color:#f1e6c2;padding:6px 9px;box-shadow:0 3px 0 #2a3b2d}
+.ocard .mrow button.sec,.ocard .ibtns button.sec{background:#8a5a45;box-shadow:0 3px 0 #4a2f25}
+.ocard .mrow{border-top:1px solid #d4c79f}.ocard .mrow.new{background:#e4ecc4}.ocard .mrow .go:hover{color:#4f6d3f}
+.ocard .dbar{background:#d4c79f}.ocard .dbar i{background:#4f6d3f}
+.ocard.decide{border:0}.decide .dt{color:#384d39;font-size:12px}
+.ocard.mailbox{width:340px;top:96px;right:300px}.ocard.oddcard{left:22px;top:96px;width:330px}
+.ocard.info{width:300px}

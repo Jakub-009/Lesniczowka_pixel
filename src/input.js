@@ -64,12 +64,12 @@ export function bindInput(zoomFn){
    const area=treesIn(Math.min(x0,x1),Math.min(y0,y1),Math.max(x0,x1),Math.max(y0,y1));
    if(state.tool==='mark'&&d.shift){const list=[];   // Shift + przeciągnięcie: odznaczenie obszaru
     for(const t of area)if(t.marked&&!t.assigned){t.marked=false;list.push(t)}
-    if(list.length)UNDO.push({type:'unmark',list});toast(list.length?'Usunięto oznaczenie '+list.length+' drzew. Ctrl+Z — cofnij.':'W zaznaczeniu nie było oznaczonych drzew.')}
+    if(list.length)UNDO.push({type:'unmark',list});toast(list.length?'Usunięto oznaczenie '+list.length+' drzew. Ctrl+Z: cofnij.':'W zaznaczeniu nie było oznaczonych drzew.')}
    else if(state.tool==='mark'){const list=[];
     for(const t of area)if(t.st===STAND&&!t.falling&&!t.lying&&!t.assigned&&t.age>=CUT_AGE&&!t.marked&&!offLimits(t.x,t.y)&&!noCut(t.x,t.y,t)){t.marked=true;list.push(t)}
     if(list.length)UNDO.push({type:'mark',list});
-    toast(list.length?'Wyznaczono '+list.length+' drzew do wycinki. E — wyślij ekipę. Ctrl+Z — cofnij, Shift + przeciągnięcie — odznacz.':'W zaznaczeniu nie ma drzew do wycinki (od '+CUT_AGE+' lat).')}
-   else if(state.tool==='plant'){const before=J.plants.length,n=planAreaPlants(x0,y0,x1,y1);if(n)UNDO.push({type:'plant',list:J.plants.slice(before)});toast(n?'Zaplanowano '+n+' sadzonek w rzędach. E — wyślij ekipę. Ctrl+Z — cofnij.':'Brak wolnych miejsc na sadzonki.')}
+    toast(list.length?'Zaznaczono '+list.length+' drzew. E: wyślij ekipę, Ctrl+Z: cofnij.':'W zaznaczeniu nie ma drzew do wycinki (od '+CUT_AGE+' lat).')}
+   else if(state.tool==='plant'){const before=J.plants.length,n=planAreaPlants(x0,y0,x1,y1);if(n)UNDO.push({type:'plant',list:J.plants.slice(before)});toast(n?'Zaplanowano '+n+' sadzonek. E: wyślij ekipę, Ctrl+Z: cofnij.':'Brak wolnych miejsc na sadzonki.')}
    else if(state.tool==='plot'){if(!state.poly){const p=createPlot(x0,y0,x1,y1);if(p)state.selected=p}}
    hud();return}
   if(d.drag)return;
@@ -80,7 +80,7 @@ export function bindInput(zoomFn){
   else if(state.tool==='plant')togglePlant(x,y);
   else if(state.tool==='plot'){
    if(state.poly){const P=state.poly;if(P.length>=3&&Math.hypot(x-P[0][0],y-P[0][1])<16)finishPoly();else P.push([x,y])}
-   else{const p=plotAt(x,y);if(p)state.selected=p;else{state.poly=[[x,y]];toast('Wielokąt: klikaj kolejne narożniki. Enter albo klik w pierwszy punkt kończy, Esc anuluje. (Prostokąt: przeciągnij.)')}}}
+   else{const p=plotAt(x,y);if(p)state.selected=p;else{state.poly=[[x,y]];toast('Wielokąt: klikaj narożniki, Enter kończy, Esc anuluje.')}}}
   else{const p=pick(x,y);if(p&&p.isHouse){toggleBase(true);return}if(p&&p.isMailbox){toggleMail(true);return}state.selected=p;state.follow=null}
   hud();
  });
@@ -108,7 +108,7 @@ export function bindInput(zoomFn){
   else if(k==='n'){state.noFF=!state.noFF;toast(state.noFF?'Noc płynie normalnie (N).':'Noc przewija się sama (N).')}
   else if(k==='f3')DEBUG.on=!DEBUG.on;
   else if(k==='f1'||k==='h')$('#help').classList.toggle('hidden');
-  else if(k==='escape'){setTool('select');state.selected=null;state.follow=null;$('#help').classList.add('hidden');$('#settings').classList.add('hidden');closeTutorEsc();toggleMail(false);toggleOdd(false)}
+  else if(k==='escape'){setTool('select');state.selected=null;state.follow=null;$('#help').classList.add('hidden');$('#settings').classList.add('hidden');$('#plan').style.display='none';closeTutorEsc();toggleMail(false);toggleOdd(false)}
   else if(k==='z')zoomFn(e.shiftKey?-1:1);else if(k==='+'||k==='=')zoomFn(-1);else if(k==='-')zoomFn(1);
   keys.add(k);hud();
  });
