@@ -493,7 +493,8 @@ const hash2=(i,k)=>{const v=Math.sin(i*127.1+k*311.7)*43758.5453;return v-Math.f
 export function drawGroundItems(g){
  drawStacks(g);
  for(const p of E.piles)if(!p.dead)pileTop(g,p);
- if(state.tool==='plant'||state.tool==='plot')for(const p of J.plants){g.strokeStyle=p.assigned?'#a6e07a':'#7ae07a';g.lineWidth=1;g.strokeRect(Math.round(p.x)-3.5,Math.round(p.y)-3.5,7,7);rect2(g,p.x-1,p.y-1,2,2,'#3f744c')}
+ const allPl=state.tool==='plant'||state.tool==='plot';for(const p of J.plants){if(!allPl&&p.plot!==undefined)continue;   // 1.0.3: pojedyncze sadzonki widać zawsze (jak cechowanie), sadzonki z powierzchni tylko przy narzędziach sadzenia
+  g.strokeStyle=p.assigned?'#a6e07a':'#7ae07a';g.lineWidth=1;g.strokeRect(Math.round(p.x)-3.5,Math.round(p.y)-3.5,7,7);rect2(g,p.x-1,p.y-1,2,2,'#3f744c')}
 }
 function craneArm(g,bx,by,tx,ty,lift=18){
  const mx=(bx+tx)/2,my=(by+ty)/2-lift;

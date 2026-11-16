@@ -4,7 +4,7 @@ import {$,state,cal,SEASONS,DOW,displayNumber,zl,SETTINGS,camera,VIEW,clamp,toas
 import {HL,WX,LVLN,fireLvl,trapsOn,sick,buyTraps,buildTower,toggleBan,COSTS as HC} from './health.js';
 import {SP,STAND,STUMP,SAPLING_AGE,CUT_AGE,THIN_AGE,crownR,heightM,dbhCm,volume,counts,treesIn,QUAL,SORTS,sortSplit,treeValue} from './forest.js';
 import {STANDS,oddzial} from './map.js';
-import {J,COST,PRICE,MACH,pendingCount,ordersCount,clearOrders,toggleMark,dispatchCrew,orderTruck,togglePlant,buyForwarder,stackTotal,stackValue,hireCrewB,fireCrewB,truckTotal,pileSorts,spotOf} from './jobs.js';
+import {J,COST,PRICE,MACH,pendingCount,ordersCount,clearOrders,toggleMark,dispatchCrew,orderTruck,togglePlant,canPlant,buyForwarder,stackTotal,stackValue,hireCrewB,fireCrewB,truckTotal,pileSorts,spotOf} from './jobs.js';
 import {R,inPlot,perimOf,plotStats,prepCost,areaHa,spotsIn,orderPrep,orderPlant,removePlot,rowsOf,fenceCost,orderFence,orderRepel,repelCost,seasonKey,MIXES,mixFor,cycleMix,mixSp} from './renew.js';
 import {signsOn,repelOn,trailOn,buySigns,buyRepel,buyTrail,vs,VC} from './visit.js';
 import {NAT,canMonument,makeMonument,toggleDeadwood,makeReserve,journalRows,MON_COST,RES_COST,richness} from './nature.js';
@@ -72,7 +72,8 @@ function treeInfo(t){
  const st=STANDS[oddzial(t.x,t.y)],sp=SP[t.sp];
  if(t.st===STUMP){
   const ren=treesIn(t.x-30,t.y-30,t.x+30,t.y+30).some(q=>q.st===STAND&&q.age<SAPLING_AGE*3);
-  return{title:t.burnt?'Spalony pniak':'Pniak — '+sp.name,lines:['Oddział '+st.name+' · '+st.desc,ren?'Odnowione: obok rośnie młode drzewko.':'Nieodnowiony. Posadź sadzonkę obok (narzędzie 3).'],btns:ren?[]:[['plantnear','Zaplanuj sadzonkę obok']]};
+  const pl=J.plants.some(p=>Math.hypot(p.x-t.x,p.y-t.y)<32);
+  return{title:t.burnt?'Spalony pniak':'Pniak — '+sp.name,lines:['Oddział '+st.name+' · '+st.desc,ren?'Odnowione: obok rośnie młode drzewko.':pl?'Sadzonka zaplanowana. Posadzi ją ekipa (E).':'Nieodnowiony. Posadź sadzonkę obok (narzędzie 3).'],btns:ren||pl?[]:[['plantnear','Zaplanuj sadzonkę obok']]};
  }
  if(t.age<SAPLING_AGE)return{title:'Sadzonka — '+sp.name,lines:['Oddział '+st.name+(t.uprawa?' · uprawa w grodzeniu':''),'Wiek: '+lat(t.age)+' · wys. ok. '+displayNumber(Math.max(.2,heightM(t)),1)+' m'],btns:[]};
  const f=sortSplit(t);
@@ -334,7 +335,7 @@ export function bindUI(){
   else if(k==='odd')toggleOdd(true,oddzial(s.x+(s.w?s.w/2:0),s.y+(s.h?s.h/2:0)));
   else if(k==='repel')orderRepel(s);
   else if(k==='prep')orderPrep(s);else if(k==='plantplot')orderPlant(s);else if(k==='delplot'){removePlot(s);if(!R.plots.includes(s))state.selected=null}
-  else if(k==='plantnear'){for(let a=0;a<12;a++){const x=s.x+Math.cos(a)*12,y=s.y+Math.sin(a)*12;const n=J.plants.length;togglePlant(x,y);if(J.plants.length>n)break}}
+  else if(k==='plantnear'){let ok=false;for(const d of [12,16,22])for(let a=0;a<12&&!ok;a++){const x=s.x+Math.cos(a*.52)*d,y=s.y+Math.sin(a*.52)*d;if(!canPlant(x,y)){togglePlant(x,y);ok=true}}if(!ok)toast('Przy tym pniaku nie ma miejsca na sadzonkę.')}
   infoSig='';hud();
  });
  $('#basebtn').addEventListener('click',()=>toggleBase(true));

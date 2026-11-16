@@ -44,7 +44,13 @@ function pickNestTree(k){
 // ── loty ──
 function fly(sp,pts,o={}){const f={sp,pts,i:0,x:pts[0][0],y:pts[0][1],ang:0,v:o.v||62,t:0,sit:0,landed:false,hidden:false,o};flights.push(f);return f}
 const orbit=(cx,cy,R,turns,a0)=>{const p=[];for(let k=0;k<turns*10;k++){const a=a0+k/10*Math.PI*2*(k%2?1:1);p.push([cx+Math.cos(a)*R*(1+.18*Math.sin(k*1.7)),cy+Math.sin(a)*R*.8*(1+.18*Math.cos(k*1.3))])}return p};
-function nestFlight(n,turns=2){const R=70+rand()*130,a0=rand()*6.28;const o=orbit(n.x,n.y,R,turns,a0);return fly(n.sp,[[n.x,n.y],...o,[n.x,n.y]],{v:56+rand()*14,nest:n})}
+// 1.0.3: ptaki robią wyprawy: 2–3 punkty do ~950 px od gniazda, nad każdym krążą, potem wracają okrążyć gniazdo
+function nestFlight(n){
+ const pts=[[n.x,n.y]],legs=2+((rand()*2)|0);
+ for(let l=0;l<legs;l++){const a=rand()*6.28,d=350+rand()*600;
+  pts.push(...orbit(clamp(n.x+Math.cos(a)*d,80,WORLD.w-80),clamp(n.y+Math.sin(a)*d*.8,80,WORLD.h-80),130+rand()*200,1,rand()*6.28))}
+ pts.push(...orbit(n.x,n.y,160+rand()*180,1,rand()*6.28),[n.x,n.y]);
+ return fly(n.sp,pts,{v:56+rand()*14,nest:n})}
 function establish(k,t){
  const S=SPEC[k],n={sp:k,name:S.name,x:Math.round(t.x),y:Math.round(t.y),tx:t.x,ty:t.y,day:state.days};
  t.nest=k;NAT.nests.push(n);dirtyTree(t);
@@ -79,12 +85,12 @@ function resident(){
  const day=cal.hour()>7&&cal.hour()<19&&!cal.night();
  for(const n of NAT.nests){
   if(!day||flights.some(f=>f.o&&f.o.nest===n))continue;
-  if(rand()<.6)nestFlight(n,1+((rand()*2)|0))}
+  if(rand()<.85)nestFlight(n)}
 }
 export function updateNature(dt){
  const d=Math.floor(state.days);if(d!==T.day){T.day=d;dayRoll()}
  for(const k of ORDER){const B=NAT.bird[k];if(B&&B.at!=null&&state.days>=B.at){B.at=null;if(!arrive(k)){B.at=state.days+1+rand()}}}
- T.loop-=dt;if(T.loop<=0){T.loop=300+rand()*400;resident()}   // 300–700 s gry: para obleci gniazdo
+ T.loop-=dt;if(T.loop<=0){T.loop=140+rand()*220;resident()}   // co 140–360 s gry: para wylatuje na przelot nad lasem
  for(let q=flights.length-1;q>=0;q--){const f=flights[q];f.t+=dt;
   if(f.sit>0){f.sit-=dt;if(f.sit<=0){f.landed=false;f.pts=[[f.x,f.y],f.exit];f.i=0;f.o.leaving=true;f.o.guest=false}continue}
   const P=f.pts[f.i+1];if(!P){if(f.o.guest&&!f.o.leaving){f.landed=true;f.sit=f.stay;f.i=f.pts.length;continue}if(f.cb)f.cb();flights.splice(q,1);continue}

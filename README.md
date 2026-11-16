@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 1.0.2.** Od teraz: zamrożona — tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 1.0.3.** Od teraz: zamrożona — tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -224,6 +224,11 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
+
+## Zmiany w 1.0.3
+- Pniak: po zaplanowaniu sadzonki przycisk znika, a karta pokazuje „Sadzonka zaplanowana”. Wcześniej każde kliknięcie przestawiało sadzonkę albo wyświetlało komunikat.
+- Bielik i bocian czarny latają dalej: wyprawy do ok. 1000 px od gniazda, co 2–6 minut gry.
+- Pojedyncze, ręcznie zaplanowane sadzonki są znowu widoczne bez wybranego narzędzia (jak oznaczone drzewa). Sadzonki z powierzchni pokazują się tylko przy narzędziach sadzenia.
 
 ## Zmiany w 1.0.2
 - Poprawka: po załatwieniu sprawy radiowóz Policji odjeżdża (wcześniej wpis interwencji znikał, gdy policjanci jeszcze stali, i radiowóz zostawał na drodze na stałe). Dodane zabezpieczenie: radiowóz bez aktywnej interwencji sam odjeżdża.
