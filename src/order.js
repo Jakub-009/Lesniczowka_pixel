@@ -104,7 +104,8 @@ function spawnOfficers(p,v){
 }
 function updatePolice(dt){
  for(const p of POL){
-  if(p.done){if(p.rel>0){p.rel-=dt;if(p.rel<=0)policeAway(p)}continue}
+  // 1.0.2: wpis znika dopiero po odjeździe radiowozu (wcześniej usuwano go od razu, gdy policjanci jeszcze stali, i radiowóz zostawał na zawsze)
+  if(p.done){if(p.rel>0){p.rel-=dt;if(p.rel<=0){policeAway(p);p.gone=true}}else p.gone=true;continue}
   const inc=p.inc,v=inc.ref;
   if(!open_(inc)||!v||v.dead){policeDone(p);continue}
   if(!p.car){
@@ -120,7 +121,9 @@ function updatePolice(dt){
   if(d<105){p.at=8;spawnOfficers(p,v);p.car.stopped=true;p.car.v=0;p.car.label='Policja — interwencja';v.label='zatrzymany przez Policję';const m=v.man;if(m&&!m.dead)m.label=m.label+' — zatrzymany';continue}
   p.t-=dt;if(p.t<=0||p.car.arrived){p.t=2.5;const rp=nearestRoad(v.pos[0],v.pos[1],['main','forest','dukt']);p.car.goTo({edge:rp.edge,s:rp.s},{park:false,pen:250})}
  }
- for(let i=POL.length-1;i>=0;i--)if(POL[i].done)POL.splice(i,1);
+ for(let i=POL.length-1;i>=0;i--)if(POL[i].gone)POL.splice(i,1);
+ // zabezpieczenie: radiowóz bez wpisu w POL (np. po błędzie) odjeżdża
+ for(const v of E.vehicles)if(v.kind==='police'&&!v.dead&&!v._away&&!POL.some(p=>p.car===v)){v._away=true;v.beacon=false;v.stopped=false;v.label='radiowóz odjeżdża';v.goTo(goalNode(exitNode(v.pos[0])),{leave:true})}
 }
 
 // ───────── fotopułapki, szlabany, parking ─────────
