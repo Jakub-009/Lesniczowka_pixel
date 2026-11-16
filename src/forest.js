@@ -3,7 +3,7 @@
 import {WORLD,hash,rect,poly,clamp,LIGHT,cal,PX_PER_M,state} from './core.js';
 import {mk,outlinedDraw,crispAlpha} from './sprite.js';
 import {distToSegment} from './geometry.js';
-import {roadClearance,oddzial,STANDS,YARD,PLAC,TURNS,POLANA,inRect,inPolana,inWorld,inWater,EDGES,NODES,ptAt} from './map.js';
+import {roadClearance,oddzial,STANDS,YARD,PLAC,TURNS,POLANA,inRect,inPolana,inWorld,inWater,EDGES,NODES,ptAt,offLimits} from './map.js';
 
 export const SP={
  sosna:{name:'sosna zwyczajna',maxR:30,mature:70,h:28,d:42,vol:1.15,price:250,conifer:true,bark:['#9a5b33','#c47c48']},
@@ -149,6 +149,7 @@ export function treeAt(x,y,filter){
  let best=null,bd=1e9;
  for(const t of treesIn(x-50,y-50,x+50,y+50)){
   if(filter&&!filter(t))continue;
+  if(offLimits(t.x,t.y))continue;   // 1.0: pas za szosą nie jest klikalny (ani karta, ani zaznaczenie)
   const r=t.st===STUMP?8:Math.max(7,crownR(t)*.8),d=Math.hypot(t.x-x,t.y-y);
   if(d<r&&d<bd){bd=d;best=t}   // w gęstwinie wygrywa drzewo o najbliższym pniu
  }

@@ -36,7 +36,18 @@
 #msg{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);background:#f1e6c2;color:#2a3b2d;font-weight:700;padding:6px 12px;opacity:0;transition:opacity .25s;white-space:nowrap;box-shadow:0 0 0 2px #14201a,0 3px 0 2px #a38c58;max-width:60vw;overflow:hidden;text-overflow:ellipsis}
 #overlay,.panel{position:absolute;inset:0;display:grid;place-items:center;background:#111c15b8;z-index:6;padding:14px}
 #overlay.hidden,.panel.hidden{display:none}
-.card{width:min(560px,94vw);background:#f1e6c2;color:#363d2f;padding:20px 24px;box-shadow:0 0 0 3px #14201a,0 0 0 7px #8b6b3d,0 0 0 10px #14201a,8px 12px 0 6px #0d150f80}
+.card{position:relative;width:min(560px,94vw);background:#f1e6c2 linear-gradient(#f4ebcb,#ede0b8);color:#363d2f;padding:20px 24px;box-shadow:0 0 0 3px #1b2c1f,0 0 0 7px #6f4f2c,0 0 0 9px #8fae5f,0 0 0 12px #1b2c1f,8px 12px 0 8px #0d150f80}
+.card::before{content:'';position:absolute;left:-1px;right:-1px;top:-1px;height:6px;background:repeating-linear-gradient(90deg,#4f6d3f 0 10px,#6f8f4e 10px 14px,#3f5a35 14px 24px)}
+.whead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.whead h1{margin-top:2px}
+.xbtn{flex:none;cursor:pointer;border:0;font:900 14px ui-monospace,monospace;line-height:1;width:30px;height:30px;background:#8a5a45;color:#f1e6c2;box-shadow:0 3px 0 #4a2f25,0 0 0 2px #1b2c1f}.xbtn:hover{background:#a56a50}.xbtn:active{transform:translateY(2px);box-shadow:0 1px 0 #4a2f25,0 0 0 2px #1b2c1f}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0 10px}
+.tile{background:#dfe6c4;border-left:4px solid #6f8f4e;padding:5px 8px;display:flex;flex-direction:column;gap:2px}.tile span{font-size:9px;letter-spacing:.08em;color:#6a7a52;text-transform:uppercase}.tile b{font-size:13px;color:#2f4a32}
+.tile.warn{background:#f1e0b0;border-color:#c98a2e}.tile.warn b{color:#8a5a14}.tile.bad{background:#f0cfc0;border-color:#b5482f}.tile.bad b{color:#9a3220}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:3px solid #6f4f2c;margin-bottom:4px}
+.tab{cursor:pointer;border:0;font:800 11px ui-monospace,monospace;padding:7px 11px 6px;background:#d6cfa6;color:#4a5b3c;margin-bottom:-3px;border-top:2px solid #b8ae7c}.tab:hover{background:#e2dcb6}.tab.on{background:#4f6d3f;color:#f1e6c2;border-top-color:#8fae5f}.tab i{font-style:normal;background:#c9582f;color:#fff;padding:0 5px;margin-left:3px;font-size:10px}
+.more{margin-top:5px}.more summary{cursor:pointer;font-size:10px;color:#6f8f4e;font-weight:800;list-style:none}.more summary::-webkit-details-marker{display:none}.more summary:hover{color:#4f6d3f;text-decoration:underline}
+.wfoot{margin-top:6px}
+.panel>.card.wide{max-height:94vh}
 .kicker{font-size:11px;color:#957545;letter-spacing:.14em;font-weight:900;text-transform:uppercase}
 .card h1{font-size:30px;margin:6px 0 9px;color:#384d39;letter-spacing:-.02em}
 .card p{font-family:system-ui,sans-serif;line-height:1.55;font-size:14px;color:#515c48;margin:9px 0}
@@ -52,15 +63,15 @@
 .verdict{font-weight:700;color:#4f6d3f!important}
 .ff{margin-top:5px;font-size:10px;color:#9ec0ff;letter-spacing:.08em}
 
-.card.wide{width:min(760px,96vw);max-height:92vh;overflow:auto}
-.bgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin-top:8px}
+.card.wide{width:min(800px,96vw);max-height:92vh;overflow:auto}
+.bgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;margin-top:10px;align-items:start}
 .bsec{border-top:2px solid #d4c79f;padding-top:6px}.bsec h3{margin:0 0 4px;font-size:12px;letter-spacing:.08em;color:#957545}
 .bsec .rrow{font-size:11px;padding:3px 0}.bsec p{font-size:12px;margin:4px 0}
 .bsec button{cursor:pointer;border:0;font:800 10px ui-monospace,monospace;background:#4f6d3f;color:#f1e6c2;padding:5px 8px;margin:5px 5px 0 0;box-shadow:0 3px 0 #2a3b2d}
 .bsec button.sec{background:#8a5a45;box-shadow:0 3px 0 #4a2f25}.bsec button:disabled{opacity:.45;cursor:default}
 .bsec .meter{height:6px;background:#d4c79f;margin:2px 0 4px}.bsec .meter i{display:block;height:100%;background:#4f6d3f}
 #base-close{width:100%;padding:11px;font:900 12px ui-monospace,monospace;letter-spacing:.06em;background:#4f6d3f;color:#f1e6c2;border:0;cursor:pointer;box-shadow:0 4px #2a3b2d,0 0 0 2px #14201a;margin-top:12px}
-@media (max-width:700px){.bgrid{grid-template-columns:1fr}}
+@media (max-width:700px){.bgrid{grid-template-columns:1fr}.tiles{grid-template-columns:1fr 1fr}}
 #msg{z-index:9}
 
 /* 0.6: chowanie interfejsu (U) i mapa leśnictwa (Tab) */
@@ -76,6 +87,7 @@ body.noui .ui>*:not(#msg){display:none}
 #maplegend span{display:flex;align-items:center;gap:4px}#maplegend i{display:inline-block;width:10px;height:10px;box-shadow:0 0 0 1px #2a3b2d55}
 .maphint{font:11px ui-monospace,monospace;color:#6a5a3e}
 
+.mailbox,.oddcard{box-shadow:0 0 0 2px #14201a,0 0 0 4px #6f4f2c,0 0 0 6px #8fae5f,0 0 0 8px #14201a,4px 8px 0 6px #0d150f70}
 .mailbox,.oddcard{position:absolute;top:140px;width:330px;max-height:62vh;overflow:auto;font-size:10px;line-height:1.45;z-index:3}
 .mailbox{right:320px}.oddcard{left:230px}
 .mrow{display:flex;gap:7px;padding:6px 0;border-top:1px solid #3e523f}.mrow.new{background:#33482f;margin:0 -6px;padding:6px}
@@ -86,3 +98,10 @@ body.noui .ui>*:not(#msg){display:none}
 .decide{position:absolute;left:50%;top:120px;transform:translateX(-50%);width:340px;z-index:5;font-size:11px;line-height:1.45;border:1px solid #f4d58a}
 .decide .dt{font-weight:bold;color:#f4d58a;margin-bottom:4px}.decide .dbtn{display:flex;gap:8px;margin-top:8px}.decide .dbtn button{flex:1}
 .decide .dbar{height:3px;background:#3e523f;margin-top:6px}.decide .dbar i{display:block;height:100%;background:#f4d58a}
+
+.xbtn.sm{width:20px;height:20px;font-size:10px;box-shadow:0 2px 0 #4a2f25,0 0 0 1px #14201a}
+
+.wnav{display:flex;justify-content:space-between;gap:10px;margin-top:12px}.wnav button{cursor:pointer;border:0;font:800 11px ui-monospace,monospace;background:#4f6d3f;color:#f1e6c2;padding:9px 14px;box-shadow:0 3px 0 #2a3b2d;margin-left:6px}.wnav button.sec{background:#8a5a45;box-shadow:0 3px 0 #4a2f25;margin-left:0}
+.dots{display:flex;gap:6px;margin:12px 0 0}.dots i{width:9px;height:9px;background:#d4c79f}.dots i.on{background:#4f6d3f}
+#settings .rrow button,#settings .rrow{font-size:12px}#settings .rrow button{cursor:pointer;border:0;font:800 11px ui-monospace,monospace;background:#4f6d3f;color:#f1e6c2;padding:5px 10px;box-shadow:0 3px 0 #2a3b2d;min-width:96px}
+#tutor,#settings{z-index:8}

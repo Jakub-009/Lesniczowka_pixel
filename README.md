@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.9.0 (finalna 0.9) — prototyp.** Po testach: 1.0 (przebudowa interfejsu), potem tylko gra, testy i drobne poprawki. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 1.0.0.** Od teraz: zamrożona — tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -83,6 +83,7 @@ Gra zapisuje się sama co 30 s (localStorage).
 | `src/mapview.js` | mapa leśnictwa (Tab) | nowe (0.6) |
 | `src/render.js` | kolejność warstw, noc, znaczniki | wzorzec z farmy |
 | `src/ui.js`, `src/input.js` | HUD, mysz i klawiatura | nowe |
+| `src/guide.js` | samouczek i ustawienia gry (localStorage `lesniczowka-set`) | nowe w 1.0 |
 | `src/sound.js` | WebAudio (wiatr, ptaki, dzięcioł, piła, silniki) | wzorzec z farmy |
 | `src/save.js` | zapis gry | wzorzec z farmy |
 
@@ -223,6 +224,20 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
+
+## Zmiany w 1.0 „Spokojna piaskownica”
+- **Interfejs:** okna w lekkim leśnym stylu (zielono-brązowa ramka, nagłówek z ✕). Każde okno zamyka ✕, **Esc** albo klik w tło; spójny układ (tytuł, treść, przyciski). Okno **Leśniczówki (L)** ma teraz zakładki: Kadry · Budynki i sprzęt · Finanse · Las i porządek · Przyroda · Łowiectwo, pasek podsumowania (budżet, koszty, faktury, zagrożenie pożarowe) i rozwijane „ⓘ Jak to działa”.
+- **Samouczek** (6 kroków, przy nowej grze; ponownie z pomocy `?` albo ustawień) i **Ustawienia** (⚙): dźwięk, głośność, tempo na początku gry, podpowiedzi narzędzi, samouczek. Ustawienia zapisują się osobno od zapisu gry. Pomoc (`H`) skrócona.
+- **Faktury — kary za zwlekanie** (bez końca gry): po terminie upomnienie (+5%, min. 40 zł) → po kolejnej porze roku wezwanie do zapłaty (+10%, min. 80 zł; **ekipy nie przyjmują nowych zleceń** do czasu zapłaty) → po trzech porach roku windykacja (+15%, min. 150 zł; bank sam ściąga należność). Płacenie automatyczne omija wszystko.
+- **Pożyczki:** 5 000 zł (6%, 4 raty), 15 000 zł (8%, 6 rat), 25 000 zł (10%, 8 rat); jedna naraz.
+- **Strumień i mokradła:** dopływ rozbija się na cienkie strużki w pasie błota, odpływ to wąska smuga poszerzająca się dalej; źródło w mokradle NW wypływa spod trzcin. Jedna maska wody dla mokradła i strumienia (nic nie zasłania bagna).
+- **Mokradła nieprzejezdne** dla ludzi, zwierząt i pojazdów (z wyjątkiem poboczy dróg); sam strumień zwierzęta przebrodzą, pojazdy przejadą.
+- **Ekipy** chodzą pieszo po skupisku zadań (do ok. 500 px) i parkują w jednym punkcie — koniec ze „przesiadaniem się” na kilka pikseli.
+- **Pas za szosą:** bez kornika, wiatrołomów, zgłoszeń i nie da się go kliknąć. Narzędzie Wycinka: klik w puste miejsce odznacza wybór (okno drzewa zamyka się).
+- Nie wchodzą: rewiry (odpadły) i wolniejszy wzrost drzew (zostaje jak jest).
+
+## Po 1.0 (lista pomysłów, nic z tego nie jest obiecane)
+- spowolnienie pojazdów przy brodzeniu przez strumień; więcej gatunków ptaków i zwierząt; kolejne ścieżki przyrodnicze.
 
 ## Zmiany w 0.9 (final) „Ludzie i przyroda”
 - **Czas:** tempo ×1 / ×2 / ×3 (×10 tylko świadomie: Shift + klik na „Czas”). Przycisk **„Do jutra” / „Do rana”** przewija czas do 6:00 i sam się przerywa przy nowym zgłoszeniu, interwencji, pauzie albo oknie. Noc nadal przewija się sama (×8), gdy nic się nie dzieje. Pilne zdarzenia wracają do ×1.

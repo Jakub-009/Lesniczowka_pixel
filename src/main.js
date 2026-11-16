@@ -1,4 +1,5 @@
 // Punkt wejścia: budowa świata, stały krok symulacji (60 Hz, przy przyspieszeniu kilka kroków na klatkę), kamera, zoom, pętla.
+import {SET,initGuide,openTutor,toggleSettings,startTempo,closeGuides} from './guide.js';
 import {C,ctx,VIEW,WORLD,$,clamp,keys,state,camera,RT,fx,DEBUG,DAY_S,SETTINGS,toast,active,VERSION,cal} from './core.js';
 import {buildGround,fadeMarks} from './paint.js';
 import {generate,updateFalls,trees,counts,dirtyAll,seasonGrow} from './forest.js';
@@ -147,9 +148,11 @@ $('#soundbtn').addEventListener('click',toggleSound);
 $('#helpbtn').addEventListener('click',()=>$('#help').classList.toggle('hidden'));
 $('#mapbtn').addEventListener('click',()=>toggleMap());
 $('#help-close').addEventListener('click',()=>$('#help').classList.add('hidden'));
+$('#help-tut').addEventListener('click',()=>{$('#help').classList.add('hidden');openTutor()});$('#help-set').addEventListener('click',()=>{$('#help').classList.add('hidden');toggleSettings(true)});
+initGuide();
 const begin=msg=>{state.playing=true;$('#overlay').classList.add('hidden');C.focus();if(state.mute)toggleSound();resumeSound();toast(msg)};
 if(hasSave()){$('#continue').style.display='block';$('#start').textContent='NOWA GRA'}
-$('#start').addEventListener('click',()=>{clearSave();begin('Witaj w leśnictwie! Przeciągnij mapę, kółko myszy przybliża. H — pomoc.')});
+$('#start').addEventListener('click',()=>{clearSave();begin('Witaj w leśnictwie! Przeciągnij mapę, kółko myszy przybliża. H — pomoc.');startTempo();if(SET.tut)openTutor()});
 $('#continue').addEventListener('click',()=>{if(loadGame()){hud();begin('Wczytano zapis. Gra zapisuje się sama co 30 s.')}else{toast('Nie udało się wczytać zapisu.');$('#continue').style.display='none'}});
 $('#newgame').addEventListener('click',()=>{clearSave();state.playing=false;location.reload()});
 addEventListener('beforeunload',saveGame);

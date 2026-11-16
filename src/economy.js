@@ -10,7 +10,8 @@ export const ECO={cover0:1,damage:0,renew:1,stumps:0,renewed:0,unrenewed:0,lastD
 export const DEBT_LIM=8000;
 // ── 0.9: faktury za pracę ekip i pożyczka z ratami (bez kar: upomnienie to jednorazowa, niewielka opłata) ──
 export const FIN={inv:[],accr:{},auto:false,loan:null,nid:1};
-export const LOAN={amount:10000,rate:.08,parts:6};
+// 1.0: trzy pożyczki (jedna naraz): im większa, tym wyższy procent i więcej rat
+export const LOANS=[{amount:5000,rate:.06,parts:4},{amount:15000,rate:.08,parts:6},{amount:25000,rate:.10,parts:8}];
 const invoices=()=>FIN.inv.filter(i=>!i.paid);
 export const owedTotal=()=>invoices().reduce((a,i)=>a+i.amount,0);
 export const owedCount=()=>invoices().length;
@@ -19,27 +20,37 @@ export function bill(n,what){FIN.accr[what]=(FIN.accr[what]||0)+n}
 function issueInvoice(){
  const items=Object.entries(FIN.accr).filter(([,v])=>v>=1),sum=Math.round(items.reduce((a,[,v])=>a+v,0));FIN.accr={};
  if(sum<1)return;
- const inv={id:FIN.nid++,day:state.days,due:state.days+SEASON_DAYS,amount:sum,base:sum,items:items.map(([k,v])=>[k,Math.round(v)]),paid:false,rem:false};
+ const inv={id:FIN.nid++,day:state.days,due:state.days+SEASON_DAYS,amount:sum,base:sum,items:items.map(([k,v])=>[k,Math.round(v)]),paid:false,rem:false,st:0};
  FIN.inv.push(inv);if(FIN.inv.length>40)FIN.inv.splice(0,FIN.inv.length-40);
- const m=mail('invoice','Faktura nr '+inv.id+' od ekipy pozyskowej: '+zl(sum)+' ('+inv.items.map(([k,v])=>k+' '+zl(v)).join(', ')+'). Termin płatności: '+SEASON_DAYS+' dni.',{quiet:true});m.inv=inv.id;
+ const m=mail('invoice','Faktura nr '+inv.id+' od ekipy pozyskowej: '+zl(sum)+' ('+inv.items.map(([k,v])=>k+' '+zl(v)).join(', ')+'). Termin płatności: '+SEASON_DAYS+' dni. Nieopłacona długo faktura kończy się wezwaniem, blokadą nowych zleceń i windykacją.',{quiet:true});m.inv=inv.id;
  if(FIN.auto)payInvoice(inv.id,true);
 }
 export function payInvoice(id,silent){
  const i=FIN.inv.find(q=>q.id===id);if(!i||i.paid)return false;
- if(state.money-i.amount<-DEBT_LIM){if(!silent)toast('Brak środków na fakturę nr '+i.id+' ('+zl(i.amount)+'). Sprzedaj drewno (K) albo zapłać później — termin nie wiąże się z karami poza jednorazową opłatą za upomnienie.');return false}
+ if(state.money-i.amount<-DEBT_LIM){if(!silent)toast('Brak środków na fakturę nr '+i.id+' ('+zl(i.amount)+'). Sprzedaj drewno (K) albo zapłać później — ale po terminie dochodzą opłaty, wezwanie i windykacja.');return false}
  pay(i.amount,'faktura nr '+i.id+' (ekipa pozyskowa)');i.paid=true;sfx('coin');if(!silent)toast('Zapłacono fakturę nr '+i.id+': '+zl(i.amount)+'.');return true}
 export function payAllInvoices(){let n=0,sum=0;for(const i of invoices().slice()){const a=i.amount;if(payInvoice(i.id,true)){n++;sum+=a}}toast(n?'Zapłacono '+n+' faktur na '+zl(sum)+'.':owedCount()?'Brak środków na zapłatę faktur.':'Nie ma faktur do zapłaty.');return n}
 export const toggleAutoPay=()=>{FIN.auto=!FIN.auto;toast(FIN.auto?'Faktury będą płacone automatycznie.':'Faktury płacisz sam (poczta albo karta leśniczówki).');if(FIN.auto)for(const i of invoices().slice())payInvoice(i.id,true)};
+// 1.0: kary za zwlekanie z płatnością (bez końca gry): 1) upomnienie po terminie (+5%, min. 40 zł), 2) wezwanie do zapłaty po kolejnej porze roku
+// (+10%, min. 80 zł; do zapłaty ekipy nie przyjmują nowych zleceń), 3) windykacja po trzech porach roku (+15%, min. 150 zł; bank ściąga należność z konta).
+export const dunning=()=>invoices().some(i=>(i.st||0)>=2);
 function remind(){
- for(const i of invoices()){if(i.rem||Math.floor(state.days)<Math.floor(i.due))continue;
-  const fee=Math.max(40,Math.round(i.base*.05));i.amount+=fee;i.rem=true;
-  const m=mail('invoice','Upomnienie do faktury nr '+i.id+': termin minął. Doliczono jednorazową opłatę '+zl(fee)+' — do zapłaty '+zl(i.amount)+'. Więcej upomnień nie będzie.',{quiet:true});m.inv=i.id}}
+ const dd=Math.floor(state.days);
+ for(const i of invoices().slice()){i.st=i.st||(i.rem?1:0);const late=dd-Math.floor(i.due);if(late<0)continue;
+  const note=t=>{const m=mail('invoice',t,{quiet:true});m.inv=i.id};
+  if(i.st<1){const fee=Math.max(40,Math.round(i.base*.05));i.amount+=fee;i.rem=true;i.st=1;
+   note('Upomnienie do faktury nr '+i.id+': termin minął. Doliczono opłatę '+zl(fee)+' — do zapłaty '+zl(i.amount)+'. Bez zapłaty za jedną porę roku dostaniesz wezwanie, a ekipy przestaną przyjmować nowe zlecenia.')}
+  else if(i.st<2&&late>=SEASON_DAYS){const fee=Math.max(80,Math.round(i.base*.1));i.amount+=fee;i.st=2;
+   note('WEZWANIE DO ZAPŁATY faktury nr '+i.id+'. Doliczono '+zl(fee)+' — do zapłaty '+zl(i.amount)+'. Do czasu zapłaty ekipy nie przyjmują nowych zleceń. Za kolejne trzy pory roku sprawę przejmie windykator.');toast('Wezwanie do zapłaty: ekipy wstrzymały nowe zlecenia do czasu opłacenia faktury nr '+i.id+'.')}
+  else if(i.st<3&&late>=SEASON_DAYS*3){const fee=Math.max(150,Math.round(i.base*.15));i.amount+=fee;i.st=3;
+   pay(i.amount,'windykacja faktury nr '+i.id);i.paid=true;i.forced=true;
+   note('WINDYKACJA: należność z faktury nr '+i.id+' wraz z kosztami ('+zl(fee)+') ściągnięto z konta: '+zl(i.amount)+'. Sprawa zamknięta.')}}}
 // Pożyczka: jedna naraz, 6 równych rat potrącanych na początku każdej pory roku (nie wstrzymuje gry, gdy saldo jest za niskie — rata idzie na debet).
-export function takeLoan(){
- if(FIN.loan){toast('Pożyczka jest już spłacana.');return}
- const total=Math.round(LOAN.amount*(1+LOAN.rate));FIN.loan={total,left:total,inst:Math.round(total/LOAN.parts),parts:LOAN.parts,partsLeft:LOAN.parts,day:state.days};
- state.money+=LOAN.amount;ECO.log.unshift({t:state.days,n:LOAN.amount,why:'pożyczka z banku'});sfx('coin');
- mail('money','Bank wypłacił pożyczkę '+zl(LOAN.amount)+'. Do oddania '+zl(total)+' w '+LOAN.parts+' ratach po '+zl(FIN.loan.inst)+' — raty schodzą na początku każdej pory roku.',{quiet:true});toast('Pożyczka '+zl(LOAN.amount)+' wpłynęła na konto.')}
+export function takeLoan(k=1){
+ if(FIN.loan){toast('Pożyczka jest już spłacana — jedna naraz.');return}
+ const LN=LOANS[k]||LOANS[1],total=Math.round(LN.amount*(1+LN.rate));FIN.loan={total,left:total,inst:Math.round(total/LN.parts),parts:LN.parts,partsLeft:LN.parts,day:state.days};
+ state.money+=LN.amount;ECO.log.unshift({t:state.days,n:LN.amount,why:'pożyczka z banku'});sfx('coin');
+ mail('money','Bank wypłacił pożyczkę '+zl(LN.amount)+'. Do oddania '+zl(total)+' w '+LN.parts+' ratach po '+zl(FIN.loan.inst)+' — raty schodzą na początku każdej pory roku.',{quiet:true});toast('Pożyczka '+zl(LN.amount)+' wpłynęła na konto.')}
 export function repayLoan(){
  const L=FIN.loan;if(!L)return;if(!canAfford(L.left,true))return;
  pay(L.left,'spłata pożyczki (całość)');FIN.loan=null;mail('money','Pożyczka spłacona w całości.',{quiet:true});toast('Pożyczka spłacona.')}

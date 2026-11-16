@@ -1,4 +1,5 @@
 // Mysz i klawiatura: przeciąganie mapy, kółko = zoom (całkowite skale, ostre piksele), kliknięcie = wybór lub polecenie narzędzia.
+import {closeTutor as closeTutorEsc} from './guide.js';
 import {C,$,keys,state,camera,VIEW,SETTINGS,DEBUG,toast,active} from './core.js';
 import {treeAt,STAND,STUMP,CUT_AGE,treesIn,testGrow} from './forest.js';
 import {HOUSE,inRect,offLimits} from './map.js';
@@ -75,7 +76,7 @@ export function bindInput(zoomFn){
   if(d.btn===2){state.poly=null;setTool('select');state.selected=null;return}
   if(!active())return;
   const [x,y]=toWorld(e);
-  if(state.tool==='mark'){const t=treeAt(x,y,t=>t.st===STAND);if(t){toggleMark(t);state.selected=t}else toast('Kliknij koronę drzewa.')}
+  if(state.tool==='mark'){const t=treeAt(x,y,t=>t.st===STAND);if(t){toggleMark(t);state.selected=t}else{if(state.selected)state.selected=null;else toast('Kliknij koronę drzewa.')}}   // 1.0: klik w puste miejsce zamyka kartę drzewa
   else if(state.tool==='plant')togglePlant(x,y);
   else if(state.tool==='plot'){
    if(state.poly){const P=state.poly;if(P.length>=3&&Math.hypot(x-P[0][0],y-P[0][1])<16)finishPoly();else P.push([x,y])}
@@ -107,7 +108,7 @@ export function bindInput(zoomFn){
   else if(k==='n'){state.noFF=!state.noFF;toast(state.noFF?'Noc płynie normalnie (N).':'Noc przewija się sama (N).')}
   else if(k==='f3')DEBUG.on=!DEBUG.on;
   else if(k==='f1'||k==='h')$('#help').classList.toggle('hidden');
-  else if(k==='escape'){setTool('select');state.selected=null;state.follow=null;$('#help').classList.add('hidden');toggleMail(false);toggleOdd(false)}
+  else if(k==='escape'){setTool('select');state.selected=null;state.follow=null;$('#help').classList.add('hidden');$('#settings').classList.add('hidden');closeTutorEsc();toggleMail(false);toggleOdd(false)}
   else if(k==='z')zoomFn(e.shiftKey?-1:1);else if(k==='+'||k==='=')zoomFn(-1);else if(k==='-')zoomFn(1);
   keys.add(k);hud();
  });

@@ -139,7 +139,13 @@ function paintTurns(){
 function paintWater(){
  g.lineJoin='round';g.lineCap='round';
  const n=STREAM.length,wd=i=>5+9*Math.pow(i/(n-1),.75)+1.2*Math.sin(i*.37);   // strumień: wąski przy źródle, szerszy w dole
- const layer=(extra,k,col)=>{g.strokeStyle=col;for(let i=0;i<n-1;i++){const A=STREAM[i],B=STREAM[i+1];g.lineWidth=wd(i)*k+extra;g.beginPath();g.moveTo(A[0],A[1]);g.lineTo(B[0],B[1]);g.stroke()}};
+ // 1.0: jedna maska wody — kształt mokradła (z szumem) liczony tak samo przy rysowaniu mokradeł i strumienia
+ const nzAt=(x,y)=>1+.26*(vn(x/26,y/26,21)-.5)*2+.08*(vn(x/9,y/9,25)-.5);
+ const wdN=(x,y,W)=>Math.hypot((x-W.x)/W.rx,(y-W.y)/W.ry)/nzAt(x,y);
+ const wdAny=(x,y)=>{let m=9;for(const W of WETLANDS)m=Math.min(m,wdN(x,y,W));return m};
+ // strumień zwęża się przy wejściu w pas trzcin (tam rozpada się na strużki), a odpływa wąską smugą i dopiero dalej się poszerza
+ const taper=i=>{const d=Math.min(wdAny(STREAM[i][0],STREAM[i][1]),wdAny(STREAM[i+1][0],STREAM[i+1][1]));return d<1.12?.42:d<2.5?.42+.58*(d-1.12)/1.38:1};
+ const layer=(extra,k,col)=>{g.strokeStyle=col;for(let i=0;i<n-1;i++){const A=STREAM[i],B=STREAM[i+1];g.lineWidth=(wd(i)*k+extra)*taper(i);g.beginPath();g.moveTo(A[0],A[1]);g.lineTo(B[0],B[1]);g.stroke()}};
  layer(22,1,'#7a9558');layer(15,1,'#76804e');layer(9,1,'#8c8658');layer(4,1,'#5f5a3e');layer(0,1,'#457b8b');layer(0,.62,'#5a94a2');
  // połyski i drobna fala wzdłuż nurtu
  for(let i=0;i<n-1;i++){if(hash(i,3,70)<.35)continue;const A=STREAM[i],B=STREAM[i+1],t=hash(i,4,70)-.5,w=wd(i)*.35,dx=B[0]-A[0],dy=B[1]-A[1],L=Math.hypot(dx,dy)||1;
@@ -156,7 +162,7 @@ function paintWater(){
  // mokradła: łąka turzycowa → pas trzcin i błota → płytka woda z liliami, kępy i martwe pnie
  for(const [wi,W] of WETLANDS.entries()){
   for(let y=W.y-W.ry*1.5;y<W.y+W.ry*1.5;y+=3)for(let x=W.x-W.rx*1.5;x<W.x+W.rx*1.5;x+=3){
-   const nz=1+.26*(vn(x/26,y/26,21)-.5)*2+.08*(vn(x/9,y/9,25)-.5),d=Math.hypot((x-W.x)/W.rx,(y-W.y)/W.ry)/nz;if(d>1.12)continue;
+   const d=wdN(x,y,W);if(d>1.12)continue;
    let c;if(d>1)c=mixc('#7d9a58','#8aa462',vn(x/7,y/7,26));
    else if(d>.84)c=mixc('#6f8a4a','#8a9a56',vn(x/8,y/8,22));
    else if(d>.6)c=mixc('#5d5a3e','#6e6a48',vn(x/10,y/10,23));
@@ -183,15 +189,28 @@ function paintWater(){
    for(let q=0;q<5;q++)rect(g,x-4+q*2,y-4-(q%2)*2,1,5+(q%2)*2,q%2?'#6f9a4a':'#86ae5c')}
  }
 
- // połączenie strumienia z mokradłem: kanał wcina się w pas trzcin i błota, rozszerza się ku stawowi, brzegi z błota i trzcin przykrywają szew
- const wd2=(i,A)=>{let m=9;for(const W of WETLANDS){const d=Math.hypot((A[0]-W.x)/W.rx,(A[1]-W.y)/W.ry);m=Math.min(m,d)}return m};
- const seg=[];for(let i=0;i<n-1;i++){const d=wd2(i,STREAM[i]);if(d<1.45&&d>.3)seg.push([i,d])}
- const lay=(extra,k,col)=>{g.strokeStyle=col;for(const [i,d] of seg){const A=STREAM[i],B=STREAM[i+1],m=1+Math.max(0,1.45-d)*.85;g.lineWidth=wd(i)*m*k+extra;g.beginPath();g.moveTo(A[0],A[1]);g.lineTo(B[0],B[1]);g.stroke()}};
- lay(9,1,'#6a6a46');lay(4,1,'#5d5a3e');lay(0,1,'#457b8b');lay(0,.6,'#5a94a2');
- for(const [i,d] of seg){const A=STREAM[i];if(d<.75)continue;
-  for(let q=0;q<3;q++){const a=hash(i,q,90)*6.283,r=8+hash(i,q,91)*12,x=A[0]+Math.cos(a)*r,y=A[1]+Math.sin(a)*r;if(wd2(0,[x,y])<.62)continue;
-   const h=3+((i+q)%5);rect(g,x,y-h+2,1,h,q%2?'#9a9a58':'#b8b070');if((i+q)%7===0)rect(g,x-1,y-h,3,3,'#5a3a24')}
-  if(i%5===0)rect(g,A[0]+(hash(i,1,92)-.5)*26,A[1]+(hash(i,2,92)-.5)*26,3,2,'#7d7e76')}
+ // 1.0: dopływ = kilka cienkich strużek przez pas błota ku wodzie; odpływ = wąska smuga z wody, poszerzająca się dalej w strumień.
+ // Źródło w mokradle NW ma tylko odpływ (wypływa spod trzcin).
+ const rill=(pts,lat,w0,w1,seed,fan)=>{
+  const P=pts.map((p,k)=>{const q=pts[Math.min(pts.length-1,k+1)],r=pts[Math.max(0,k-1)],dx=q[0]-r[0],dy=q[1]-r[1],L=Math.hypot(dx,dy)||1,t=k/(pts.length-1),
+   o=lat*Math.pow(Math.max(0,fan?(t-.12)/.88:t),1.15)+Math.sin(k*.9+seed)*1.6*(fan?t:1)+Math.sin(k*2.3+seed*2)*.8;return[p[0]-dy/L*o,p[1]+dx/L*o]});
+  for(const [col,add] of [['#5d5a3e',3.4],['#4f7f8c',0],['#6aa3b0',-1.2]]){g.strokeStyle=col;
+   for(let k=0;k<P.length-1;k++){const t=k/(P.length-1),w=(w0+(w1-w0)*t)+add;if(w<.8)continue;g.lineWidth=w;g.beginPath();g.moveTo(P[k][0],P[k][1]);g.lineTo(P[k+1][0],P[k+1][1]);g.stroke()}}
+  // błotniste łatki i trzciny przy strużce
+  for(let k=0;k<P.length;k+=2){const [x,y]=P[k];if(hash(k,seed*7|0,93)<.5)continue;
+   g.fillStyle='#5d5a3e90';g.beginPath();g.ellipse(x+(hash(k,1,93)-.5)*8,y+(hash(k,2,93)-.5)*8,3+hash(k,3,93)*3,1.6+hash(k,4,93)*1.5,0,0,6.28);g.fill();
+   const h=3+((k+seed)%4);rect(g,x+(hash(k,5,93)<.5?-1:1)*(w1+3),y-h+2,1,h,k%2?'#9a9a58':'#b8b070')}
+ };
+ for(const W of WETLANDS){
+  const dW=i=>wdN(STREAM[i][0],STREAM[i][1],W);let i=0;
+  while(i<n){if(dW(i)>=1.12){i++;continue}
+   const a=i;while(i<n&&dW(i)<1.12)i++;const b=i-1;
+   let wa=a;while(wa<=b&&dW(wa)>=.62)wa++;let wb=b;while(wb>=a&&dW(wb)>=.62)wb--;
+   if(a>0&&wa<=b){const pts=STREAM.slice(a-1,wa+1);
+    rill(pts,15,2.4,1.8,1.3,true);rill(pts,-13,2.2,1.6,3.1,true);rill(pts,0,3.4,2.6,5.7,false)}
+   if(b<n-1&&wb>=a){const pts=STREAM.slice(wb,Math.min(n,b+3));rill(pts,0,2.8,wd(b)*.42+1,2.2,false);
+    const p=STREAM[b+1];for(let q=0;q<7;q++){const x=p[0]+(hash(q,b,94)-.5)*26,y=p[1]+(hash(q,b,95)-.5)*22,h=3+(q%4);if(wdAny(x,y)<.9||!free(x,y))continue;rect(g,x,y-h+2,1,h,q%2?'#9a9a58':'#b8b070')}}}
+ }
 }
 // Przesieki: wąskie proste pasy trawy między oddziałami (dla pieszych i zwierząt, nie dla aut).
 function paintPrzesieki(){

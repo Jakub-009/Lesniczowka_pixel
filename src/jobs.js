@@ -8,7 +8,7 @@ import {paintRut} from './paint.js';
 import {E,NAV} from './ents.js';
 import {Vehicle,Ped,rand,cartRear,cartFront} from './life/agents.js';
 import {trees,STAND,STUMP,CUT_AGE,THIN_AGE,SP,startFall,finishTree,plantTree,volume,crownR,fallLen,speciesFor,treesIn,SAPLING_AGE,sortSplit,SORTS} from './forest.js';
-import {pay,bill,earn,planProgress,stat,canAfford,ECO,DEBT_LIM} from './economy.js';
+import {pay,bill,earn,planProgress,stat,canAfford,ECO,DEBT_LIM,dunning} from './economy.js';
 import {sfx} from './sound.js';
 import {pileTop} from './life/sprites.js';
 
@@ -100,6 +100,7 @@ export function clearOrders(){
  return list.length+pl.length+q;
 }
 export function dispatchCrew(){
+ if(dunning()){toast('Ekipy nie przyjmą nowych zleceń, dopóki nie opłacisz faktury po wezwaniu (poczta C albo L → Finanse).');return}
  const fell=trees.filter(t=>t.marked&&!t.assigned),pl=J.plants.filter(p=>!p.assigned);
  if(!fell.length&&!pl.length){toast('Brak zadań: wyznacz drzewa (klawisz 2) albo miejsca sadzenia (3).');return}
  if(!canAfford(fell.length?COST.fell*Math.min(fell.length,8):COST.plant*5,!!fell.length))return;
@@ -113,7 +114,7 @@ export function addCrewTasks(tasks,msg){launch(distribute(tasks),msg)}
 // Ekipy pracują pon.–pt. 7:00–17:00 i w sobotę do 13:00 (nowe zlecenie przyjmują do 16:30). Zimą nie sadzą (zamarznięta ziemia), wiosną nie tną w oddz. 103 (okres lęgowy).
 function startCrew(C){C.van=new Vehicle('van',ENTRY(rand()<.5));C.van.label='ekipa '+C.id;nextCluster(C)}
 const shiftOn=()=>cal.work(7,17);
-const WALK=360;   // maks. zasięg chodzenia ekipy od auta (px); 0.9: większy — ekipy rzadziej przesiadają się do auta
+const WALK=500;   // maks. zasięg chodzenia ekipy od auta (px); 0.9: większy — ekipy rzadziej przesiadają się do auta
 const isSan=k=>k.type==='fell'&&!!(k.t.san||k.t.kb);
 function holdReason(k){if(k.type==='plant'&&cal.season()===3)return 'zima';if(k.type==='fell'&&birdBan(k.t))return 'lęgi';return null}
 function nextCluster(C){
@@ -130,14 +131,17 @@ function nextCluster(C){
  // 0.9: auto stoi, a pierwsze zadanie jest w zasięgu chodzenia (nawet po drugiej stronie drogi) — idą pieszo, bez przejazdu
  if((v.parked||v.arrived)&&!v.off&&Math.hypot(fx-vx,fy-vy)<=WALK+60){
   C.cluster=C.tasks.filter(k=>{const [x,y]=tpos(k);return Math.hypot(x-vx,y-vy)<=WALK+60});C.tasks=C.tasks.filter(k=>!C.cluster.includes(k));C.odd=oddzial(fx,fy);startWork(C);return}
- const rp=nearestRoad(fx,fy,['forest','dukt'],{margin:50});
+ // 1.0: auto staje w miejscu drogi najbliższym środkowi grupy zadań (nie pierwszego z nich) — obejmuje więcej drzew i rzadziej trzeba je przestawiać
+ const grp=C.tasks.filter(k=>{const [x,y]=tpos(k);return Math.hypot(x-fx,y-fy)<340});
+ const gx=grp.reduce((a,k)=>a+tpos(k)[0],0)/grp.length,gy=grp.reduce((a,k)=>a+tpos(k)[1],0)/grp.length;
+ const rp=nearestRoad(gx,gy,['forest','dukt'],{margin:50});
  // klaster: tylko zadania w zasięgu chodzenia od miejsca postoju auta (nie dalej niż WALK, chyba że pierwsze zadanie samo jest dalej)
  const R=Math.max(WALK,Math.hypot(fx-rp.x,fy-rp.y)+60);
  C.cluster=C.tasks.filter((k,i)=>{if(i===0)return true;const [x,y]=tpos(k);return Math.hypot(x-rp.x,y-rp.y)<=R&&Math.hypot(x-fx,y-fy)<340});
  C.tasks=C.tasks.filter(k=>!C.cluster.includes(k));
  C.odd=oddzial(fx,fy);
  // auto już stoi przy tym miejscu (kilkadziesiąt px) — nie ruszamy go, ekipa od razu pracuje
- if((v.parked||v.arrived)&&!v.off&&Math.hypot(v.pos[0]-rp.x,v.pos[1]-rp.y)<90){startWork(C);return}
+ if((v.parked||v.arrived)&&!v.off&&Math.hypot(v.pos[0]-rp.x,v.pos[1]-rp.y)<150){startWork(C);return}
  C.phase='driving';v.label='ekipa '+C.id+' jedzie do oddz. '+C.odd;
  v.goTo({edge:rp.edge,s:rp.s},{park:true,onArrive:()=>startWork(C)});
 }
