@@ -20,10 +20,12 @@ const nearIdx=(P,pt)=>{let bi=0,bd=1e9;P.forEach((p,i)=>{const d=D(p,pt);if(d<bd
 
 // ── Szosa: łagodny łuk (y zależy od x) ──
 export const hy=x=>1724-26*Math.sin(Math.PI*(x+140)/3880);
-const HX={j1:820,j2:1700,j3:2600,j4:3260};
+const HX={j1:820,j2:1700};
 export const NODES={mW:[-140,hy(-140)],j1:[820,hy(820)],j2:[1700,hy(1700)],j3:[2600,hy(2600)],j4:[3260,hy(3260)],mE:[3740,hy(3740)],
  // dukty północne (zakręcone) i pętle
- a3:[820,1400],a1:[800,1000],b1:[1720,1150],b2:[1680,560],c1:[2600,1100],
+ a3:[820,1400],a1:[800,1000],b1:[1720,1150],
+ // 0.9: dukty leśne (wąskie, tylko dla wybranych pojazdów); węzły poza mapą to wyjścia dukt za jej krawędź
+ d1:[2756,1125],w2:[470,590],n3:[1700,-140],e4:[3740,1190],n1:[3740,420],
  // leśniczówka (0.6.4: zachód, przy szosie i wjeździe w duktę)
  l1:[720,1400],yd:[478,1400]};
 export const EDGES=[];
@@ -32,28 +34,22 @@ function mkEdge(a,b,kind,w,lane,pts){pts=dens(pts);pts[0]=NODES[a].slice();pts[p
 const F=(a,b,ctrl)=>mkEdge(a,b,'forest',40,7,cr([NODES[a],...ctrl,NODES[b]]));
 // szosa
 {const ks=['mW','j1','j2','j3','j4','mE'];for(let i=0;i<5;i++){const A=NODES[ks[i]],B=NODES[ks[i+1]],c=[];for(let x=A[0]+260;x<B[0]-130;x+=260)c.push([x,hy(x)]);mkEdge(ks[i],ks[i+1],'main',60,15,cr([A,...c,B]))}}
-// pętla południowa: prostokąt z zaokrąglonymi rogami, wyjazdy z szosy dokładnie naprzeciw dukt północnych (j1, j4) i środkowej (j2)
-{const P=rounded([[820,hy(820)],[820,2310],[3260,2310],[3260,hy(3260)]],110);
- NODES.s2=[1700,2310];const i2=nearIdx(P,NODES.s2);NODES.s2=P[i2].slice();
- const i3=nearIdx(P,[3260,2310]);NODES.se=P[i3].slice();
- mkEdge('j1','s2','forest',40,7,P.slice(0,i2+1));mkEdge('s2','se','forest',40,7,P.slice(i2,i3+1));mkEdge('se','j4','forest',40,7,P.slice(i3));
- mkEdge('j2','s2','forest',40,7,[NODES.j2,NODES.s2]);
- // ślepa droga z narożnika pętli do mokradła (paśnik P2); na końcu mały plac nawrotowy
- NODES.w1=[3392,2530];mkEdge('se','w1','forest',40,7,cr([NODES.se,[3300,2380],[3350,2450],NODES.w1]))}
-// dukty północne
+// pętla główna: szosa j1–j2 + droga leśna j1–a3–a1–b1–j2 (0.9: południowa część mapy wycięta)
 F('j1','a3',[[820,1560]]);
 F('a3','a1',[[842,1280],[812,1130]]);
-F('a1','b2',[[822,900],[840,780],[826,640],[850,540],[1000,480],[1200,505],[1420,590]]);
 F('a1','b1',[[1000,1060],[1250,1000],[1480,1110]]);
 F('j2','b1',[[1706,1500],[1740,1300]]);
-F('b1','b2',[[1745,950],[1690,780]]);
-F('b2','c1',[[1850,520],[2050,600],[2250,560],[2400,500],[2520,580],[2640,560],[2610,760],[2640,950]]);
-F('c1','j3',[[2570,1300],[2620,1500]]);
-F('c1','j4',[[2800,1050],[3000,1120],[3150,1115],[3230,1160],[3262,1250],[3260,1500]]);
+// dukty: wąskie drogi leśne (D3 na północ, D4 przez polanę na wschód, D1 w puszczę, D2 do mokradła bielika)
+const DK=(a,b,ctrl)=>mkEdge(a,b,'dukt',30,3,cr([NODES[a],...ctrl,NODES[b]]));
+DK('b1','n3',[[1745,950],[1690,780],[1680,560],[1690,380],[1710,150]]);
+DK('b1','d1',[[1856,1102],[2000,1114],[2098,1074],[2306,1102],[2531,1159]]);
+DK('d1','e4',[[3037,1170],[3319,1136],[3600,1181]]);
+DK('d1','n1',[[2869,984],[3015,832],[3206,675],[3403,551],[3600,450]]);
+DK('a1','w2',[[660,880],[560,760],[500,665]]);
 // droga do leśniczówki i podjazd
 F('a3','l1',[]);mkEdge('l1','yd','drive',44,0,[NODES.l1,NODES.yd]);
 // Place nawrotowe: jedynie mały plac na końcu ślepej drogi (u ślepego końca pojazd zawraca bez kosztu)
-export const TURNS=['w1'];
+export const TURNS=['w2'];
 
 // ── Dostęp do geometrii krzywej ──
 const idxAt=(e,s)=>{const c=e.cum;let lo=0,hi=c.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(c[m]<=s)lo=m;else hi=m}return lo};
@@ -102,52 +98,52 @@ export const PLAC_SPOTS=[{x:584,y:392+LDY,h:Math.PI/2},{x:664,y:392+LDY,h:Math.P
 
 // ── Polana z amboną: nieregularna (zatoki), uprawa w grodzeniu ──
 export const POLANA={x:2100,y:1060,r:150};
-export const polR=a=>POLANA.r*(1+.17*Math.sin(2*a+1)+.1*Math.sin(3*a+.5)+.06*Math.sin(5*a+2));
+// 0.9: trzy polany — główna z amboną (dukt D4 przechodzi przez nią), północna przy D3 i mała przy końcu D2
+export const POLANY=[POLANA,{x:1912,y:225,r:100,ph:1.7},{x:446,y:548,r:44,ph:3.1}];
+export const polR=(a,P=POLANA)=>P.r*(1+.17*Math.sin(2*a+1+(P.ph||0))+.1*Math.sin(3*a+.5+(P.ph||0))+.06*Math.sin(5*a+2));
 export const AMBONA={x:1958,y:1030};
+// 0.9: stałe miejsca ambon (pierwsza stoi od początku, kolejne pojawiają się po zakupie)
+export const AMBONY=[{name:'A1 (polana, oddz. 106)',x:1958,y:1030},{name:'A2 (oddz. 107)',x:2725,y:900},{name:'A3 (oddz. 102)',x:1500,y:675},{name:'A4 (oddz. 103)',x:2300,y:620},{name:'A5 (oddz. 108)',x:3200,y:880},{name:'A6 (oddz. 101)',x:1000,y:700},{name:'A7 (oddz. 107)',x:2550,y:1500},{name:'A8 (oddz. 105)',x:1000,y:1520}];
 // Szkółka leśna: ogrodzony plac w oddz. 101 od początku gry (pusty); kupno uruchamia produkcję sadzonek (0.7)
 
-// ── Mokradła i strumień (łańcuch: zachód → środek → południowy wschód) ──
-export const WETLANDS=[{x:470,y:1010,rx:120,ry:62},{x:1850,y:1430,rx:130,ry:70},{x:3440,y:2590,rx:115,ry:60}];
-export const STREAM=dens(cr([[585,1030],[700,1110],[850,1200],[1100,1260],[1400,1330],[1730,1400],[1850,1430],[1990,1455],[2090,1520],[2180,1610],[2230,1710],[2300,1830],[2450,1980],[2650,2090],[2850,2160],[3000,2200],[3100,2330],[3250,2420],[3380,2520],[3440,2590]]),10);
+// ── Mokradła i strumień (0.9: źródło w nowym mokradle NW → mokradło przy leśniczówce → środek → wypływ przez południową krawędź) ──
+export const WETLANDS=[{x:470,y:1010,rx:120,ry:62},{x:1850,y:1430,rx:130,ry:70},{x:330,y:420,rx:120,ry:62}];
+export const STREAM=dens(cr([[330,420],[300,560],[330,700],[420,820],[440,930],[470,1010],[585,1030],[700,1110],[850,1200],[1100,1260],[1400,1330],[1730,1400],[1850,1430],[1990,1455],[2090,1520],[2180,1610],[2230,1710],[2250,1790],[2262,1900]]),10);
 export const inWetland=(x,y,m=0)=>WETLANDS.some(w=>((x-w.x)/(w.rx+m))**2+((y-w.y)/(w.ry+m))**2<1);
 export function streamDist(x,y){let m=1e9;for(let i=0;i<STREAM.length-1;i++){const A=STREAM[i],B=STREAM[i+1];if(Math.abs(A[0]-x)>60&&Math.abs(B[0]-x)>60)continue;if(Math.abs(A[1]-y)>60&&Math.abs(B[1]-y)>60)continue;
  const dx=B[0]-A[0],dy=B[1]-A[1],l2=dx*dx+dy*dy||1;let t=((x-A[0])*dx+(y-A[1])*dy)/l2;t=t<0?0:t>1?1:t;m=Math.min(m,Math.hypot(x-A[0]-dx*t,y-A[1]-dy*t))}return m}
 export const inWater=(x,y,m=0)=>inWetland(x,y,m)||streamDist(x,y)<8+m;
 // paśniki: stałe miejsca (0.6.4 — wszystkie 4; od 0.9 gra zaczyna od jednego, resztę się dokupuje)
-export const FEEDERS=[{name:'P1 (polana)',x:POLANA.x+40,y:POLANA.y-60},{name:'P2 (mokradło SE)',x:3340,y:2560},{name:'P3 (mokradło przy leśniczówce)',x:548,y:1092},{name:'P4 (skraj puszczy)',x:2695,y:790}];
+export const FEEDERS=[{name:'P1 (polana)',x:POLANA.x+40,y:POLANA.y-60},{name:'P2 (mokradło NW)',x:402,y:506},{name:'P3 (mokradło przy leśniczówce)',x:548,y:1092},{name:'P4 (skraj puszczy)',x:2695,y:790}];
 // miejsca zarezerwowane na kolejne wersje: parking leśny przy szosie (0.8), ścieżka przyrodnicza (0.9), drogi pożarowe z tablicami (0.7)
 export const RESERVED=[{id:'sciezka',x:2840,y:1280,w:120,h:90}];
-export const FIRE_SIGNS=[{x:842,y:1250,n:1},{x:1740,y:1330,n:2},{x:2625,y:1390,n:3},{x:3280,y:1420,n:4}];
+export const FIRE_SIGNS=[{x:842,y:1250,n:1},{x:1740,y:1330,n:2},{x:2610,y:1215,n:3},{x:1775,y:880,n:4}];
 
 // ── Oddziały: regularna siatka przesiek (wąskie proste linie podziału, trawa i słupki; dla pieszych i zwierząt, nie dla aut) ──
 // 12 oddziałów 101–112 od NW do SE: trzy rzędy (północ I/II, południe) × cztery kolumny.
 export const GX=[1250,2150,2950],GY=870;
-export const PRZESIEKI=[...GX.map(x=>({x1:x,y1:0,x2:x,y2:1660,dir:'v'})),{x1:0,y1:GY,x2:WORLD.w,y2:GY,dir:'h'},...GX.map(x=>({x1:x,y1:1790,x2:x,y2:WORLD.h,dir:'v'}))];
+export const PRZESIEKI=[...GX.map(x=>({x1:x,y1:0,x2:x,y2:1660,dir:'v'})),{x1:0,y1:GY,x2:WORLD.w,y2:GY,dir:'h'}];
 export const onPrzesieka=(x,y,m=8)=>{for(const p of PRZESIEKI){if(p.dir==='v'){if(Math.abs(x-p.x1)<m&&y>p.y1&&y<p.y2)return true}else if(Math.abs(y-p.y1)<m)return true}return false};
 export const STANDS={
  '101':{name:'101',desc:'starodrzew sosnowy',mix:{sosna:.84,brzoza:.1,dab:.06},age:[66,88]},
  '102':{name:'102',desc:'świerczyna z brzozą',mix:{swierk:.55,brzoza:.25,sosna:.2},age:[38,62]},
  '103':{name:'103',desc:'dąbrowa z bukiem',mix:{dab:.46,buk:.4,sosna:.14},age:[82,115]},
- '104':{name:'104',desc:'puszcza: stary, ciemny drzewostan bez dróg',mix:{swierk:.46,buk:.28,dab:.16,sosna:.1},age:[96,130]},
+ '104':{name:'104',desc:'puszcza: stary, ciemny drzewostan, tylko wąski dukt',mix:{swierk:.46,buk:.28,dab:.16,sosna:.1},age:[96,130]},
  '105':{name:'105',desc:'las mieszany przy leśniczówce',mix:{swierk:.38,buk:.36,brzoza:.26},age:[48,76]},
  '106':{name:'106',desc:'młodszy bór mieszany',mix:{sosna:.6,dab:.24,brzoza:.16},age:[32,50]},
  '107':{name:'107',desc:'stara świerczyna',mix:{swierk:.7,sosna:.15,brzoza:.15},age:[70,96]},
- '108':{name:'108',desc:'bór sosnowy w średnim wieku',mix:{sosna:.8,brzoza:.12,dab:.08},age:[40,62]},
- '109':{name:'109',desc:'młodszy bór sosnowy przy szosie',mix:{sosna:.74,brzoza:.2,swierk:.06},age:[24,42]},
- '110':{name:'110',desc:'bór sosnowy w środku pętli',mix:{sosna:.72,brzoza:.18,swierk:.1},age:[34,58]},
- '111':{name:'111',desc:'młode sosny z brzozą',mix:{sosna:.76,brzoza:.24},age:[18,36]},
- '112':{name:'112',desc:'grąd przy mokradle: dąb, buk, brzoza',mix:{dab:.36,buk:.34,brzoza:.2,sosna:.1},age:[60,92]}
+ '108':{name:'108',desc:'bór sosnowy w średnim wieku',mix:{sosna:.8,brzoza:.12,dab:.08},age:[40,62]}
 };
 export function oddzial(x,y){
- const r=y<GY?0:y<1720?1:2,c=x<GX[0]?0:x<GX[1]?1:x<GX[2]?2:3;return String(101+r*4+c)}
+ const r=y<GY?0:1,c=x<GX[0]?0:x<GX[1]?1:x<GX[2]?2:3;return String(101+r*4+c)}
 // Słupki oddziałowe: skrzyżowania przesiek i miejsca, gdzie przesieki dochodzą do szosy (numery sąsiednich oddziałów).
 const st=(r,c)=>String(101+r*4+c);
 export const POSTS=[...GX.flatMap((x,i)=>[{x:x+14,y:GY+14,n:[st(0,i)+' '+st(0,i+1),st(1,i)+' '+st(1,i+1)]},
- {x:x+14,y:hy(x)-46,n:[st(1,i)+' '+st(1,i+1)]},{x:x+14,y:hy(x)+52,n:[st(2,i)+' '+st(2,i+1)]}])];
+ {x:x+14,y:hy(x)-46,n:[st(1,i)+' '+st(1,i+1)]}])];
 // Szlabany na wjazdach z szosy w dukty i tablica leśnictwa.
 export const BARRIERS=[];{   // 0.7.2: słup na poboczu dukty, ramię wzdłuż drogi (otwarte); pozycja liczona z geometrii dukty
  const fe=EDGES.filter(e=>e.kind==='forest'),near=(x,y)=>{let b=null;for(const e of fe)for(let s=0;s<=e.len;s+=6){const p=ptAt(e,s),d=Math.hypot(p[0]-x,p[1]-y);if(!b||d<b.d)b={d,x:p[0],y:p[1],tx:p[2],ty:p[3]}}return b};
- for(const k of ['j1','j2','j3','j4'])for(const sg of [-1,1]){if(k==='j3'&&sg>0)continue;const x=HX[k],y=hy(x)+(k==='j2'&&sg<0?205:84)*sg,b=near(x,y);   // 0.8.3: szlaban przy j2 dalej od szosy — przed nim jest zatoka parkingowa
+ for(const k of ['j1','j2'])for(const sg of [-1]){const x=HX[k],y=hy(x)+(k==='j2'&&sg<0?205:84)*sg,b=near(x,y);   // 0.8.3: szlaban przy j2 dalej od szosy — przed nim jest zatoka parkingowa
   let nx=-b.ty,ny=b.tx;if(nx<0||(Math.abs(nx)<.2&&ny<0)){nx=-nx;ny=-ny}
   const a=b.ty*(b.y-hy(b.x))>0?1:-1;BARRIERS.push({x:b.x+nx*32,y:b.y+ny*32,bx:b.tx*a,by:b.ty*a})}
 }
@@ -178,5 +174,5 @@ export function pointBlocked(x,y,r=6){
  return false;
 }
 export const inRect=(x,y,R,m=0)=>x>R.x-m&&x<R.x+R.w+m&&y>R.y-m&&y<R.y+R.h+m;
-export const inPolana=(x,y,m=0)=>Math.hypot(x-POLANA.x,y-POLANA.y)<polR(Math.atan2(y-POLANA.y,x-POLANA.x))+m;
+export const inPolana=(x,y,m=0)=>POLANY.some(P=>Math.hypot(x-P.x,y-P.y)<polR(Math.atan2(y-P.y,x-P.x),P)+m);
 export const inWorld=(x,y,m=0)=>x>m&&y>m&&x<WORLD.w-m&&y<WORLD.h-m;

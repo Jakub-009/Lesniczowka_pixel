@@ -20,7 +20,7 @@ import {BASE} from './base.js';
 import {hirePod,ASSESS} from './incidents.js';
 import {saveHealth,loadHealth} from './health.js';
 import {serializeMail,loadMail} from './mail.js';
-const KEY='lesniczowka-save-3';   // 0.6.4: nowy układ map — zapisy sprzed 0.6.4 nie pasują (ostatnie złamanie zapisu)
+const KEY='lesniczowka-save-4';   // 0.9: mapa przycięta (bez części południowej, dukty) — zapisy sprzed 0.9 nie pasują; zaczyna się nową grę
 const FADE=.88;   // koleiny i bruzdy blakną o 12% dziennie
 export function hasSave(){try{return !!localStorage.getItem(KEY)}catch(e){return false}}
 export function clearSave(){try{localStorage.removeItem(KEY)}catch(e){}}

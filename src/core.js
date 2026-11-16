@@ -15,7 +15,7 @@ export const angDiff=(a,b)=>{let d=(b-a)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;i
 export const LIGHT={x:.84,y:.54};
 export function shadow(g,x,y,w,h,height=45){const dx=LIGHT.x*height,dy=LIGHT.y*height;poly(g,[[x+6,y+6],[x+w+6,y+6],[x+w+dx,y+h+dy],[x+dx,y+h+dy]],'#40564268')}
 
-export const WORLD={w:3600,h:2700};
+export const WORLD={w:3600,h:1850};
 export const PX_PER_M=12;
 
 // ── Kalendarz (0.2) ──

@@ -1,5 +1,5 @@
 // Porządek w lesie (0.8.2, przerobiony w 0.8.3): dzikie wysypiska i firma wywozowa, Policja wzywana na miejscu zdarzenia, fotopułapki, szlabany z rury i zatoka parkingowa.
-import {state,toast,cal,clamp,rect,line,DAY_S,zl,hash,camera,VIEW} from './core.js';
+import {state,toast,cal,clamp,rect,line,DAY_S,zl,hash,camera,VIEW,WORLD} from './core.js';
 import {EDGES,BARRIERS,oddzial,roadClearance,ptAt,hy} from './map.js';
 import {ENTRY,exitNode,goalNode,nearestRoad,pointOn} from './roads.js';
 import {E,NAV} from './ents.js';
@@ -20,18 +20,22 @@ export const barClosed=()=>!!ECO.ord.bar;
 export const parkingOn=()=>!!ECO.ord.parking;
 // ogólny mnożnik nielegalnych wjazdów: zamknięte szlabany odstraszają co najmniej połowę
 export const illegalFactor=()=>ECO.ord.bar?.5:1;
-// Zatoka parkingowa (0.8.3): przy drodze leśnej j2–b1, tuż za szosą i przed szlabanem. Współrzędne lokalne (v — w bok od osi drogi na wschód, s — wzdłuż drogi od szosy).
-const LBE=EDGES.find(e=>e.id==='j2-b1');
-const lb=(v,s)=>{const p=ptAt(LBE,s);return[p[0]-p[3]*v,p[1]+p[2]*v]};
-export const LAYBY={e:LBE,slots:[{v:42,s:126,car:null},{v:42,s:178,car:null}],approach:62,poly:[[20,58],[74,84],[74,196],[20,222]]};
-// wolne miejsce dla odwiedzającego (albo -1)
-export const freeSlot=()=>{if(!ECO.ord.parking)return -1;const f=LAYBY.slots.map((q,i)=>(!q.car||q.car.dead||q.car.leave)?i:-1).filter(i=>i>=0);return f.length?f[Math.floor(rand()*f.length)]:-1};
+// Zatoka parkingowa (0.8.3; od 0.9 jedna na każdym wjeździe z szosy): przy drodze leśnej tuż za szosą i przed szlabanem.
+// Współrzędne lokalne (v — w bok od osi drogi, s — wzdłuż drogi od szosy); sg=+1 zatoka po wschodniej stronie drogi, -1 po zachodniej.
+const mkBay=(id,sg)=>({e:EDGES.find(q=>q.id===id),sg,slots:[{v:42,s:126,car:null},{v:42,s:178,car:null}],approach:62,poly:[[20,58],[74,84],[74,196],[20,222]]});
+export const LAYBYS=[mkBay('j2-b1',1),mkBay('j1-a3',-1)];
+const lb=(B,v,s)=>{const p=ptAt(B.e,s);return[p[0]-p[3]*v*B.sg,p[1]+p[2]*v*B.sg]};
+const SLOTS=LAYBYS.flatMap(B=>B.slots.map(q=>({B,q})));
+// wolne miejsce dla odwiedzającego (albo -1): indeks wspólny dla obu zatok
+export const freeSlot=()=>{if(!ECO.ord.parking)return -1;const f=SLOTS.map((o,i)=>(!o.q.car||o.q.car.dead||o.q.car.leave)?i:-1).filter(i=>i>=0);return f.length?f[Math.floor(rand()*f.length)]:-1};
 export function parkInBay(v,i,cb){
- const q=LAYBY.slots[i];q.car=v;const [x0,y0]=lb(16,LAYBY.approach+10),[x1,y1]=lb(q.v,Math.min(q.s-32,96)),[x2,y2]=lb(q.v,q.s);
- v.driveOff([[x0,y0],[x1,y1],[x2,y2]],{onArrive:()=>{v.v=0;v.parked=true;cb&&cb(lb(q.v+26,q.s))}});
+ const {B,q}=SLOTS[i];q.car=v;const [x0,y0]=lb(B,16,B.approach+10),[x1,y1]=lb(B,q.v,Math.min(q.s-32,96)),[x2,y2]=lb(B,q.v,q.s);
+ v.driveOff([[x0,y0],[x1,y1],[x2,y2]],{onArrive:()=>{v.v=0;v.parked=true;cb&&cb(lb(B,q.v+26,q.s))}});
 }
 // fotopułapki wiszą na słupkach szlabanów przy czterech wjazdach
-export const CAM_SPOTS=[0,2,4,5].map(i=>BARRIERS[i]).filter(Boolean);
+// 0.9: dwa wjazdy z szosy (j1, j2) + trzy wyjścia dukt za krawędź mapy (tam intruzi omijają szlabany)
+const edgeSpot=(id,fromEnd)=>{const e=EDGES.find(q=>q.id===id);if(!e)return null;for(let s=fromEnd?e.len:0;fromEnd?s>=0:s<=e.len;s+=fromEnd?-6:6){const p=ptAt(e,s);if(p[0]>70&&p[0]<WORLD.w-70&&p[1]>70&&p[1]<WORLD.h-70)return{x:p[0]+p[3]*30,y:p[1]-p[2]*30}}return null};
+export const CAM_SPOTS=[...BARRIERS,edgeSpot('b1-n3',true),edgeSpot('d1-e4',true),edgeSpot('d1-n1',true)].filter(Boolean);
 
 // ───────── dzikie wysypiska ─────────
 const forestEdges=()=>EDGES.filter(e=>e.kind==='forest'&&e.a!=='l1'&&e.b!=='l1'&&e.a!=='a3'&&e.b!=='a3');
@@ -117,14 +121,14 @@ export function buyCams(){
 }
 export function toggleBarriers(){
  ECO.ord.bar=!ECO.ord.bar;
- toast(ECO.ord.bar?'Szlabany zamknięte: o połowę mniej nielegalnych wjazdów'+(parkingOn()?'.':', ale grzybiarzy i spacerowiczów też będzie mniej. Parking leśny przy szosie to zmniejsza.'):'Szlabany otwarte.');
+ toast(ECO.ord.bar?'Szlabany zamknięte: mniej nielegalnych wjazdów od szosy (dukty na skraju lasu nie mają szlabanów)'+(parkingOn()?'.':', ale grzybiarzy i spacerowiczów też będzie mniej. Parking leśny przy szosie to zmniejsza.'):'Szlabany otwarte.');
 }
 export function buyParking(){
  if(parkingOn()){toast('Parking leśny już stoi.');return}
  if(!canAfford(COSTS.parking))return;pay(COSTS.parking,'parking leśny z koszem');ECO.ord.parking=true;
- {const pts=LAYBY.poly.flatMap(([v,t])=>[lb(v,t),lb(v+34,t)]),x0=Math.min(...pts.map(q=>q[0]))-16,x1=Math.max(...pts.map(q=>q[0]))+16,y0=Math.min(...pts.map(q=>q[1]))-16,y1=Math.max(...pts.map(q=>q[1]))+16;
+ for(const B of LAYBYS){const pts=B.poly.flatMap(([v,t])=>[lb(B,v,t),lb(B,v+34,t)]),x0=Math.min(...pts.map(q=>q[0]))-16,x1=Math.max(...pts.map(q=>q[0]))+16,y0=Math.min(...pts.map(q=>q[1]))-16,y1=Math.max(...pts.map(q=>q[1]))+16;
   for(const t of treesIn(x0,y0,x1,y1).slice())if(t.x>x0&&t.x<x1&&t.y>y0&&t.y<y1)removeTree(t)}
- toast('Zatoka parkingowa z koszem i stołem gotowa przy drodze leśnej tuż za szosą: odwiedzający zostawiają mniej śmieci, a przy zamkniętych szlabanach nadal mają gdzie zaparkować ('+zl(COSTS.parkingDay)+' dziennie za wywóz kosza).');
+ toast('Dwie zatoki parkingowe z koszem i stołem gotowe przy obu wjazdach w las, tuż za szosą: odwiedzający zostawiają mniej śmieci, a przy zamkniętych szlabanach nadal mają gdzie zaparkować ('+zl(COSTS.parkingDay)+' dziennie za wywóz kosza).');
 }
 export const ordDaily=()=>(ECO.ord.cams?COSTS.camsDay:0)+(ECO.ord.parking?COSTS.parkingDay:0);
 
@@ -143,7 +147,7 @@ export function updateOrder(dt){
  updatePolice(dt);
  const tg=ECO.ord.bar?1:0;swing=swing==null?tg:swing+clamp(tg-swing,-dt*.45,dt*.45);
 }
-HK.waste=orderWaste;HK.police=dispatchPolice;HK2.free=freeSlot;HK2.edge=()=>LAYBY.e;HK2.approach=()=>LAYBY.approach;HK2.park=parkInBay;HK2.reserve=(i,v)=>{LAYBY.slots[i].car=v};
+HK.waste=orderWaste;HK.police=dispatchPolice;HK2.free=freeSlot;HK2.edge=i=>SLOTS[i].B.e;HK2.approach=i=>SLOTS[i].B.approach;HK2.park=parkInBay;HK2.reserve=(i,v)=>{SLOTS[i].q.car=v};
 
 // ───────── rysowanie ─────────
 // ── szlabany: dwa słupki przy dukcie i czerwono-biała rura na zawiasie (otwarty: wzdłuż drogi, zamknięty: w poprzek, na kłódkę) ──
@@ -174,26 +178,26 @@ function drawBarrier(c,b){
  if(k>.97){rect(c,ex-2,ey-1,5,5,'#2c2a26');rect(c,ex-1,ey,3,3,'#d4b24a')}   // kłódka
 }
 function drawParking(c,winter){
- if(ECO.ord.parking){
-  const [mx,my]=lb(40,140);if(!vis_(mx,my,150))return;
+ if(ECO.ord.parking)for(const B of LAYBYS){
+  const [mx,my]=lb(B,40,140);if(!vis_(mx,my,150))continue;
   // żwir
-  const poly=(pts,col)=>{c.fillStyle=col;c.beginPath();pts.forEach(([v,s],i)=>{const [x,y]=lb(v,s);i?c.lineTo(Math.round(x),Math.round(y)):c.moveTo(Math.round(x),Math.round(y))});c.closePath();c.fill()};
-  const P=LAYBY.poly;poly(P.map(([v,s])=>[v-2,s]),'#7d7461');poly([[22,61],[72,86],[72,194],[22,219]],'#a39a82');poly([[26,68],[68,90],[68,190],[26,213]],'#aea58c');
-  for(let i=0;i<70;i++){const v=24+hash(i,3,9)*46,s=70+hash(i,7,2)*140,[x,y]=lb(v,s);rect(c,x,y,1+(i%3===0),1,i%2?'#c2b99f':'#8f866f')}
-  for(const q of LAYBY.slots){const [x,y]=lb(q.v+1,q.s);c.globalAlpha=.16;rect(c,x-12,y-26,3,52,'#4a4332');rect(c,x+9,y-26,3,52,'#4a4332');c.globalAlpha=1}   // koleiny
+  const poly=(pts,col)=>{c.fillStyle=col;c.beginPath();pts.forEach(([v,s],i)=>{const [x,y]=lb(B,v,s);i?c.lineTo(Math.round(x),Math.round(y)):c.moveTo(Math.round(x),Math.round(y))});c.closePath();c.fill()};
+  const P=B.poly;poly(P.map(([v,s])=>[v-2,s]),'#7d7461');poly([[22,61],[72,86],[72,194],[22,219]],'#a39a82');poly([[26,68],[68,90],[68,190],[26,213]],'#aea58c');
+  for(let i=0;i<70;i++){const v=24+hash(i,3,9)*46,s=70+hash(i,7,2)*140,[x,y]=lb(B,v,s);rect(c,x,y,1+(i%3===0),1,i%2?'#c2b99f':'#8f866f')}
+  for(const q of B.slots){const [x,y]=lb(B,q.v+1,q.s);c.globalAlpha=.16;rect(c,x-12,y-26,3,52,'#4a4332');rect(c,x+9,y-26,3,52,'#4a4332');c.globalAlpha=1}   // koleiny
   // bale: rząd kłód wzdłuż skraju i na końcach
-  const log=(v,s,len,ang)=>{const [x,y]=lb(v,s),dx=Math.cos(ang)*len/2,dy=Math.sin(ang)*len/2;line(c,x-dx+2,y-dy+3,x+dx+2,y+dy+3,'#0000002e',6);line(c,x-dx,y-dy,x+dx,y+dy,'#5c4630',6);line(c,x-dx,y-dy-1,x+dx,y+dy-1,'#7a5e40',3);rect(c,x+dx-1,y+dy-2,3,5,'#c9a878')};
-  const ang=Math.atan2(ptAt(LBE,120)[3],ptAt(LBE,120)[2]);
+  const log=(v,s,len,ang)=>{const [x,y]=lb(B,v,s),dx=Math.cos(ang)*len/2,dy=Math.sin(ang)*len/2;line(c,x-dx+2,y-dy+3,x+dx+2,y+dy+3,'#0000002e',6);line(c,x-dx,y-dy,x+dx,y+dy,'#5c4630',6);line(c,x-dx,y-dy-1,x+dx,y+dy-1,'#7a5e40',3);rect(c,x+dx-1,y+dy-2,3,5,'#c9a878')};
+  const ang=Math.atan2(ptAt(B.e,120)[3],ptAt(B.e,120)[2]);
   for(let s=92;s<=196;s+=26)log(78,s,24,ang);
   log(72,82,14,ang+.7);log(72,206,14,ang-.7);
   // kosz na śmieci
-  {const [x,y]=lb(66,190);c.fillStyle='#00000030';c.fillRect(Math.round(x)-3,Math.round(y)-1,10,10);rect(c,x-3,y-5,8,9,'#14201a');rect(c,x-2,y-4,6,7,'#3f8a52');rect(c,x-2,y-4,6,2,'#5fae72')}
+  {const [x,y]=lb(B,66,190);c.fillStyle='#00000030';c.fillRect(Math.round(x)-3,Math.round(y)-1,10,10);rect(c,x-3,y-5,8,9,'#14201a');rect(c,x-2,y-4,6,7,'#3f8a52');rect(c,x-2,y-4,6,2,'#5fae72')}
   // znak „P” na słupku przy wjeździe
-  {const [x,y]=lb(66,66);rect(c,x,y-2,2,12,'#4a4a46');c.fillStyle='#00000030';c.fillRect(Math.round(x)-4,Math.round(y)+8,12,3);rect(c,x-6,y-14,14,13,'#14201a');rect(c,x-5,y-13,12,11,'#2f5ea8');rect(c,x-2,y-11,2,7,'#f1e6c2');rect(c,x-2,y-11,5,2,'#f1e6c2');rect(c,x-2,y-8,5,2,'#f1e6c2');rect(c,x+2,y-10,1,3,'#f1e6c2')}
+  {const [x,y]=lb(B,66,66);rect(c,x,y-2,2,12,'#4a4a46');c.fillStyle='#00000030';c.fillRect(Math.round(x)-4,Math.round(y)+8,12,3);rect(c,x-6,y-14,14,13,'#14201a');rect(c,x-5,y-13,12,11,'#2f5ea8');rect(c,x-2,y-11,2,7,'#f1e6c2');rect(c,x-2,y-11,5,2,'#f1e6c2');rect(c,x-2,y-8,5,2,'#f1e6c2');rect(c,x+2,y-10,1,3,'#f1e6c2')}
   // stół z ławami za bali
-  {const [x,y]=lb(94,140),A=ang;c.save();c.translate(Math.round(x),Math.round(y));c.rotate(A);
+  {const [x,y]=lb(B,94,140),A=ang;c.save();c.translate(Math.round(x),Math.round(y));c.rotate(A);
    c.fillStyle='#00000030';c.fillRect(-4,-9,12,20);rect(c,-3,-9,6,18,'#6b5238');rect(c,-2,-9,4,18,'#8b6c48');rect(c,-8,-8,3,16,'#6b5238');rect(c,-7,-8,1,16,'#8b6c48');rect(c,5,-8,3,16,'#6b5238');rect(c,5,-8,1,16,'#8b6c48');c.restore()}
-  if(winter){const pts=LAYBY.poly;c.globalAlpha=.6;poly(pts,'#e8eef2');c.globalAlpha=1}
+  if(winter){const pts=B.poly;c.globalAlpha=.6;poly(pts,'#e8eef2');c.globalAlpha=1}
  }
 }
 export function drawOrder(c,winter){

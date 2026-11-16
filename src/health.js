@@ -79,7 +79,7 @@ export function strike(){
   if(rand()<p*(1-Math.hypot(t.x-cx,t.y-cy)/R*.5)){t.kb=4;t.kbT=state.days;dirtyTree(t);down.push(t);if(++n>=70)break}}
  let bl=0;
  for(const t of down){if(bl>=2)break;
-  const rp=nearestRoad(t.x,t.y,['forest'],{margin:30});
+  const rp=nearestRoad(t.x,t.y,['forest','dukt'],{margin:30});
   if(!rp||rp.d>70||rp.edge.a==='l1'||rp.edge.b==='l1'||HL.blocks.some(b=>b.edge===rp.edge&&Math.abs(b.s-rp.s)<150))continue;
   const p=ptAt(rp.edge,rp.s),b={edge:rp.edge,e:rp.edge.id,s:rp.s,x:p[0],y:p[1],ang:Math.atan2(p[3],p[2])+Math.PI/2};
   rp.edge.blocked=true;HL.blocks.push(b);bl++;

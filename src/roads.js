@@ -5,7 +5,7 @@ const ADJ={};for(const k in NODES)ADJ[k]=[];
 for(const e of EDGES){ADJ[e.a].push({edge:e,to:e.b});ADJ[e.b].push({edge:e,to:e.a})}
 export const neighbours=k=>ADJ[k];
 export const edgeOf=(a,b)=>ADJ[a].find(n=>n.to===b)?.edge;
-export const ALL=['main','forest','drive'];
+export const ALL=['main','forest','drive','dukt'];
 export const offMap=k=>{const p=NODES[k];return p[0]<0||p[0]>WORLD.w||p[1]<0||p[1]>WORLD.h};
 // Wjazd na mapę (zachód / wschód) i najbliższy wyjazd.
 export const ENTRY=w=>w?{from:'mW',to:'j1',s:0}:{from:'mE',to:'j4',s:0};

@@ -29,18 +29,20 @@ export const cartFront=c=>{const d=CARTS[c.kind],f=fwd(c.angle);return[c.x+f[0]*
 
 // ───────── pojazdy ─────────
 // prędkości w px/s (12 px = 1 m); forest = mnożnik na drodze leśnej, off = prędkość w terenie, wb = rozstaw osi (promień skrętu)
+// 0.9: wąskie dukty leśne — tylko leśniczy, ekipy, maszyny zrywkowe, quady/crossy oraz służby (ciężarówka, śmieciarka, auta odwiedzających i rowery zostają na drogach)
+const DUKT=['main','forest','dukt'];
 export const VSPEC={
  car:{speed:100,forest:.55,acc:38,hw:10,hh:23,wb:30,name:'samochód osobowy'},
- patrol:{speed:104,forest:.62,acc:42,hw:11,hh:25,wb:32,name:'terenówka leśniczego',allow:['main','forest','drive']},
- van:{speed:88,forest:.6,acc:32,hw:11,hh:27,wb:34,name:'bus ekipy leśnej'},
- tractor:{speed:42,forest:.9,off:20,acc:14,hw:16,hh:30,wb:30,hitch:31,cart:'forest',name:'ciągnik z wyciągarką'},
- forwarder:{speed:48,forest:.9,off:30,acc:16,hw:15,hh:19,wb:22,hitch:21,cart:'bunk',name:'forwarder (zrywka)'},
- plower:{speed:40,forest:.9,off:16,acc:14,hw:16,hh:30,wb:30,hitch:31,cart:'plow',name:'ciągnik z pługiem LPz'},
+ patrol:{speed:104,forest:.62,acc:42,hw:11,hh:25,wb:32,name:'terenówka leśniczego',allow:['main','forest','drive','dukt']},
+ van:{speed:88,forest:.6,acc:32,hw:11,hh:27,wb:34,name:'bus ekipy leśnej',allow:DUKT},
+ tractor:{speed:42,forest:.9,off:20,acc:14,hw:16,hh:30,wb:30,hitch:31,cart:'forest',name:'ciągnik z wyciągarką',allow:DUKT},
+ forwarder:{speed:48,forest:.9,off:30,acc:16,hw:15,hh:19,wb:22,hitch:21,cart:'bunk',name:'forwarder (zrywka)',allow:DUKT},
+ plower:{speed:40,forest:.9,off:16,acc:14,hw:16,hh:30,wb:30,hitch:31,cart:'plow',name:'ciągnik z pługiem LPz',allow:DUKT},
  truck:{speed:82,forest:.55,acc:20,hw:14,hh:37,wb:44,hitch:34,cart:'log',name:'ciągnik siodłowy z wózkiem do dłużycy'},
- quad:{speed:70,forest:1,acc:40,hw:7,hh:11,wb:16,wild:true,name:'quad'},
- cross:{speed:80,forest:1,acc:45,hw:3,hh:11,wb:16,wild:true,name:'motocykl crossowy'},
- firetruck:{speed:92,forest:.6,acc:34,hw:13,hh:34,wb:40,name:'wóz strażacki',allow:['main','forest']},
- police:{speed:110,forest:.62,acc:46,hw:10,hh:24,wb:30,name:'radiowóz Policji'},
+ quad:{speed:70,forest:1,acc:40,hw:7,hh:11,wb:16,wild:true,name:'quad',allow:DUKT},
+ cross:{speed:80,forest:1,acc:45,hw:3,hh:11,wb:16,wild:true,name:'motocykl crossowy',allow:DUKT},
+ firetruck:{speed:92,forest:.6,acc:34,hw:13,hh:34,wb:40,name:'wóz strażacki',allow:DUKT},
+ police:{speed:110,forest:.62,acc:46,hw:10,hh:24,wb:30,name:'radiowóz Policji',allow:DUKT},
  waste:{speed:70,forest:.5,acc:20,hw:13,hh:35,wb:42,name:'śmieciarka firmy wywozowej'},
  bike:{speed:28,forest:.9,acc:14,hw:3,hh:9,wb:14,rider:true,name:'rowerzysta'}
 };
@@ -120,7 +122,7 @@ export class Vehicle{
   if(this.stopped||this.parked||this.arrived)return 0;
   let sp;
   if(this.off){sp=this.spec.off||this.spec.speed*.4;if(this.off.work)sp=Math.min(sp,this.off.workSpeed||14)}
-  else sp=this.spec.speed*(this.edge.kind==='forest'?(this.beacon?.92:this.spec.forest):this.edge.kind==='drive'?.35:1)*this.speedMul;
+  else sp=this.spec.speed*(this.edge.kind==='forest'?(this.beacon?.92:this.spec.forest):this.edge.kind==='dukt'?this.spec.forest*.85:this.edge.kind==='drive'?.35:1)*this.speedMul;
   const [cx,cy]=this.carrot(),want=Math.atan2(cx-this.pos[0],-(cy-this.pos[1])),err=Math.abs(angDiff(this.heading,want));
   if(err>.6)sp=Math.min(sp,12);                       // ciasny zakręt albo zawracanie
   let rem=null;

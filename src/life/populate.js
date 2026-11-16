@@ -13,7 +13,7 @@ import {FA,FH,cull,cullBatch,planLeft,likesNow,pressure} from './fauna.js';
 
 const CAR_COLS=['#8c9b95','#a4684f','#6f86a0','#b9a56a','#7a8f6f','#a8a6a0','#5a5f6a','#9a4a3a'];
 const pick=a=>a[Math.floor(rand()*a.length)];
-const LIKES=[[POLANA.x,POLANA.y],[POLANA.x-60,POLANA.y+70],[1420,780],[1110,630],[1200,1400],[2950,1420],[1300,2120],[3100,760]];
+const LIKES=[[POLANA.x,POLANA.y],[POLANA.x-60,POLANA.y+70],[1420,780],[1110,630],[1200,1400],[2950,1420],[2450,1330],[3100,760]];
 export const groups=[];
 // Widoczna zwierzyna to reprezentacja populacji w obwodzie (FA.pop): mniej zwierząt na ekranie, ale ich liczba
 // rośnie i maleje razem z populacją — po rozrodzie, odstrzałach koła łowieckiego, wilkach i zimie.
@@ -24,15 +24,15 @@ export function spawnWildlife(){
  const P=FA.pop,se=cal.season();
  // 0.6: las jest ok. 2,25× większy — więcej ostoi, ale na ekranie nadal tylko część populacji
  const roeN=clamp(Math.round(P.roe/22),0,3);
- for(const [x,y] of [[420,900],[3000,1450],[1250,2000],[2150,800]].slice(0,P.roe>50?4:3)){if(!roeN)break;const G=g(x,y,{likes:LIKES,kind:'roe'});for(let i=0;i<roeN;i++)add('roe',x,y,G,{male:i===0&&rand()<.5})}
+ for(const [x,y] of [[420,900],[3000,1450],[1450,1620],[2150,800]].slice(0,P.roe>50?4:3)){if(!roeN)break;const G=g(x,y,{likes:LIKES,kind:'roe'});for(let i=0;i<roeN;i++)add('roe',x,y,G,{male:i===0&&rand()<.5})}
  const deerN=clamp(Math.round(P.deer/6),0,4);
  for(const [x,y] of [[2050,1350],[3100,700]].slice(0,P.deer>14?2:1)){if(!deerN)break;const G=g(x,y,{likes:LIKES,range:[300,700],kind:'deer'});add('deer',x,y,G,{male:true});for(let i=1;i<deerN;i++)add('deer',x,y,G)}
- for(const [x,y] of [[1250,1500],[2300,2150]].slice(0,P.boar>18?2:1)){if(P.boar<4)break;const G=g(x,y,{range:[200,500],kind:'boar',likes:LIKES});const sow=add('boar',x,y,G);sow.sow=se<=1&&P.boar>8;
+ for(const [x,y] of [[1250,1500],[2600,1400]].slice(0,P.boar>18?2:1)){if(P.boar<4)break;const G=g(x,y,{range:[200,500],kind:'boar',likes:LIKES});const sow=add('boar',x,y,G);sow.sow=se<=1&&P.boar>8;
   if(P.boar>=11)add('boar',x+30,y+10,G,{male:true});
   if(sow.sow)for(let i=0;i<clamp(Math.round(P.boar/10),2,4);i++)add('piglet',x,y,G,{follow:sow,flee:110})}
- for(const [x,y] of [[300,800],[2900,2300]].slice(0,P.fox>=6?2:1)){if(P.fox<3)break;const G=g(x,y,{range:[300,700],kind:'fox'});add('fox',x,y,G)}
+ for(const [x,y] of [[300,800],[2900,1500]].slice(0,P.fox>=6?2:1)){if(P.fox<3)break;const G=g(x,y,{range:[300,700],kind:'fox'});add('fox',x,y,G)}
  if(FA.wolf.present)addPack(g,add);
- for(const [x,y] of [[2000,1150],[600,700],[1400,2450]].slice(0,P.hare>=20?3:P.hare>=10?2:1)){const G=g(x,y,{range:[100,260],kind:'hare'});add('hare',x,y,G)}
+ for(const [x,y] of [[2000,1150],[600,700],[1400,1600]].slice(0,P.hare>=20?3:P.hare>=10?2:1)){const G=g(x,y,{range:[100,260],kind:'hare'});add('hare',x,y,G)}
 }
 
 // Wataha wędrowna (0.8.3): pojawia się i znika razem ze stanem FA.wolf
@@ -53,9 +53,9 @@ function leaveMap(v){v.goTo(goalNode(exitNode(v.pos[0]+(rand()-.5)*1200)),{leave
 // Grzybiarze: przyjeżdżają autem, parkują na poboczu, chodzą z koszykiem po lesie i wracają (czasem zostawiają śmieci).
 export function spawnPickers(berry){
  // jagody: bory sosnowe (101, 104, 107, 108); grzyby: wszędzie
- const E2=berry?EDGES.filter(e=>['a3-a1','a1-b1','j1-s2','s2-se','c1-j3'].includes(e.id)):forestEdges(),who=berry?'zbieracze jagód':'grzybiarze';
+ const E2=berry?EDGES.filter(e=>['a3-a1','a1-b1','j2-b1'].includes(e.id)):forestEdges(),who=berry?'zbieracze jagód':'grzybiarze';
  const bay=rand()<.6?HK2.free():-1;   // 0.8.3: część odwiedzających parkuje w zatoce przy drodze (gdy jest zbudowana)
- const e=bay>=0?HK2.edge():pick(E2),s=bay>=0?HK2.approach():60+rand()*(e.len-120);
+ const e=bay>=0?HK2.edge(bay):pick(E2),s=bay>=0?HK2.approach(bay):60+rand()*(e.len-120);
  const car=spawnFrom('car',{color:pick(CAR_COLS)});car.label=who;if(bay>=0)HK2.reserve(bay,car);
  const walk=(v,cx,cy)=>{
   const n=1+(rand()<.55?1:0);let back=0;
@@ -132,9 +132,7 @@ function scheduleHunters(h,se,we,dayN){
 // zwierzynę na linię. Na koniec pokot — podsumowanie pozyskania.
 const DRIVES=[
  {odd:'106',road:'j2-b1',line:[[1740,1200],[1740,1650]],beat:[[2110,1200],[2110,1650]]},
- {odd:'107',road:'c1-j3',line:[[2625,1180],[2625,1640]],beat:[[2930,1180],[2930,1640]]},
- {odd:'110',road:'j2-s2',line:[[1730,1800],[1730,2260]],beat:[[2120,1800],[2120,2260]]},
- {odd:'112',road:'se-j4',line:[[3225,1830],[3225,2230]],beat:[[3560,1830],[3560,2230]]}
+ {odd:'102',road:'a1-b1',line:[[1300,930],[1700,930]],beat:[[1300,650],[1700,650]]}
 ];
 const lerp=(A,B,t)=>[A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t];
 function spawnDrive(){

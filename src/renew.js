@@ -115,7 +115,7 @@ function plowUpdate(){
  if(P.phase==='idle'&&P.queue.length&&cal.work(7,16)){
   const p=P.cur=P.queue.shift();p.state='prepping';
   const v=P.v=new Vehicle('plower',ENTRY(false));v.label='ciągnik z pługiem LPz jedzie do P'+p.id;
-  const rows=plowPath(p),rp=nearestRoad(rows[0][0],rows[0][1],['main','forest'],{margin:50});
+  const rows=plowPath(p),rp=nearestRoad(rows[0][0],rows[0][1],['main','forest','dukt'],{margin:50});
   P.phase='driving';
   v.goTo({edge:rp.edge,s:rp.s},{onArrive:()=>{
    // dojazd w teren do pierwszego rzędu, potem orka rząd po rzędzie (zawracanie na uwrociach)
@@ -127,7 +127,7 @@ function plowUpdate(){
     for(const q of P.passes)paintFurrowRow(q.y,q.x0,q.x1);    // domalowanie ciągłych bruzd
     p.prepDay=state.days;
     toast('Gleba na P'+p.id+' przygotowana: '+P.ys.length+' bruzd. Można sadzić.');
-    const back=nearestRoad(v.pos[0],v.pos[1],['main','forest'],{margin:40});
+    const back=nearestRoad(v.pos[0],v.pos[1],['main','forest','dukt'],{margin:40});
     let bp=NAV.veh.findPath(v.pos[0],v.pos[1],back.x,back.y);if(!bp||!bp.length)bp=[[back.x,back.y]];
     P.phase='leaving';v.label='ciągnik z pługiem wraca';
     v.driveOff(bp,{onArrive:()=>{v.rejoin();v.goTo(goalNode(exitNode(v.pos[0])),{leave:true,onArrive:()=>{}});P.v=null;P.cur=null;P.phase='idle'}});

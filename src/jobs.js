@@ -123,7 +123,7 @@ function nextCluster(C){
  const [vx,vy]=v.pos;
  // 0.9: zadania sanitarne (kornik, wiatrołomy) mają pierwszeństwo, dalej najbliższe
  C.tasks.sort((a,b)=>{const A=tpos(a),B=tpos(b);return Math.hypot(A[0]-vx,A[1]-vy)-(isSan(a)?1e5:0)-(Math.hypot(B[0]-vx,B[1]-vy)-(isSan(b)?1e5:0))});
- const [fx,fy]=tpos(C.tasks[0]),rp=nearestRoad(fx,fy,['forest'],{margin:50});
+ const [fx,fy]=tpos(C.tasks[0]),rp=nearestRoad(fx,fy,['forest','dukt'],{margin:50});
  // klaster: tylko zadania w zasięgu chodzenia od miejsca postoju auta (nie dalej niż WALK, chyba że pierwsze zadanie samo jest dalej)
  const R=Math.max(WALK,Math.hypot(fx-rp.x,fy-rp.y)+60);
  C.cluster=C.tasks.filter((k,i)=>{if(i===0)return true;const [x,y]=tpos(k);return Math.hypot(x-rp.x,y-rp.y)<=R&&Math.hypot(x-fx,y-fy)<260});
@@ -165,7 +165,7 @@ function assignNext(w){
  if(!task){w.onIdle=null;w.run([{go:vanDoor(C)},{call:q=>{q.hidden=true;q.dead=true;C.workers=C.workers.filter(x=>x!==q);if(!C.workers.length)nextCluster(C)}}]);return}
  if(task.type==='fell'){
   const t=task.t;if(t.st!==STAND){assignNext(w);return}
-  const rp=nearestRoad(t.x,t.y,['main','forest']);
+  const rp=nearestRoad(t.x,t.y,['main','forest','dukt']);
   let dir=inward(t,Math.atan2(t.y-rp.y,t.x-rp.x)+(rand()-.5)*1.2);   // obalanie od drogi, ale nigdy za krawędź mapy
   const stand=[t.x-Math.cos(dir)*9+Math.cos(dir+1.57)*5,t.y-Math.sin(dir)*9+Math.sin(dir+1.57)*5];
   w.label='pilarz '+C.id+' — ścina '+SP[t.sp].name.split(' ')[0];
@@ -323,7 +323,7 @@ function skidUpdate(dt){
   if(!cal.work(7,17)){goHome();return}
   const free=freePiles();if(!free.length){goHome();return}
   const [vx,vy]=v.pos;free.sort((a,b)=>Math.hypot(a.x-vx,a.y-vy)-Math.hypot(b.x-vx,b.y-vy));
-  const p=free[0],rp=nearestRoad(p.x,p.y,['forest'],{margin:60});
+  const p=free[0],rp=nearestRoad(p.x,p.y,['forest','dukt'],{margin:60});
   S.target=p;S.went=false;S.phase='driving';S.watch=0;S.atHome=false;
   v.label=M.name+' jedzie po drewno do oddz. '+oddzial(p.x,p.y);
   const near=Math.hypot(p.x-rp.x,p.y-rp.y)<=M.reach-12;
@@ -390,7 +390,7 @@ function comeBack(){
   v.goTo({edge:st.edge,s:st.s},{park:true,onArrive:()=>{S.phase='unload';S.watch=0;v.label='układanie stosu przy drodze'}});
  };
  if(!S.went){toStack();return}
- const rp=nearestRoad(v.pos[0],v.pos[1],['forest'],{margin:40});
+ const rp=nearestRoad(v.pos[0],v.pos[1],['forest','dukt'],{margin:40});
  const pts=pathTo(v,rp.x,rp.y,0);S.phase='out';S.went=false;v.label=M.name+' wraca szlakiem na drogę';
  v.driveOff(pts,{work:rutWork,onArrive:()=>{v.rejoin();toStack()}});
 }

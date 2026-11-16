@@ -19,7 +19,7 @@ const TARGET={roe:48,deer:16,boar:22};   // las 0.6 jest ok. 2,25× większy
 export const FH={wolves:null};   // ustawiane przez populate.js (bez cyklu importów)
 export const FA={wolf:{present:false,size:0,until:0,cool:5,days:0,total:0},pop:{roe:58,deer:20,boar:30,fox:9,hare:28},plan:{roe:8,deer:3,boar:8},culled:{roe:0,deer:0,boar:0},seasonCull:0,
  feeders:[],winterT:0,emptyT:0,reduction:false,roarT:0,roarSeason:-1,browsed:0,carcasses:[]};
-// 0.9: paśniki buduje gracz w trybie Budowa (stałe miejsca FEEDERS, max 4); nowa gra zaczyna z jednym
+// 0.9: paśniki kupuje się w Leśniczówce (stałe miejsca FEEDERS, max 4); nowa gra zaczyna z jednym
 export const FEED_COST=700,FEED_MAX=FEEDERS.length;
 export const mkFeeder=(slot,level=.3)=>({name:FEEDERS[slot].name,slot,x:FEEDERS[slot].x,y:FEEDERS[slot].y,level,task:null});
 export function initFauna(){
@@ -27,8 +27,9 @@ export function initFauna(){
  newPlan(false);
  if(!ECO.seasonHooks.includes(seasonEnd))ECO.seasonHooks.push(seasonEnd);
 }
+export const nextFeederSlot=()=>{for(let i=0;i<FEEDERS.length;i++)if(!FA.feeders.some(q=>q.slot===i))return i;return null};
 export const feederSlotAt=(x,y,r=60)=>{let b=null,bd=r;FEEDERS.forEach((f,i)=>{if(FA.feeders.some(q=>q.slot===i))return;const d=Math.hypot(f.x-x,f.y-y);if(d<bd){bd=d;b=i}});return b};
-export function buildFeeder(slot){
+export function buyFeeder(slot){
  if(slot==null||FA.feeders.some(q=>q.slot===slot))return false;
  if(FA.feeders.length>=FEED_MAX){toast('Są już wszystkie '+FEED_MAX+' paśniki.');return false}
  if(!canAfford(FEED_COST))return false;

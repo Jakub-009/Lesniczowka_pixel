@@ -5,7 +5,7 @@ import {oddzial,STANDS,GX,GY} from './map.js';
 import {E} from './ents.js';
 import {R} from './renew.js';
 import {ASSESS} from './incidents.js';
-export function oddBounds(id){const n=+id-101,r=Math.floor(n/4),c=n%4,xs=[0,GX[0],GX[1],GX[2],WORLD.w],ys=[0,GY,1720,WORLD.h];return{x0:xs[c],x1:xs[c+1],y0:ys[r],y1:ys[r+1]}}
+export function oddBounds(id){const n=+id-101,r=Math.floor(n/4),c=n%4,xs=[0,GX[0],GX[1],GX[2],WORLD.w],ys=[0,GY,WORLD.h];return{x0:xs[c],x1:xs[c+1],y0:ys[r],y1:ys[r+1]}}
 export function oddStats(id){
  const B=oddBounds(id),S={id,def:STANDS[id],stand:0,sapl:0,thin:0,mature:0,vol:0,ageSum:0,aged:0,sp:{},assessed:0,q:[0,0,0],marked:0,markedVol:0,sick:0,stumps:0,unren:0};
  for(const t of treesIn(B.x0,B.y0,B.x1,B.y1)){
