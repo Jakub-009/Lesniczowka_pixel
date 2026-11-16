@@ -22,8 +22,10 @@ import {bindInput} from './input.js';
 import {updateSound,toggleSound,resumeSound} from './sound.js';
 import {toggleMap,updateMap} from './mapview.js';
 import {hasSave,clearSave,saveGame,loadGame} from './save.js';
+import {initNature,updateNature,NAT} from './nature.js';
+import {updateVisit} from './visit.js';
 
-const STEP=1/60,RATES=[1,3,10],NIGHT_FF=8;
+const STEP=1/60,RATES=[1,2,3],NIGHT_FF=8,SKIP_DT=8,SKIP_N=5;
 // Ochrona przed zawieszeniem: wyjątek w jednym podsystemie lub u jednego obiektu nie może zatrzymać całej gry.
 const ERR=new Map();let errToast=false;
 function fail(where,e){
@@ -41,16 +43,23 @@ function sim(dt){
  safe('drzewa',updateFalls,dt);
  each('grupy',groups,dt);each('zwierzęta',E.animals,dt);each('ludzie',E.people,dt);each('pojazdy',E.vehicles,dt);
  safe('goście',updateVisitors,dt);safe('incydenty',updateIncidents,dt);safe('ekipy',updateJobs,dt);safe('odnowienia',updateRenew,dt);safe('fauna',updateFauna,dt);
- safe('baza',updateBase,dt);safe('porządek',updateOrder,dt);safe('przejścia',updateCrossing,dt);safe('zdrowie lasu',updateHealth,dt);safe('ekonomia',updateEconomy,dt);
+ safe('baza',updateBase,dt);safe('porządek',updateOrder,dt);safe('przejścia',updateCrossing,dt);safe('zdrowie lasu',updateHealth,dt);safe('przyroda',updateNature,dt);safe('wycieczki',updateVisit,dt);safe('ekonomia',updateEconomy,dt);
  for(let i=fx.length-1;i>=0;i--){const p=fx[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.life<=0)fx.splice(i,1)}
  safe('sprzątanie',prune);
 }
+const SKIP_SEEN=new Set();   // zgłoszenia już otwarte w chwili startu przewijania nie przerywają go
+const skipLabel=()=>cal.night()?'Do rana':'Do jutra';
+function stopSkip(){state.skipTo=null;state.ff=1;const b=$('#skipbtn');if(b)b.textContent=skipLabel()}
 function step(dt){
  if(!active())return;
  // noc przewija się sama (×8), chyba że trwa interwencja albo w lesie pali się / kręci kłusownik
  const busy=U.some(u=>u.phase!=='home')||E.incidents.some(q=>q.status==='assigned'||(q.status==='new'&&(q.type==='fire'||q.type==='intruder')));
- state.ff=cal.night()&&!busy&&!state.noFF?NIGHT_FF:1;
- const n=Math.min(30,state.rate*state.ff);for(let i=0;i<n;i++)sim(dt);
+ // 0.9: „Do rana / Do jutra” przewija czas do 6:00; przerywa je każde nowe zgłoszenie, interwencja, okno albo pauza
+ if(state.skipTo!=null&&(busy||state.days>=state.skipTo||E.incidents.some(q=>q.status==='new'&&!SKIP_SEEN.has(q))))stopSkip();
+ const skipping=state.skipTo!=null;
+ state.ff=skipping?SKIP_DT*SKIP_N:cal.night()&&!busy&&!state.noFF?NIGHT_FF:1;
+ if(skipping){for(let i=0;i<SKIP_N;i++)sim(dt*SKIP_DT)}   // większy krok czasu zamiast 40 małych: przewijanie jest szybkie i nie zacina
+ else{const n=Math.min(30,state.rate*state.ff);for(let i=0;i<n;i++)sim(dt)}
  // kamera: WASD / strzałki albo śledzenie wybranego obiektu
  const sp=520*dt/Math.max(1,VIEW.scale)*2;
  const kx=(keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0),ky=(keys.has('s')||keys.has('arrowdown')?1:0)-(keys.has('w')||keys.has('arrowup')?1:0);
@@ -108,6 +117,8 @@ setInterval(()=>{
  // pauza z okna, którego nie ma na ekranie: zdejmujemy blokadę
  const winOpen=!$('#report').classList.contains('hidden')||!$('#base').classList.contains('hidden');
  if(state.modal&&!winOpen){DIAG.stalls.push({t:Math.round(now/1000),what:'blokada okna bez okna'});state.modal=false;state.panel=false;state.paused=false;toast('Gra była zablokowana bez okna — odblokowano.')}
+ if(state.skipTo!=null&&(state.modal||state.paused))stopSkip();
+ {const sb=$('#skipbtn');if(sb&&state.skipTo==null&&sb.textContent!==skipLabel())sb.textContent=skipLabel()}
  const pb=$('#pausebtn'),want=state.paused?'▶':'❚❚';if(pb.textContent!==want)pb.textContent=want;
  // czas stoi mimo braku pauzy
  if(active()&&!state.modal&&Math.abs(state.elapsed-lastEl)<1e-9){if(++stillN===5){DIAG.stalls.push({t:Math.round(now/1000),what:'czas gry stoi',frame:RT.frame,where:RT.where});console.warn('[Leśniczówka] czas gry stoi mimo braku pauzy',DIAG.stalls[DIAG.stalls.length-1])}}else stillN=0;
@@ -115,11 +126,22 @@ setInterval(()=>{
 },1000);
 window.__lasDiag=()=>({stalls:DIAG.stalls,slow:DIAG.slow,errors:[...ERR],frame:RT.frame,where:RT.where,elapsed:state.elapsed,paused:state.paused,modal:state.modal,trees:trees.length,vehicles:E.vehicles.length,people:E.people.length,animals:E.animals.length,tasks:J.crews.map(c=>c.tasks.length)});
 // ── budowa świata ──
-buildGround();generate();buildNavs();initEconomy();initFauna();initAmbony();spawnWildlife();initPatrol();initJobs();initBase();
+buildGround();generate();buildNavs();initEconomy();initFauna();initNature();initAmbony();spawnWildlife();initPatrol();initJobs();initBase();
 ECO.seasonHooks.push(()=>{respawnWild();return null});   // widoczna zwierzyna według nowej liczebności
 bindUI();bindInput(zoom);
 VIEW.zoom=1;size();centerOn(720,520);clampCamera();
-$('#speedbtn').addEventListener('click',()=>{const i=(RATES.indexOf(state.rate)+1)%RATES.length;state.rate=RATES[i];$('#speedbtn').textContent='Czas ×'+state.rate;toast('Czas płynie ×'+state.rate+'.')});
+$('#speedbtn').addEventListener('click',e=>{
+ // domyślnie ×1 / ×2 / ×3; ×10 tylko świadomie (Shift + klik), bo przy ×10 łatwo przegapić zdarzenia
+ state.rate=e&&e.shiftKey?(state.rate>3?1:10):RATES[(RATES.indexOf(state.rate)+1)%RATES.length]||1;
+ $('#speedbtn').textContent='Czas ×'+state.rate;toast('Czas płynie ×'+state.rate+(state.rate>3?' (tryb szybki).':'.'))});
+$('#skipbtn').addEventListener('click',()=>{
+ if(!state.playing||state.modal)return;
+ if(state.skipTo!=null){stopSkip();toast('Przewijanie przerwane.');return}
+ if(state.paused)$('#pausebtn').click();
+ const d=Math.floor(state.days),h=(state.days%1)*24;   // cel: najbliższe 6:00
+ SKIP_SEEN.clear();for(const q of E.incidents)SKIP_SEEN.add(q);state.skipTo=h<6?d+6/24:d+1+6/24;state.rate=1;$('#speedbtn').textContent='Czas ×1';
+ $('#skipbtn').textContent='Przerwij';toast('Czas przewija się do 6:00 — przerwie go zgłoszenie albo zdarzenie.')});
+$('#zoomin').addEventListener('click',()=>zoom(-1));$('#zoomout').addEventListener('click',()=>zoom(1));
 $('#pausebtn').addEventListener('click',()=>{if(!state.playing||state.modal)return;state.paused=!state.paused;$('#pausebtn').textContent=state.paused?'▶':'❚❚';toast(state.paused?'Pauza (P).':'Gra wznowiona.')});
 $('#soundbtn').addEventListener('click',toggleSound);
 $('#helpbtn').addEventListener('click',()=>$('#help').classList.toggle('hidden'));
@@ -134,5 +156,5 @@ addEventListener('beforeunload',saveGame);
 document.addEventListener('visibilitychange',()=>{if(document.hidden){saveGame();if(state.playing&&!state.paused)$('#pausebtn').click()}});
 document.title='Leśniczówka '+VERSION;
 // Diagnostyka do testów
-window.__las={dispatchCrew,AMB,startCrossing,dispatchPolice,buyCams,toggleBarriers,buyParking,spawnDump,MAIL,mail,HL,R,createPlot,orderPrep,orderPlant,dirtyAll,seasonGrow,cal,spawnIntruder,saveGame,loadGame,state,E,J,U,FA,BASE,ECO,buildNursery,buildGarage,hireDeputy,hireCrewB,orderTruck,trees,counts,camera,VIEW,centerOn,spawnRider,spawnSmoke,addTrash,dispatch,step:(s)=>{for(let i=0;i<Math.ceil(s*60);i++)sim(STEP)},simStep:(s,dt)=>{for(let i=0;i<Math.ceil(s/dt);i++)sim(dt)},zoom};
+window.__las={NAT,nat:()=>import('./nature.js'),dispatchCrew,AMB,startCrossing,dispatchPolice,buyCams,toggleBarriers,buyParking,spawnDump,MAIL,mail,HL,R,createPlot,orderPrep,orderPlant,dirtyAll,seasonGrow,cal,spawnIntruder,saveGame,loadGame,state,E,J,U,FA,BASE,ECO,buildNursery,buildGarage,hireDeputy,hireCrewB,orderTruck,trees,counts,camera,VIEW,centerOn,spawnRider,spawnSmoke,addTrash,dispatch,step:(s)=>{for(let i=0;i<Math.ceil(s*60);i++)sim(STEP)},simStep:(s,dt)=>{for(let i=0;i<Math.ceil(s/dt);i++)sim(dt)},zoom};
 hud();startLoop();

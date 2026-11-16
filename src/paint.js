@@ -59,14 +59,13 @@ function paintRoads(){
   for(let i=0;i<e.len*e.w/8;i++){const s0=hash(i,301,e.len|0)*e.len,lat=(hash(i,302,e.len|0)-.5)*(e.w-2),p=ptAt(e,s0);rect(g,p[0]-p[3]*lat|0,p[1]+p[2]*lat|0,1+(i%5===0),1,['#6c7175','#81868a','#70757a'][i%3])}
   for(let i=0;i<e.len*e.w/3600;i++){const s0=hash(i,310,e.len|0)*e.len,lat=(hash(i,311,e.len|0)-.5)*(e.w-12),p=ptAt(e,s0);rect(g,p[0]-p[3]*lat|0,p[1]+p[2]*lat|0,12+(i%4)*6,5+(i%3)*2,i%3?'#727779':'#7d8285')}
   g.lineWidth=2;g.strokeStyle='#e6e4d8';g.lineCap='butt';
-  for(let u=10;u<e.len-32;u+=40){const p=ptAt(e,u+11);if(['j1','j2','j3','j4'].some(k=>Math.hypot(p[0]-NODES[k][0],p[1]-NODES[k][1])<46))continue;const A=ptAt(e,u),B=ptAt(e,u+22);g.beginPath();g.moveTo(A[0],A[1]);g.lineTo(B[0],B[1]);g.stroke()}
+  for(let u=10;u<e.len-32;u+=40){const p=ptAt(e,u+11);if(['j1','j2'].some(k=>Math.hypot(p[0]-NODES[k][0],p[1]-NODES[k][1])<46))continue;const A=ptAt(e,u),B=ptAt(e,u+22);g.beginPath();g.moveTo(A[0],A[1]);g.lineTo(B[0],B[1]);g.stroke()}
  }
  // rów przy szosie (po południowej stronie) z wodą; przerwany tam, gdzie z szosy odchodzą drogi na południe (przepusty)
- const gaps=['j1','j2'].map(k=>NODES[k][0]);
- for(const e of mn)for(let u=0;u<e.len-8;u+=8){const A=ptAt(e,u),B=ptAt(e,u+9),nx=-A[3]*48,ny=A[2]*48,nx2=-B[3]*48,ny2=B[2]*48;if(gaps.some(gx=>Math.abs(A[0]-gx)<32))continue;
+ const gaps=[];   // 0.9: rów ciągły (dawne wjazdy na południe usunięte); przerwa tylko przy strumieniu
+ for(const e of mn)for(let u=0;u<e.len-8;u+=8){const A=ptAt(e,u),B=ptAt(e,u+9),nx=-A[3]*48,ny=A[2]*48,nx2=-B[3]*48,ny2=B[2]*48;if(streamDist(A[0]+nx,A[1]+ny)<15||streamDist(B[0]+nx2,B[1]+ny2)<15)continue;
   g.lineCap='butt';g.lineWidth=9;g.strokeStyle='#6a8656';g.beginPath();g.moveTo(A[0]+nx,A[1]+ny);g.lineTo(B[0]+nx2,B[1]+ny2);g.stroke();
   g.lineWidth=4;g.strokeStyle='#56724a';g.stroke();if((u/8|0)%4===0)rect(g,A[0]+nx,A[1]+ny-1,8,2,'#7fa3a0')}
- for(const gx of gaps)for(const sx of [gx-31,gx+27]){const y=hy(sx)+48;rect(g,sx,y-6,4,11,'#8e8e86');rect(g,sx+1,y-3,2,5,'#4a4e4a')}
  // strumień pod drogami: przepusty z kamiennymi czołami po obu stronach jezdni
  for(const e of E){let inx=false,sum=0,n=0;for(let u=0;u<=e.len;u+=3){const p=ptAt(e,u),c=streamDist(p[0],p[1])<9;
    if(c){inx=true;sum+=u;n++}
@@ -141,7 +140,7 @@ function paintWater(){
  g.lineJoin='round';g.lineCap='round';
  const n=STREAM.length,wd=i=>5+9*Math.pow(i/(n-1),.75)+1.2*Math.sin(i*.37);   // strumień: wąski przy źródle, szerszy w dole
  const layer=(extra,k,col)=>{g.strokeStyle=col;for(let i=0;i<n-1;i++){const A=STREAM[i],B=STREAM[i+1];g.lineWidth=wd(i)*k+extra;g.beginPath();g.moveTo(A[0],A[1]);g.lineTo(B[0],B[1]);g.stroke()}};
- layer(22,1,'#7a9558');layer(15,1,'#76804e');layer(9,1,'#8c8658');layer(4,1,'#5f5a3e');layer(0,1,'#3f7587');layer(0,.62,'#5693a3');
+ layer(22,1,'#7a9558');layer(15,1,'#76804e');layer(9,1,'#8c8658');layer(4,1,'#5f5a3e');layer(0,1,'#457b8b');layer(0,.62,'#5a94a2');
  // połyski i drobna fala wzdłuż nurtu
  for(let i=0;i<n-1;i++){if(hash(i,3,70)<.35)continue;const A=STREAM[i],B=STREAM[i+1],t=hash(i,4,70)-.5,w=wd(i)*.35,dx=B[0]-A[0],dy=B[1]-A[1],L=Math.hypot(dx,dy)||1;
   rect(g,A[0]-dy/L*w*t*2,A[1]+dx/L*w*t*2,4+(i%3)*2,1,'#bfe3e8');if(i%4===0)rect(g,A[0]+dy/L*w*t,A[1]-dx/L*w*t+2,3,1,'#2f6072')}
@@ -178,10 +177,21 @@ function paintWater(){
   for(let i=0;i<520;i++){const a=hash(i,W.x|0,72)*6.283,d=.62+hash(i,W.x|0,73)*.5,x=W.x+Math.cos(a)*W.rx*d,y=W.y+Math.sin(a)*W.ry*d;
    if(d>.82&&hash(i,W.y|0,74)<.75||d>.6&&hash(i,W.y|0,75)<.45){const h=3+(i%5);rect(g,x,y-h+2,1,h,['#9a9a58','#b8b070','#7f8a46'][i%3]);if(i%11===0)rect(g,x-1,y-h,3,3,'#5a3a24')}
    if(i%53===0)rect(g,x,y-5,2,6,'#5a3f2a')}
+  // (łączenie ze strumieniem rysujemy niżej, po wszystkich mokradłach)
   // kępy turzyc dookoła
   for(let i=0;i<40;i++){const a=hash(i,W.x|0,82)*6.283,x=W.x+Math.cos(a)*W.rx*(1.02+hash(i,W.x|0,83)*.12),y=W.y+Math.sin(a)*W.ry*(1.02+hash(i,W.x|0,84)*.14);if(!free(x,y))continue;
    for(let q=0;q<5;q++)rect(g,x-4+q*2,y-4-(q%2)*2,1,5+(q%2)*2,q%2?'#6f9a4a':'#86ae5c')}
  }
+
+ // połączenie strumienia z mokradłem: kanał wcina się w pas trzcin i błota, rozszerza się ku stawowi, brzegi z błota i trzcin przykrywają szew
+ const wd2=(i,A)=>{let m=9;for(const W of WETLANDS){const d=Math.hypot((A[0]-W.x)/W.rx,(A[1]-W.y)/W.ry);m=Math.min(m,d)}return m};
+ const seg=[];for(let i=0;i<n-1;i++){const d=wd2(i,STREAM[i]);if(d<1.45&&d>.3)seg.push([i,d])}
+ const lay=(extra,k,col)=>{g.strokeStyle=col;for(const [i,d] of seg){const A=STREAM[i],B=STREAM[i+1],m=1+Math.max(0,1.45-d)*.85;g.lineWidth=wd(i)*m*k+extra;g.beginPath();g.moveTo(A[0],A[1]);g.lineTo(B[0],B[1]);g.stroke()}};
+ lay(9,1,'#6a6a46');lay(4,1,'#5d5a3e');lay(0,1,'#457b8b');lay(0,.6,'#5a94a2');
+ for(const [i,d] of seg){const A=STREAM[i];if(d<.75)continue;
+  for(let q=0;q<3;q++){const a=hash(i,q,90)*6.283,r=8+hash(i,q,91)*12,x=A[0]+Math.cos(a)*r,y=A[1]+Math.sin(a)*r;if(wd2(0,[x,y])<.62)continue;
+   const h=3+((i+q)%5);rect(g,x,y-h+2,1,h,q%2?'#9a9a58':'#b8b070');if((i+q)%7===0)rect(g,x-1,y-h,3,3,'#5a3a24')}
+  if(i%5===0)rect(g,A[0]+(hash(i,1,92)-.5)*26,A[1]+(hash(i,2,92)-.5)*26,3,2,'#7d7e76')}
 }
 // Przesieki: wąskie proste pasy trawy między oddziałami (dla pieszych i zwierząt, nie dla aut).
 function paintPrzesieki(){

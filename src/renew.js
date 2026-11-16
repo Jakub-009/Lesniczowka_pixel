@@ -1,7 +1,7 @@
 // Odnowienie lasu (0.3): powierzchnia odnowieniowa zaznaczana obszarem → przygotowanie gleby pługiem leśnym LPz
 // (bruzdy co ok. 1,5 m, uprzątnięcie gałęzi) → sadzenie w rzędach przez ekipę. Bez przygotowania gleby sadzonki gorzej się przyjmują.
 import {state,toast,cal,clamp,zl,displayNumber,PX_PER_M,rect,SEASON_DAYS} from './core.js';
-import {roadClearance,inRect,YARD,PLAC,pointBlocked,oddzial} from './map.js';
+import {roadClearance,inRect,YARD,PLAC,pointBlocked,oddzial,offLimits} from './map.js';
 import {nearestRoad,goalNode,ENTRY,exitNode} from './roads.js';
 import {E,NAV,rebuildWild} from './ents.js';
 import {Vehicle,cartRear} from './life/agents.js';
@@ -40,7 +40,7 @@ export const prepCost=p=>Math.round(passesOf(p).reduce((a,q)=>a+q.x1-q.x0,0)/PX_
 export const fenceCost=p=>Math.round(perimOf(p)/PX_PER_M*FENCE_PER_M);
 // Miejsca na sadzonki: w rzędach (w bruzdach), z pominięciem drzew, pniaków, dróg i już zaplanowanych sadzonek.
 function spotOk(x,y){
- if(roadClearance(x,y)<40||inRect(x,y,YARD,8)||inRect(x,y,PLAC,8)||pointBlocked(x,y,6))return false;
+ if(offLimits(x,y)||roadClearance(x,y)<40||inRect(x,y,YARD,8)||inRect(x,y,PLAC,8)||pointBlocked(x,y,6))return false;
  for(const t of treesIn(x-40,y-40,x+40,y+40)){const d=Math.hypot(t.x-x,t.y-y);
   if(t.st===STUMP?d<8:t.age<SAPLING_AGE?d<9:d<Math.max(10,crownR(t)*.45))return false}
  return !J.plants.some(q=>Math.hypot(q.x-x,q.y-y)<9);

@@ -11,6 +11,8 @@ import {drawHealth,drawWeather} from './health.js';
 import {drawFeeders} from './life/fauna.js';
 import {AMB} from './life/ambony.js';
 import {birds} from './life/sprites.js';
+import {drawNature} from './nature.js';
+import {drawVisit,drawVisitGround} from './visit.js';
 import {NODES,EDGES,YARD,HOUSE} from './map.js';
 import {drawPlots,drawFences} from './renew.js';
 import {drawLodge,drawMailbox} from './lodge.js';
@@ -129,7 +131,7 @@ export function drawWorld(){
  drawLodge(ctx,cal.season()===3);
  for(const p of PROPS){if(p.x+p.w<camera.x||p.y+p.h<camera.y||p.x>camera.x+VIEW.w||p.y>camera.y+VIEW.h)continue;ctx.drawImage(p.cv,p.x,p.y)}
  drawMailbox(ctx,unreadMail()>0,cal.season()===3);
- drawOrder(ctx,cal.season()===3);
+ drawOrder(ctx,cal.season()===3);drawVisitGround(ctx,camera,VIEW);
  drawForest(ctx,camera,VIEW.w,VIEW.h,'low');
  drawBase(ctx);drawHealth(ctx);drawTrash();drawFeeders(ctx);drawFences(ctx);drawGroundItems(ctx);drawLying();
  for(const a of E.animals)if(!a.dead)a.draw();
@@ -142,7 +144,7 @@ export function drawWorld(){
  if(SETTINGS.ghosts){ctx.globalAlpha=.5;for(const a of E.animals)if(!a.dead)a.draw();for(const p of E.people)if(!p.onStand)p.draw();for(const v of E.vehicles)if(v.off&&!v.dead)v.draw();ctx.globalAlpha=1}
  drawFire();drawFalling();drawParticles();drawPlots(ctx,state.selected);drawMarkers();
  edgeCover();   // poza mapą nic nie wystaje: korony, cienie i kłody przy krawędzi są obcięte
- birds(ctx,state.elapsed,camera,VIEW);
+ birds(ctx,state.elapsed,camera,VIEW);drawNature(ctx,camera,VIEW);drawVisit(ctx,camera,VIEW);
  if(DEBUG.on){ctx.strokeStyle='#40e0ff';for(const e of EDGES){const A=NODES[e.a],B=NODES[e.b];ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(B[0],B[1]);ctx.stroke()}}
  ctx.restore();
  const se=cal.season();

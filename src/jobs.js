@@ -1,13 +1,14 @@
 // Prace leśne (0.5): wyznaczanie drzew, ekipy pilarzy A i B (ścinka, wyrzynka, sadzenie), zrywka szlakami do stosów przy drogach,
 // ciężarówka z żurawiem (HDS) objeżdżająca stosy. Wszystko jeździ samo — gracz wydaje polecenia i pilnuje budżetu.
 import {state,toast,particle,clamp,zl,displayNumber,ctx,cal,rect,WORLD} from './core.js';
-import {PLAC,PLAC_SPOTS,roadClearance,oddzial,inRect,YARD,pointBlocked,NODES,EDGES,ptAt} from './map.js';
+import {PLAC,PLAC_SPOTS,roadClearance,oddzial,inRect,YARD,pointBlocked,NODES,EDGES,ptAt,offLimits} from './map.js';
+import {noCut} from './nest.js';
 import {nearestRoad,goalNode,edgeOf,pointOn,ENTRY,exitNode} from './roads.js';
 import {paintRut} from './paint.js';
 import {E,NAV} from './ents.js';
 import {Vehicle,Ped,rand,cartRear,cartFront} from './life/agents.js';
 import {trees,STAND,STUMP,CUT_AGE,THIN_AGE,SP,startFall,finishTree,plantTree,volume,crownR,fallLen,speciesFor,treesIn,SAPLING_AGE,sortSplit,SORTS} from './forest.js';
-import {pay,earn,planProgress,stat,canAfford,ECO,DEBT_LIM} from './economy.js';
+import {pay,bill,earn,planProgress,stat,canAfford,ECO,DEBT_LIM} from './economy.js';
 import {sfx} from './sound.js';
 import {pileTop} from './life/sprites.js';
 
@@ -28,6 +29,8 @@ export const truckTotal=()=>stackTotal(forTruck);
 export function birdBan(t){return cal.season()===0&&oddzial(t.x,t.y)==='103'}
 export function toggleMark(t){
  if(!t||t.st!==STAND||t.falling||t.lying){return false}
+ if(offLimits(t.x,t.y)){toast('Pas lasu za szosą nie należy do leśnictwa — tu się nie wycina.');return false}
+ if(!t.marked){const nc=noCut(t.x,t.y,t);if(nc){toast(nc);return false}}
  if(t.assigned){toast('To drzewo jest już w pracy ekipy.');return false}
  if(t.age<THIN_AGE){toast('Za młode nawet na trzebież ('+Math.round(t.age)+' lat) — zostaw je, niech rośnie.');return false}
  t.marked=!t.marked;sfx(t.marked?'mark':'unmark');
@@ -110,7 +113,7 @@ export function addCrewTasks(tasks,msg){launch(distribute(tasks),msg)}
 // Ekipy pracują pon.–pt. 7:00–17:00 i w sobotę do 13:00 (nowe zlecenie przyjmują do 16:30). Zimą nie sadzą (zamarznięta ziemia), wiosną nie tną w oddz. 103 (okres lęgowy).
 function startCrew(C){C.van=new Vehicle('van',ENTRY(rand()<.5));C.van.label='ekipa '+C.id;nextCluster(C)}
 const shiftOn=()=>cal.work(7,17);
-const WALK=210;   // maks. zasięg chodzenia ekipy od auta (px)
+const WALK=360;   // maks. zasięg chodzenia ekipy od auta (px); 0.9: większy — ekipy rzadziej przesiadają się do auta
 const isSan=k=>k.type==='fell'&&!!(k.t.san||k.t.kb);
 function holdReason(k){if(k.type==='plant'&&cal.season()===3)return 'zima';if(k.type==='fell'&&birdBan(k.t))return 'lęgi';return null}
 function nextCluster(C){
@@ -123,10 +126,14 @@ function nextCluster(C){
  const [vx,vy]=v.pos;
  // 0.9: zadania sanitarne (kornik, wiatrołomy) mają pierwszeństwo, dalej najbliższe
  C.tasks.sort((a,b)=>{const A=tpos(a),B=tpos(b);return Math.hypot(A[0]-vx,A[1]-vy)-(isSan(a)?1e5:0)-(Math.hypot(B[0]-vx,B[1]-vy)-(isSan(b)?1e5:0))});
- const [fx,fy]=tpos(C.tasks[0]),rp=nearestRoad(fx,fy,['forest','dukt'],{margin:50});
+ const [fx,fy]=tpos(C.tasks[0]);
+ // 0.9: auto stoi, a pierwsze zadanie jest w zasięgu chodzenia (nawet po drugiej stronie drogi) — idą pieszo, bez przejazdu
+ if((v.parked||v.arrived)&&!v.off&&Math.hypot(fx-vx,fy-vy)<=WALK+60){
+  C.cluster=C.tasks.filter(k=>{const [x,y]=tpos(k);return Math.hypot(x-vx,y-vy)<=WALK+60});C.tasks=C.tasks.filter(k=>!C.cluster.includes(k));C.odd=oddzial(fx,fy);startWork(C);return}
+ const rp=nearestRoad(fx,fy,['forest','dukt'],{margin:50});
  // klaster: tylko zadania w zasięgu chodzenia od miejsca postoju auta (nie dalej niż WALK, chyba że pierwsze zadanie samo jest dalej)
  const R=Math.max(WALK,Math.hypot(fx-rp.x,fy-rp.y)+60);
- C.cluster=C.tasks.filter((k,i)=>{if(i===0)return true;const [x,y]=tpos(k);return Math.hypot(x-rp.x,y-rp.y)<=R&&Math.hypot(x-fx,y-fy)<260});
+ C.cluster=C.tasks.filter((k,i)=>{if(i===0)return true;const [x,y]=tpos(k);return Math.hypot(x-rp.x,y-rp.y)<=R&&Math.hypot(x-fx,y-fy)<340});
  C.tasks=C.tasks.filter(k=>!C.cluster.includes(k));
  C.odd=oddzial(fx,fy);
  // auto już stoi przy tym miejscu (kilkadziesiąt px) — nie ruszamy go, ekipa od razu pracuje
@@ -153,7 +160,7 @@ function pickTask(C,w){
 // Gdy w klastrze nic nie zostało, a w zasięgu chodzenia od auta są kolejne zadania — bierzemy je bez przejazdu. Zadania sanitarne gdzie indziej mają pierwszeństwo.
 function pullNear(C){
  const v=C.van;if(!v||v.dead||v.off)return false;
- const near=C.tasks.filter(k=>{const [x,y]=tpos(k);return Math.hypot(x-v.pos[0],y-v.pos[1])<=WALK+30});
+ const near=C.tasks.filter(k=>{const [x,y]=tpos(k);return Math.hypot(x-v.pos[0],y-v.pos[1])<=WALK+60});
  if(!near.length)return false;
  if(C.tasks.some(k=>isSan(k)&&!near.includes(k))&&!near.some(isSan))return false;
  C.cluster=near.slice(0,12);C.tasks=C.tasks.filter(k=>!C.cluster.includes(k));return true;
@@ -175,12 +182,12 @@ function assignNext(w){
    {wait:2.1,pose:'stand',face:[t.x,t.y]},
    {go:[t.x+Math.cos(dir)*fallMid(t)+Math.cos(dir+1.57)*8,t.y+Math.sin(dir)*fallMid(t)+Math.sin(dir+1.57)*8]},
    {wait:2.6,pose:'saw',face:[t.x+Math.cos(dir)*fallMid(t),t.y+Math.sin(dir)*fallMid(t)],tick:(q,dt)=>{if(rand()<dt*14)particle('dust',q.x+Math.cos(q.heading)*10,q.y+Math.sin(q.heading)*10,{col:'#e3c08a'})}},
-   {call:()=>{makePile(t,dir);finishTree(t);t.assigned=false;pay(COST.fell,'ścinka i wyrzynka');stat('felled');w.label='pilarz (ekipa '+C.id+')'}}]);
+   {call:()=>{makePile(t,dir);finishTree(t);t.assigned=false;bill(COST.fell,'ścinka i wyrzynka');stat('felled');w.label='pilarz (ekipa '+C.id+')'}}]);
  }else{
   const p=task.p;w.label='pilarz '+C.id+' — sadzi '+SP[p.sp].name.split(' ')[0];w.prop='sapling';
   w.run([{go:[p.x-7,p.y],face:[p.x,p.y]},{wait:p.plot?1:1.8,pose:'kneel',face:[p.x,p.y]},
    {call:()=>{const nur=takeNursery(p.sp);
-    plantTree(p.x,p.y,p.sp,!!p.prep||nur);J.plants=J.plants.filter(q=>q!==p);pay(nur?COST.plantNursery:COST.plant,nur?'sadzonka ze szkółki':'sadzonka i sadzenie');planProgress('plant',1);w.label='pilarz (ekipa '+C.id+')';w.prop=null;p.onDone&&p.onDone()}}]);
+    plantTree(p.x,p.y,p.sp,!!p.prep||nur);J.plants=J.plants.filter(q=>q!==p);bill(nur?COST.plantNursery:COST.plant,'sadzenie');planProgress('plant',1);w.label='pilarz (ekipa '+C.id+')';w.prop=null;p.onDone&&p.onDone()}}]);
  }
 }
 // sadzonka danego gatunku ze szkółki (0.6.2: zapas osobno dla każdego gatunku)
@@ -360,7 +367,7 @@ function skidUpdate(dt){
   if(v.load<=.001){
    J.stacks=J.stacks.filter(z=>z.vol>.05||z===J.truck.cur||J.truck.route.includes(z));
    const d=S.delivered||0,ds=S.dsort||{};v.load=0;S.val=0;S.ls=null;S.lv=null;S.stacks=null;S.delivered=0;S.dsort=null;S.watch=0;
-   if(d>0){pay(Math.round(d*COST.skid),'zrywka');planProgress('cut',d);toast('Przy drodze w oddz. '+st.odd+' złożono '+displayNumber(d,1)+' m³: '+['tart','pap','opal'].filter(k=>ds[k]>.05).map(k=>SORTS[k].short+' '+displayNumber(ds[k],1)).join(', ')+'.')}
+   if(d>0){bill(Math.round(d*COST.skid),'zrywka');planProgress('cut',d);toast('Przy drodze w oddz. '+st.odd+' złożono '+displayNumber(d,1)+' m³: '+['tart','pap','opal'].filter(k=>ds[k]>.05).map(k=>SORTS[k].short+' '+displayNumber(ds[k],1)).join(', ')+'.')}
    if(freePiles().length&&cal.work(7,17)){S.phase='idle';}
    else{S.phase='idle';goHome()}
   }

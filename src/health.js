@@ -7,7 +7,8 @@ import {E} from './ents.js';
 import {report} from './incidents.js';
 import {mail} from './mail.js';
 import {pay,canAfford,bumpDamage,ECO} from './economy.js';
-import {EDGES,WETLANDS,STREAM,ptAt,oddzial,YARD,inRect} from './map.js';
+import {EDGES,WETLANDS,STREAM,ptAt,oddzial,YARD,inRect,offLimits} from './map.js';
+import {noCut,inReserve} from './nest.js';
 import {nearestRoad} from './roads.js';
 import {rand} from './life/agents.js';
 
@@ -26,7 +27,7 @@ const odd=(x,y)=>'oddz. '+oddzial(x,y);
 const open_=q=>q.status!=='done'&&q.status!=='gone';
 
 // ── stany drzew ──
-function infect(t){if(t.kb)return;t.kb=1;t.kbT=state.days;HL.list.push(t)}
+function infect(t){if(t.kb||t.nest||t.mon)return;t.kb=1;t.kbT=state.days;HL.list.push(t)}
 export const rebuildHealth=()=>{HL.list=trees.filter(t=>t.kb&&t.kb<4&&t.st===STAND);for(const t of HL.list)t.kbT=t.kbT??state.days;
  for(const b of HL.blocks){const e=EDGES.find(q=>q.id===b.e);if(e){e.blocked=true;const p=ptAt(e,b.s);b.edge=e;b.x=p[0];b.y=p[1];b.ang=Math.atan2(p[3],p[2])+Math.PI/2}}}
 const stump=t=>{t.stumpR=clamp(crownR(t)*.2,3,8);t.st=STUMP;t.stumpAge=20;t.kb=0;t.marked=false;dirtyTree(t)};
@@ -50,7 +51,7 @@ function beetleTick(){
    if(!E.incidents.some(q=>q.type==='beetle'&&open_(q)&&Math.hypot(q.x-t.x,q.y-t.y)<320))
     report('beetle',t.x,t.y,(trap?'Pułapki feromonowe wykazały nalot kornika — ':'Zamierające świerki — podejrzenie kornika w ')+odd(t.x,t.y)+'.',{x:t.x,y:t.y,r:260,n:0})}
   if(t.kb===2&&age>2.6){t.kb=3;dirtyTree(t)}
-  if(t.kb===3&&age>7){stump(t);continue}
+  if(t.kb===3&&age>7+((t.dw||inReserve(t.x,t.y))?70:0)){stump(t);continue}   // 0.9: martwe drewno (zostawione albo w rezerwacie) stoi znacznie dłużej
   if(t.kb<3&&rand()<.25*(1+HL.dry*1.5)*(trap?.45:1)*sub){
    const nb=treesIn(t.x-110,t.y-110,t.x+110,t.y+110).filter(q=>q.st===STAND&&!q.kb&&q.age>=20&&(q.sp==='swierk'||(q.sp==='sosna'&&q.age>50&&rand()<.2)));
    if(nb.length)infect(nb[(rand()*nb.length)|0])}
@@ -62,7 +63,7 @@ function beetleTick(){
 // Patrol po zgłoszeniu: sprawdza korę i cechuje do cięcia sanitarnego wszystkie zasiedlone drzewa w okolicy.
 export function sanitaryMark(A){
  let n=0;for(const t of treesIn(A.x-A.r,A.y-A.r,A.x+A.r,A.y+A.r)){
-  if(t.st!==STAND||!t.kb||t.marked||t.assigned||Math.hypot(t.x-A.x,t.y-A.y)>A.r)continue;
+  if(t.st!==STAND||!t.kb||t.marked||t.assigned||t.dw||offLimits(t.x,t.y)||noCut(t.x,t.y,t)||Math.hypot(t.x-A.x,t.y-A.y)>A.r)continue;
   t.marked=true;t.san=true;n++}
  A.n=n;HL.stats.cutSan+=n;return n;
 }
@@ -74,7 +75,7 @@ export function strike(){
  for(let k=0;k<200&&!c.length;k++){const t=trees[(rand()*trees.length)|0];if(t&&t.st===STAND&&t.age>=25&&!inRect(t.x,t.y,YARD,200))c.push(t)}
  if(!c.length)return;const [cx,cy]=[c[0].x,c[0].y],R=380;let n=0;const down=[];
  for(const t of treesIn(cx-R,cy-R,cx+R,cy+R)){
-  if(t.st!==STAND||t.age<25||t.kb===4||Math.hypot(t.x-cx,t.y-cy)>R)continue;
+  if(t.st!==STAND||t.age<25||t.kb===4||t.nest||t.mon||Math.hypot(t.x-cx,t.y-cy)>R)continue;
   const p=t.sp==='swierk'?.34:t.sp==='sosna'?.1:.08;
   if(rand()<p*(1-Math.hypot(t.x-cx,t.y-cy)/R*.5)){t.kb=4;t.kbT=state.days;dirtyTree(t);down.push(t);if(++n>=70)break}}
  let bl=0;

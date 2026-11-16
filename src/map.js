@@ -21,6 +21,8 @@ const nearIdx=(P,pt)=>{let bi=0,bd=1e9;P.forEach((p,i)=>{const d=D(p,pt);if(d<bd
 // ── Szosa: łagodny łuk (y zależy od x) ──
 export const hy=x=>1724-26*Math.sin(Math.PI*(x+140)/3880);
 const HX={j1:820,j2:1700};
+// 0.9: pas lasu za szosą (na południe od niej) to tylko tło — poza zasięgiem gospodarki leśnej (bez cięcia, sadzenia i oznaczeń)
+export const offLimits=(x,y)=>y>hy(x)+34;
 export const NODES={mW:[-140,hy(-140)],j1:[820,hy(820)],j2:[1700,hy(1700)],j3:[2600,hy(2600)],j4:[3260,hy(3260)],mE:[3740,hy(3740)],
  // dukty północne (zakręcone) i pętle
  a3:[820,1400],a1:[800,1000],b1:[1720,1150],
@@ -143,7 +145,8 @@ export const POSTS=[...GX.flatMap((x,i)=>[{x:x+14,y:GY+14,n:[st(0,i)+' '+st(0,i+
 // Szlabany na wjazdach z szosy w dukty i tablica leśnictwa.
 export const BARRIERS=[];{   // 0.7.2: słup na poboczu dukty, ramię wzdłuż drogi (otwarte); pozycja liczona z geometrii dukty
  const fe=EDGES.filter(e=>e.kind==='forest'),near=(x,y)=>{let b=null;for(const e of fe)for(let s=0;s<=e.len;s+=6){const p=ptAt(e,s),d=Math.hypot(p[0]-x,p[1]-y);if(!b||d<b.d)b={d,x:p[0],y:p[1],tx:p[2],ty:p[3]}}return b};
- for(const k of ['j1','j2'])for(const sg of [-1]){const x=HX[k],y=hy(x)+(k==='j2'&&sg<0?205:84)*sg,b=near(x,y);   // 0.8.3: szlaban przy j2 dalej od szosy — przed nim jest zatoka parkingowa
+ const a3a1=EDGES.find(e=>e.id==='a3-a1'),p70=ptAt(a3a1,70);   // 0.9: szlaban przy j1 stoi za wjazdem do leśniczówki (a3), żeby nie ograniczał petentów; przy j2 dalej od szosy — przed nim zatoka parkingowa
+ for(const [x,y] of [[p70[0],p70[1]],[HX.j2,hy(HX.j2)-205]]){const b=near(x,y);
   let nx=-b.ty,ny=b.tx;if(nx<0||(Math.abs(nx)<.2&&ny<0)){nx=-nx;ny=-ny}
   const a=b.ty*(b.y-hy(b.x))>0?1:-1;BARRIERS.push({x:b.x+nx*32,y:b.y+ny*32,bx:b.tx*a,by:b.ty*a})}
 }

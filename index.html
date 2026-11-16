@@ -17,7 +17,8 @@
    <div class="gauge"><div class="lbl">Ochrona terenu <strong id="protect">64%</strong></div><div class="bar"><div id="protectbar"></div></div></div>
   </div>
   <div class="plate topright"><div class="clock" id="time">07:00</div><div class="sub" id="date">Rok 1 · lato · dzień 2</div><div class="sub" id="wx"></div><div class="sub" id="dow">piątek</div><div class="ff" id="ff" style="display:none">NOC · czas ×8</div>
-   <div class="btns"><button id="pausebtn" class="topbtn" title="Pauza (P)">❚❚</button><button id="speedbtn" class="topbtn" title="Tempo (T)">Czas ×1</button><button id="soundbtn" class="topbtn" title="Dźwięk (M)">Dźwięk: wył.</button><button id="mapbtn" class="topbtn" title="Mapa leśnictwa (Tab)">Mapa</button><button id="helpbtn" class="topbtn" title="Pomoc (H)">?</button></div></div>
+   <div class="btns"><button id="pausebtn" class="topbtn" title="Pauza (P)">❚❚</button><button id="speedbtn" class="topbtn" title="Tempo ×1 / ×2 / ×3 (T). Shift + klik: tryb szybki ×10">Czas ×1</button><button id="soundbtn" class="topbtn" title="Dźwięk (M)">Dźwięk: wył.</button><button id="mapbtn" class="topbtn" title="Mapa leśnictwa (Tab)">Mapa</button><button id="helpbtn" class="topbtn" title="Pomoc (H)">?</button></div>
+   <div class="btns"><button id="skipbtn" class="topbtn" title="Przewiń czas do rana / do jutra. Przerywa się przy zgłoszeniu lub interwencji.">Do jutra</button><button id="zoomout" class="topbtn" title="Oddal (kółko myszy)">−</button><button id="zoomin" class="topbtn" title="Przybliż (kółko myszy)">+</button></div></div>
  </div>
  <div class="left">
   <div class="plate tools"><div class="kick">NARZĘDZIA</div>
@@ -31,6 +32,7 @@
    <button id="cancelbtn" class="act" style="display:none"><b>X</b>Anuluj zlecenia <span id="canceln"></span></button>
    <button id="sellbtn" class="act"><b>K</b>Wywóz drewna</button>
    <button id="mailbtn" class="act"><b>C</b>Poczta <span id="mailn"></span></button>
+   <div class="btns" style="justify-content:stretch"><button id="undobtn" class="topbtn" style="flex:1" title="Cofnij ostatnie zaznaczenie obszaru (Ctrl+Z)">Cofnij</button><button id="followbtn" class="topbtn" style="flex:1" title="Kamera śledzi zaznaczony pojazd, osobę albo zwierzę (F)">Śledź</button></div>
    <div class="sep"></div>
    <div class="srow"><span>Ekipa A</span><i id="crewstate">wolna</i></div>
    <div class="srow" id="crewBrow" style="display:none"><span>Ekipa B</span><i id="crewBstate">wolna</i></div>
@@ -39,6 +41,7 @@
    <div class="srow"><span>Przy drogach</span><i id="stackinfo">0 m³</i></div>
    <div class="srow"><span>Cena</span><i id="market">×1,00</i></div>
    <div class="srow"><span>Koszty/dzień</span><i id="daily">300 zł</i></div>
+   <div class="srow"><span>Do zapłaty</span><i id="owed">—</i></div>
    <div class="srow"><span>Pług</span><i id="plowstate">—</i></div>
    <div class="sep"></div>
    <button id="basebtn" class="act"><b>L</b>Leśniczówka — kadry, sprzęt</button>
@@ -63,7 +66,7 @@
 <div id="mapov" class="hidden"><div class="mapcard"><div class="maphead"><b>MAPA LEŚNICTWA</b><span><button data-mapmode="sp">Gatunki</button><button data-mapmode="age">Wiek</button><button data-mapmode="q">Jakość</button><button id="mapclose">Zamknij (Tab)</button></span></div>
  <canvas id="mapcv"></canvas><div id="maplegend"></div><div class="maphint">Kliknij miejsce na mapie, aby tam przejść.</div></div></div>
 <div id="help" class="hidden panel"><div class="card"><div class="kicker">JAK GRAĆ</div>
- <div class="keys"><span><b>Mysz</b> przeciągnij mapę, kliknij obiekt</span><span><b>Kółko / Z</b> przybliżenie</span><span><b>1</b> podgląd</span><span><b>2</b> wycinka: klik / przeciągnij</span><span><b>3</b> sadzenie: klik / przeciągnij = rzędy</span><span><b>4</b> odnowienie: przeciągnij = powierzchnia</span><span><b>Prawy przycisk</b> przesuwa mapę</span><span><b>E</b> wyślij ekipę</span><span><b>K</b> zamów wywóz</span><span><b>Q</b> patrol do zgłoszenia</span><span><b>F</b> kamera śledzi</span><span><b>WASD</b> widok</span><span><b>T</b> tempo ×1/×3/×10</span><span><b>P</b> pauza · <b>M</b> dźwięk</span><span><b>G</b> wzrost lasu (test)</span><span><b>F3</b> debug</span><span><b>Esc</b> anuluj</span></div>
+ <div class="keys"><span><b>Mysz</b> przeciągnij mapę, kliknij obiekt</span><span><b>Kółko / Z</b> przybliżenie</span><span><b>1</b> podgląd</span><span><b>2</b> wycinka: klik / przeciągnij</span><span><b>3</b> sadzenie: klik / przeciągnij = rzędy</span><span><b>4</b> odnowienie: przeciągnij = powierzchnia</span><span><b>Prawy przycisk</b> przesuwa mapę</span><span><b>E</b> wyślij ekipę</span><span><b>K</b> zamów wywóz</span><span><b>Q</b> patrol do zgłoszenia</span><span><b>F</b> kamera śledzi</span><span><b>WASD</b> widok</span><span><b>T</b> tempo ×1/×2/×3 (Shift+klik na „Czas”: ×10)</span><span><b>Do jutra / Do rana</b> przewija czas do 6:00</span><span><b>P</b> pauza · <b>M</b> dźwięk</span><span><b>G</b> wzrost lasu (test)</span><span><b>F3</b> debug</span><span><b>Esc</b> anuluj</span></div>
  <p class="hint2"><b>Trzebież:</b> kliknij drzewo i zleć „Ocenę drzewostanu” — leśniczy obejdzie okolicę, pozna jakość drzew (przy narzędziu Wycinka kropki: zielona dorodne, żółta przeciętne, czerwona wadliwe) i oznaczy wadliwe do usunięcia. W luźniejszym drzewostanie drzewa rosną szybciej. Drewno samo dzieli się na tartaczne, papierówkę i opał — opał leży w osobnych stosach dla ludności.</p>
  <p class="hint2"><b>Tab</b> — mapa leśnictwa (gatunki, wiek, klik przenosi kamerę). <b>U</b> — schowaj / pokaż interfejs. Kamera wyjeżdża poza krawędź mapy, żeby rogi lasu nie były zasłonięte.</p>
  <p class="hint2">Gra zapisuje się sama co 30 s i przy zamknięciu karty.</p>
@@ -72,6 +75,7 @@
  <p class="hint2">Pory roku: zimą ekipa nie sadzi (zamarznięta ziemia), a paśniki trzeba uzupełniać karmą. Wiosną w oddz. 103 obowiązuje okres lęgowy — wycinka czeka do lata. Niegrodzone sadzonki zgryzają sarny i jelenie — grodź powierzchnie (siatka zatrzymuje zwierzynę), nanieś repelent na sezon albo złóż wniosek o odstrzał redukcyjny. Jesienią i zimą w sobotę koło łowieckie urządza polowanie zbiorowe.</p>
  <p class="hint2"><b>C</b> — poczta (skrzynka przy bramie: flaga w górze = nowe listy; trafiają tu ważne zdarzenia, które łatwo przeoczyć przy szybkim czasie). <b>O</b> — karta oddziału (skład, wiek, zapas, odnowienia, zgłoszenia). Przy pożarze, nielegalnym wjeździe i nocnym intruzie czas sam wraca do ×1; niepilne zgłoszenia wygasają, gdy nikt się nimi nie zajmie.</p>
  <p class="hint2"><b>Porządek w lesie:</b> dzikie wysypisko usuwa firma wywozowa (przycisk na zgłoszeniu, 700 zł, śmieciarka przyjeżdża w godzinach pracy). Gdy patrol złapie sprawcę, wybierasz na miejscu: puścić z pouczeniem (tylko wykroczenia) albo wezwać Policję (mandat, więcej ochrony, ale wszyscy czekają na radiowóz; po 30 s bez wyboru decyduje domyślna opcja). Pożar zgłoszony z wieży wzywa straż pożarną od razu; bez wieży jedzie leśniczy. W L: fotopułapki, zamykane szlabany i zatoka parkingowa przy drodze leśnej. Wilki przychodzą na kilka dni gry i idą dalej; sarny i jelenie czasem przebiegają przez szosę.</p>
+ <p class="hint2"><b>Faktury:</b> praca ekip przychodzi dzienną fakturą — zapłać w poczcie (C) albo w L (jest też pożyczka i automatyczne płacenie). <b>Przyroda:</b> rzadkie ptaki pojawiają się raz; gniazdo ma strefę ochronną (bez cięcia). Rezerwat — karta oddziału (O), pomnik przyrody i martwe drewno — karta drzewa. „Do jutra / Do rana” przewija czas do 6:00.</p>
  <p class="hint2">L — Leśniczówka: druga ekipa, podleśniczy (drugi patrol i dyżur w kancelarii), szkółka, garaż z magazynem, forwarder, koło łowieckie i paśniki.</p>
  <button id="help-close">ZAMKNIJ</button><button id="newgame" class="sec">NOWA GRA (kasuje zapis)</button></div></div>
 <script type="module" src="./src/main.js"></script>

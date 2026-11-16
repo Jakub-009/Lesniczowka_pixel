@@ -209,7 +209,9 @@ export const LOOKS={
  picker:{coat:'#8a6a4a',cap:'#c84a3a',skin:'#dcb08c'},
  walker:{coat:'#5a7aa0',cap:'#6b4a2e',skin:'#d9b08a'},
  hunter:{coat:'#556b3a',cap:'#3f4f2a',skin:'#d0a582'},
- driver:{coat:'#3a3a3a',cap:'#202020',skin:'#d6a77f'}
+ driver:{coat:'#3a3a3a',cap:'#202020',skin:'#d6a77f'},
+ police:{coat:'#2c4a78',cap:'#1c2f52',skin:'#d9b08a',pants:'#1f2c44'},
+ fire:{coat:'#c8402a',cap:'#e8c43a',skin:'#d6a77f',pants:'#2f3a46'}
 };
 export function personTop(g,p){
  const x=p.x,y=p.y,L=p.look,step=Math.floor(p.step||0),pose=p.pose;

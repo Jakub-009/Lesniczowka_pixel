@@ -17,5 +17,5 @@ export const unreadMail=()=>{let n=0;for(const m of MAIL)if(!m.read)n++;return n
 export function slowDown(){if(state.rate>1){state.rate=1;const b=$('#speedbtn');if(b)b.textContent='Czas ×1';return true}return false}
 export const stamp=d=>{const h=(d%1)*24,hh=Math.floor(h),mm=Math.floor((h-hh)*60);
  return 'rok '+(Math.floor(d/(4*SEASON_DAYS))+1)+' · '+SEASONS[Math.floor(d/SEASON_DAYS)%4]+' · '+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')};
-export const serializeMail=()=>MAIL.slice(0,30).map(m=>[+m.day.toFixed(3),m.kind,m.text,m.x==null?null:Math.round(m.x),m.y==null?null:Math.round(m.y),m.read?1:0]);
-export function loadMail(a){MAIL.length=0;for(const [day,kind,text,x,y,read] of a||[])MAIL.push({id:nid++,day,kind,text,x:x??undefined,y:y??undefined,read:!!read})}
+export const serializeMail=()=>MAIL.slice(0,30).map(m=>[+m.day.toFixed(3),m.kind,m.text,m.x==null?null:Math.round(m.x),m.y==null?null:Math.round(m.y),m.read?1:0,m.inv??null]);
+export function loadMail(a){MAIL.length=0;for(const [day,kind,text,x,y,read,inv] of a||[])MAIL.push({id:nid++,day,kind,text,x:x??undefined,y:y??undefined,read:!!read,inv:inv??undefined})}

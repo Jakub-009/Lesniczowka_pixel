@@ -11,6 +11,7 @@ import {Vehicle,Ped,Wild,Group,rand} from './life/agents.js';
 import {FA,NAMES} from './life/fauna.js';
 import {mail} from './mail.js';
 import {report} from './incidents.js';
+import {ECO} from './economy.js';
 
 const JUNCTIONS=[820,1700,2600,3260];
 const ACC={roe:'sarnę',deer:'jelenia',boar:'dzika'};
@@ -32,7 +33,7 @@ export function startCrossing(force={}){
  const east=rand()<.5,north=rand()<.5;
  const car=new Vehicle('car',{...ENTRY(east),color:CAR_COLS[Math.floor(rand()*CAR_COLS.length)]});car.label='samochód na szosie';
  car.goTo(goalNode(exitNode(east?3600:0)),{leave:true});
- X={car,kind,x0,east,north,hit:force.hit??rand()<.18,force:force.out||null,state:'approach',t:0,a:null,out:null};
+ X={car,kind,x0,east,north,hit:force.hit??rand()<.18*(ECO.ord&&ECO.ord.repel?.3:1),force:force.out||null,state:'approach',t:0,a:null,out:null};
  return true;
 }
 const roadY=x=>hy(x);

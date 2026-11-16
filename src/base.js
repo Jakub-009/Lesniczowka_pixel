@@ -124,7 +124,9 @@ export function updateBase(dt){
  }
  BASE.queue=BASE.queue.filter(p=>!p.dead&&!p.done);
  // odbiory opału w godzinach 9–17 (pon.–sob.)
- for(const o of BASE.opalPiles)if(!o.coming&&cal.work(9,16)&&state.days-o.day>.08)pickup(o);
+ for(const o of BASE.opalPiles){if(!o.coming&&cal.work(9,16)&&state.days-o.day>.08)pickup(o);
+  // 0.9: kupka nie zalega w nieskończoność — po ok. 2,5 dnia nabywca odbiera ją na własną rękę (koniec zawieszonych kupek przy drogach)
+  if(state.days-o.day>2.5)o.dead=true}
  BASE.opalPiles=BASE.opalPiles.filter(o=>!o.dead);
 }
 // ── rysowanie: szkółka, garaż z magazynem, opał do odbioru ──

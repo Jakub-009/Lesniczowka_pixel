@@ -182,7 +182,7 @@ function paintChunk(c,i,j){
   if(t.st===STUMP){paintStump(lg,t);continue}
   if(t.falling||t.lying)continue;
   if(t.age<SAPLING_AGE)paintSapling(lg,t,season);
-  else outlinedDraw(hg,t.x,t.y,G=>{paintCrown(G,t,season);if(t.kb>=2)crownTint(G,t)},'#1a2a20');
+  else outlinedDraw(hg,t.x,t.y,G=>{paintCrown(G,t,season);if(t.kb>=2)crownTint(G,t,season)},'#1a2a20');
  }
  // korony malujemy na wspólnym płótnie roboczym (odczyt pikseli), a do kawałka kopiujemy gotowy obraz —
  // kawałki zostają w pamięci karty graficznej i przesuwanie mapy nie przycina
@@ -235,9 +235,17 @@ function crownPatch(G,cx,cy,rad,base,lit,seed,dens=2){
  }
 }
 // 0.7: chore drzewa — rude (zamierające), szare (martwe), połamane (wiatrołom)
-function crownTint(G,t){const r=crownR(t)*.82,s=t.seed;
- const c=t.kb===2?['#a8672e',['#c98a44','#8a4e22','#dba45c']]:t.kb===3?['#6a6458',['#8a8478','#4e493f','#9c968a']]:['#7a5a3a',['#a0784a','#5e4228','#c09a68']];
- crownPatch(G,0,0,r,c[0],c[1],s+31,1.6)}
+function crownTint(G,t,season){const r=crownR(t)*.82,s=t.seed;
+ // 0.9: trzy wyraźnie różne wyglądy, niezależne od pory roku: kornik (2) — ceglasto-rudy z żółtymi igłami, martwe (3) — szare,
+ // wiatrołom (4) — ciemnobrązowa, strzępiasta korona z jasnymi drzazgami i połamanymi gałęziami. Zimą (liście opadły) rysujemy tylko rzadkie gałązki, nie pełną plamę.
+ const col=t.kb===2?['#b9532a','#e0a040','#8a3a1c']:t.kb===3?['#8a8478','#4e493f','#b4aea2']:['#4a3a2c','#d8c8a0','#2c2118'];
+ if(season===3&&t.kb!==4&&!SP[t.sp].conifer){for(let k=0;k<r*1.3;k++){const a=hash(k,s,41)*6.283,d=Math.sqrt(hash(k,s,42))*r;rect(G,Math.cos(a)*d,Math.sin(a)*d,2,1,col[k%3])}return}
+ if(t.kb===4){
+  crownPatch(G,0,0,r*.92,col[0],['#5e4a38','#352a20','#6e5840'],s+31,1.1);
+  for(let k=0;k<7;k++){const a=hash(k,s,43)*6.283,L=r*(.5+hash(k,s,44)*.5);for(let u=2;u<L;u+=2)rect(G,Math.cos(a)*u,Math.sin(a)*u,2,1,u%4?col[1]:'#b8a478')}
+  for(let k=0;k<r*.7;k++){const a=hash(k,s,45)*6.283,d=hash(k,s,46)*r*.8;rect(G,Math.cos(a)*d,Math.sin(a)*d,2,1,col[1])}
+  return}
+ crownPatch(G,0,0,r,col[0],[col[1],col[2],col[0]],s+31,1.6)}
 const DECID={
  dab:[['#79a24f',['#a3c46f','#5f8a42','#bcd487']],['#4e7a3c',['#6f9a4f','#3d6633','#8aab60']],['#94713a',['#c09045','#74562c','#d8ad5c']]],
  buk:[['#86b452',['#acd172','#679a40','#c6e08a']],['#4a8642',['#69a255','#3a6c37','#86b866']],['#ad5e2a',['#d27c36','#87461f','#e6a050']]],

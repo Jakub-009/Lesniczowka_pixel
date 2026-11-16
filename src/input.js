@@ -1,7 +1,8 @@
 // Mysz i klawiatura: przeciąganie mapy, kółko = zoom (całkowite skale, ostre piksele), kliknięcie = wybór lub polecenie narzędzia.
 import {C,$,keys,state,camera,VIEW,SETTINGS,DEBUG,toast,active} from './core.js';
 import {treeAt,STAND,STUMP,CUT_AGE,treesIn,testGrow} from './forest.js';
-import {HOUSE,inRect} from './map.js';
+import {HOUSE,inRect,offLimits} from './map.js';
+import {noCut} from './nest.js';
 import {MAILBOX} from './lodge.js';
 import {E} from './ents.js';
 import {J,toggleMark,togglePlant,dispatchCrew,orderTruck,UNDO,cancelCrewTasks,clearOrders} from './jobs.js';
@@ -41,8 +42,10 @@ function undo(){
  else if(u.type==='plant'){cancelCrewTasks(q=>q.p&&u.list.includes(q.p));const set=new Set(u.list.filter(p=>!p.assigned));J.plants=J.plants.filter(p=>!set.has(p));toast('Cofnięto plan '+set.size+' sadzonek.')}
  hud();
 }
+function followSel(){const s=state.selected;if(state.follow){state.follow=null;toast('Kamera przestała śledzić.');return}state.follow=s&&(s.pos||s.look||s.phase!=null||s.kind)&&s.st===undefined?s:null;if(!state.follow)toast('Wybierz pojazd, osobę albo zwierzę.')}
 function finishPoly(){const P=state.poly;state.poly=null;if(!P)return;const p=createPolyPlot(P);if(p)state.selected=p;hud()}
 export function bindInput(zoomFn){
+ $('#undobtn').addEventListener('click',()=>{if(state.playing&&!state.modal)undo()});$('#followbtn').addEventListener('click',()=>{if(state.playing&&!state.modal)followSel()});
  C.addEventListener('contextmenu',e=>e.preventDefault());
  // w narzędziach wycinki, sadzenia i odnowienia lewy przycisk zaznacza obszar; mapę przesuwa prawy (albo lewy w podglądzie)
  C.addEventListener('pointerdown',e=>{C.focus();resumeSound();down={x:e.clientX,y:e.clientY,cx:camera.x,cy:camera.y,btn:e.button,drag:false,box:e.button===0&&state.tool!=='select',shift:e.shiftKey,w:toWorld(e)};C.setPointerCapture(e.pointerId)});
@@ -62,7 +65,7 @@ export function bindInput(zoomFn){
     for(const t of area)if(t.marked&&!t.assigned){t.marked=false;list.push(t)}
     if(list.length)UNDO.push({type:'unmark',list});toast(list.length?'Usunięto oznaczenie '+list.length+' drzew. Ctrl+Z — cofnij.':'W zaznaczeniu nie było oznaczonych drzew.')}
    else if(state.tool==='mark'){const list=[];
-    for(const t of area)if(t.st===STAND&&!t.falling&&!t.lying&&!t.assigned&&t.age>=CUT_AGE&&!t.marked){t.marked=true;list.push(t)}
+    for(const t of area)if(t.st===STAND&&!t.falling&&!t.lying&&!t.assigned&&t.age>=CUT_AGE&&!t.marked&&!offLimits(t.x,t.y)&&!noCut(t.x,t.y,t)){t.marked=true;list.push(t)}
     if(list.length)UNDO.push({type:'mark',list});
     toast(list.length?'Wyznaczono '+list.length+' drzew do wycinki. E — wyślij ekipę. Ctrl+Z — cofnij, Shift + przeciągnięcie — odznacz.':'W zaznaczeniu nie ma drzew do wycinki (od '+CUT_AGE+' lat).')}
    else if(state.tool==='plant'){const before=J.plants.length,n=planAreaPlants(x0,y0,x1,y1);if(n)UNDO.push({type:'plant',list:J.plants.slice(before)});toast(n?'Zaplanowano '+n+' sadzonek w rzędach. E — wyślij ekipę. Ctrl+Z — cofnij.':'Brak wolnych miejsc na sadzonki.')}
@@ -98,7 +101,7 @@ export function bindInput(zoomFn){
   else if(k==='u'){document.body.classList.toggle('noui');toast(document.body.classList.contains('noui')?'Interfejs schowany (U — pokaż).':'Interfejs widoczny.')}
   else if(k==='e')dispatchCrew();else if(k==='x')clearOrders();else if(k==='k')orderTruck(true);
   else if(k==='q'){const q=E.incidents.find(x=>x.status==='new');if(q)dispatch(q);else toast('Brak nowych zgłoszeń.')}
-  else if(k==='f'){const s=state.selected;state.follow=s&&(s.pos||s.look||s.phase!=null||s.kind)&&s.st===undefined?s:null;if(!state.follow)toast('Wybierz pojazd, osobę albo zwierzę.')}
+  else if(k==='f')followSel();
   else if(k==='t')$('#speedbtn').click();else if(k==='p')$('#pausebtn').click();else if(k==='m')toggleSound();
   else if(k==='g'){testGrow(10);toast('Las urósł o 10 lat (test).')}
   else if(k==='n'){state.noFF=!state.noFF;toast(state.noFF?'Noc płynie normalnie (N).':'Noc przewija się sama (N).')}

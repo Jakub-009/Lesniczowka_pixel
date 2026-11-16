@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 0.9.0 (w budowie) — prototyp.** Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 0.9.0 (finalna 0.9) — prototyp.** Po testach: 1.0 (przebudowa interfejsu), potem tylko gra, testy i drobne poprawki. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -224,7 +224,18 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
 
-## Zmiany w 0.9 (w budowie) „Ambony”
+## Zmiany w 0.9 (final) „Ludzie i przyroda”
+- **Czas:** tempo ×1 / ×2 / ×3 (×10 tylko świadomie: Shift + klik na „Czas”). Przycisk **„Do jutra” / „Do rana”** przewija czas do 6:00 i sam się przerywa przy nowym zgłoszeniu, interwencji, pauzie albo oknie. Noc nadal przewija się sama (×8), gdy nic się nie dzieje. Pilne zdarzenia wracają do ×1.
+- **Mysz zamiast skrótów:** przyciski „−” / „+” (zoom), „Cofnij” (Ctrl+Z) i „Śledź” (F); kamera przesuwa się przeciągnięciem mapy. Skróty klawiszowe nadal działają.
+- **Faktury zamiast natychmiastowej zapłaty:** ścinka, sadzenie i zrywka trafiają na dzienną fakturę (poczta C → „Zapłać”, albo „Zapłać wszystkie” i automatyczne płacenie w L → Finanse). Termin: jedna pora roku; potem **jedno** upomnienie z opłatą 5% (min. 40 zł) i koniec — bez innych kar. W panelu: „Do zapłaty”.
+- **Pożyczka:** 10 000 zł, 8%, 6 równych rat potrącanych na początku każdej pory roku (rata może iść na debet); spłata całości w dowolnym momencie.
+- **Rzadkie ptaki** (każdy gatunek tylko raz): bocian czarny (puszcza, oddz. 104) i bielik (mokradło NW) osiadają na stałe w gnieździe na starym drzewie i latają nad lasem; żuraw i puchacz to goście, którzy zostają na chwilę i odlatują. **Strefa ochronna** gniazda: 55 px cały rok, 160 px wiosną (okres lęgowy) — bez cechowania i cięcia (rysowana przerywanym kołem). Dziennik obserwacji i wpisy w poczcie (L → Przyroda).
+- **Pomnik przyrody** (drzewo od 110 lat, 600 zł, maks. 3), **rezerwat** (karta oddziału O, 2 500 zł, maks. 2: bez wycinki, martwe drzewa zostają, +ochrona co sezon), **martwe drewno** (przycisk na martwym drzewie: zostaje do 10× dłużej i nie jest cięte sanitarnie). Wszystko zwiększa „bogactwo przyrody” i szansę na przylot rzadkich ptaków.
+- **Znaki i edukacja** (L): znaki zakazu wjazdu przy wjazdach w las (mniej nielegalnych wjazdów), odstraszacze zwierzyny przy szosie (znaki A-18b i słupki z odblaskami; potrąceń ok. 70% mniej, 10 zł/dzień), **ścieżka przyrodnicza** (SE, 4 tablice, brama) z **wycieczkami szkolnymi** w dni robocze (180 zł i trochę ochrony za każdą).
+- **Wiatrołomy:** leśniczy oceniający drzewostan sam cechuje wiatrołomy do cięcia sanitarnego; nowe, wyraźnie różne kolory (kornik rudy, martwe szare, wiatrołom ciemnobrązowy z drzazgami; zimą na liściastych tylko rzadkie gałązki).
+- **Poprawki mapy i incydentów:** szlaban za zjazdem do leśniczówki, pas za szosą niedostępny (nie cechuje się go), rów bez starych wjazdów, płynne połączenie strumienia z mokradłem, brak kary −5% gdy intruz zdążył uciec, policja i straż wysiadają z wozów, quady i crossy na publicznej szosie nie wywołują ostrzeżenia, dopóki nie skręcą w las. Chrust (kupki) można usunąć, ekipy chodzą pieszo między drzewami zamiast jeździć autem.
+
+## Zmiany w 0.9 (etap 1) „Ambony”
 - **Ambony** (1 100 zł, 8 stałych miejsc A1–A8; kupujesz w Leśniczówce, L — kolejna pojawia się w swoim miejscu na mapie): każda ma **własnego myśliwego** (wieczór i świt, przesunięci w czasie), zasięg ok. 420 px i licznik pozyskania. Wyjście daje widoczny strzał oraz porcję „z obwodu” zależną od presji zwierzyny. Jedna ambona utrzymuje stan wyjściowy (test 8 lat: presja ok. 0,95); przy zaległościach kolejne ambony pomagają (test: zaległość sarny 108/jelenie 25/dziki 140 — 1 ambona: presja 1,6 → 1,03 w 3 lata, 4 ambony: 1,06 po roku). Najwyżej 3 myśliwych naraz widać w lesie, pozostałe wyjścia liczą się bez sceny.
 - **Paśniki:** nowa gra zaczyna z jednym; kolejne (700 zł, maks. 4) kupujesz w Leśniczówce — pojawiają się w stałych miejscach. Jeden paśnik obejmuje 70% lasu, cztery — całość; mniej paśników to większe straty zimą i mocniejsze zgryzanie. Stare zapisy mają wszystkie cztery.
 - **Zwierzyna:** rozród zależy od zagęszczenia (bez polowań liczebność ustala się ok. 2,5× ponad docelową zamiast rosnąć bez końca), plan łowiecki = 90% nadwyżki ponad 80% stanu docelowego (maks. połowa populacji).

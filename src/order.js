@@ -87,14 +87,24 @@ export function dispatchPolice(inc,cb){
  POL.push({inc,wait:10+rand()*10,car:null,t:0,done:false,cb,at:null});
  toast('Wezwano Policję — wszyscy czekają na miejscu, radiowóz jest w drodze.');
 }
+function policeAway(p){if(p.car&&!p.car.dead){p.car.beacon=false;p.car.stopped=false;p.car.label='radiowóz odjeżdża';p.car.goTo(goalNode(exitNode(p.car.pos[0])),{leave:true})}}
 function policeDone(p,why){
  if(p.done)return;p.done=true;if(why)toast(why);
- if(p.car&&!p.car.dead){p.car.beacon=false;p.car.stopped=false;p.car.label='radiowóz odjeżdża';p.car.goTo(goalNode(exitNode(p.car.pos[0])),{leave:true})}
+ p.rel=p.offs&&p.offs.some(m=>!m.dead)?6:0;if(!p.rel)policeAway(p);
  p.cb&&p.cb();p.cb=null;
+}
+// 0.9: policjanci wysiadają, podchodzą do zatrzymanego i po załatwieniu sprawy wracają do radiowozu
+function spawnOfficers(p,v){
+ const c=p.car,h=c.heading,sx=Math.cos(h),sy=Math.sin(h);p.offs=[];
+ for(let i=0;i<2;i++){
+  const x=c.pos[0]+sx*(20+i*8),y=c.pos[1]+sy*(20+i*8),tx=v.pos[0]+(i?14:-14),ty=v.pos[1]+10;
+  const o=new Ped({kind:'police',x,y,speed:15});o.label='policjant';p.offs.push(o);
+  o.run([{go:[tx,ty],face:[v.pos[0],v.pos[1]]},{wait:600,pose:'talk',face:[v.pos[0],v.pos[1]],until:()=>p.done},{go:[x,y]},{call:q=>{q.dead=true}}]);
+ }
 }
 function updatePolice(dt){
  for(const p of POL){
-  if(p.done)continue;
+  if(p.done){if(p.rel>0){p.rel-=dt;if(p.rel<=0)policeAway(p)}continue}
   const inc=p.inc,v=inc.ref;
   if(!open_(inc)||!v||v.dead){policeDone(p);continue}
   if(!p.car){
@@ -107,8 +117,8 @@ function updatePolice(dt){
    continue;
   }
   const [cx,cy]=p.car.pos,d=Math.hypot(cx-v.pos[0],cy-v.pos[1]);
-  if(d<105){p.at=8;p.car.stopped=true;p.car.v=0;p.car.label='Policja — interwencja';v.label='zatrzymany przez Policję';const m=v.man;if(m&&!m.dead)m.label=m.label+' — zatrzymany';continue}
-  p.t-=dt;if(p.t<=0||p.car.arrived){p.t=2.5;const rp=nearestRoad(v.pos[0],v.pos[1],['main','forest']);p.car.goTo({edge:rp.edge,s:rp.s},{park:false,pen:250})}
+  if(d<105){p.at=8;spawnOfficers(p,v);p.car.stopped=true;p.car.v=0;p.car.label='Policja — interwencja';v.label='zatrzymany przez Policję';const m=v.man;if(m&&!m.dead)m.label=m.label+' — zatrzymany';continue}
+  p.t-=dt;if(p.t<=0||p.car.arrived){p.t=2.5;const rp=nearestRoad(v.pos[0],v.pos[1],['main','forest','dukt']);p.car.goTo({edge:rp.edge,s:rp.s},{park:false,pen:250})}
  }
  for(let i=POL.length-1;i>=0;i--)if(POL[i].done)POL.splice(i,1);
 }
