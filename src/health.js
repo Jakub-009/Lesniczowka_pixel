@@ -27,7 +27,8 @@ const odd=(x,y)=>'oddz. '+oddzial(x,y);
 const open_=q=>q.status!=='done'&&q.status!=='gone';
 
 // ── stany drzew ──
-function infect(t){if(t.kb||t.nest||t.mon)return;t.kb=1;t.kbT=state.days;HL.list.push(t)}
+// 0.9: pas za szosą nie należy do leśnictwa — nie ma tam kornika, wiatrołomów ani zgłoszeń, na które gracz nie ma wpływu
+function infect(t){if(t.kb||t.nest||t.mon||offLimits(t.x,t.y))return;t.kb=1;t.kbT=state.days;HL.list.push(t)}
 export const rebuildHealth=()=>{HL.list=trees.filter(t=>t.kb&&t.kb<4&&t.st===STAND);for(const t of HL.list)t.kbT=t.kbT??state.days;
  for(const b of HL.blocks){const e=EDGES.find(q=>q.id===b.e);if(e){e.blocked=true;const p=ptAt(e,b.s);b.edge=e;b.x=p[0];b.y=p[1];b.ang=Math.atan2(p[3],p[2])+Math.PI/2}}}
 const stump=t=>{t.stumpR=clamp(crownR(t)*.2,3,8);t.st=STUMP;t.stumpAge=20;t.kb=0;t.marked=false;dirtyTree(t)};
@@ -35,17 +36,19 @@ export const sick=()=>trees.filter(t=>t.kb>=2&&t.st===STAND).length;
 
 export function seedOutbreak(){
  for(let k=0;k<500;k++){const t=trees[(rand()*trees.length)|0];
-  if(!t||t.st!==STAND||t.sp!=='swierk'||t.age<20||t.kb||inRect(t.x,t.y,YARD,80))continue;
-  const nb=treesIn(t.x-80,t.y-80,t.x+80,t.y+80).filter(q=>q.st===STAND&&q.sp==='swierk'&&q.age>=20&&!q.kb);
+  if(!t||t.st!==STAND||t.sp!=='swierk'||t.age<20||t.kb||offLimits(t.x,t.y)||inRect(t.x,t.y,YARD,80))continue;
+  const nb=treesIn(t.x-80,t.y-80,t.x+80,t.y+80).filter(q=>q.st===STAND&&q.sp==='swierk'&&q.age>=20&&!q.kb&&!offLimits(q.x,q.y));
   if(nb.length<3)continue;infect(t);for(const q of nb.slice(0,4))infect(q);HL.stats.outbreaks++;return}
 }
 function beetleTick(){
  const se=cal.season(),sub=1/8,trap=trapsOn(),now=state.days;
  const wb=trees.reduce((a,t)=>a+(t.kb===4&&t.st===STAND?1:0),0);
  if(!HL.list.some(t=>t.kb<3)&&now>3&&(se===0||se===1)&&rand()<((se===1?.2+HL.dry*.5:.1+HL.dry*.3)+Math.min(.3,wb*.004))*sub)seedOutbreak();
+ for(const q of E.incidents)if(q.type==='beetle'&&open_(q)&&offLimits(q.x,q.y))q.status='done';   // stare zgłoszenia zza szosy znikają
  let dead=0;const keep=[];
  for(const t of HL.list){
   if(t.st!==STAND||!t.kb||t.kb>=4)continue;
+  if(offLimits(t.x,t.y)){t.kb=0;dirtyTree(t);continue}   // zapisy sprzed poprawki: drzewa za szosą wracają do zdrowia
   const age=now-t.kbT;
   if(t.kb===1&&age>(trap?.4:.8)){t.kb=2;dirtyTree(t);
    if(!E.incidents.some(q=>q.type==='beetle'&&open_(q)&&Math.hypot(q.x-t.x,q.y-t.y)<320))
@@ -75,7 +78,7 @@ export function strike(){
  for(let k=0;k<200&&!c.length;k++){const t=trees[(rand()*trees.length)|0];if(t&&t.st===STAND&&t.age>=25&&!inRect(t.x,t.y,YARD,200))c.push(t)}
  if(!c.length)return;const [cx,cy]=[c[0].x,c[0].y],R=380;let n=0;const down=[];
  for(const t of treesIn(cx-R,cy-R,cx+R,cy+R)){
-  if(t.st!==STAND||t.age<25||t.kb===4||t.nest||t.mon||Math.hypot(t.x-cx,t.y-cy)>R)continue;
+  if(t.st!==STAND||t.age<25||t.kb===4||t.nest||t.mon||offLimits(t.x,t.y)||Math.hypot(t.x-cx,t.y-cy)>R)continue;
   const p=t.sp==='swierk'?.34:t.sp==='sosna'?.1:.08;
   if(rand()<p*(1-Math.hypot(t.x-cx,t.y-cy)/R*.5)){t.kb=4;t.kbT=state.days;dirtyTree(t);down.push(t);if(++n>=70)break}}
  let bl=0;
