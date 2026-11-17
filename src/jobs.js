@@ -8,7 +8,7 @@ import {paintRut} from './paint.js';
 import {E,NAV} from './ents.js';
 import {Vehicle,Ped,rand,cartRear,cartFront} from './life/agents.js';
 import {trees,STAND,STUMP,CUT_AGE,THIN_AGE,SP,startFall,finishTree,plantTree,volume,crownR,fallLen,speciesFor,treesIn,SAPLING_AGE,sortSplit,SORTS} from './forest.js';
-import {pay,bill,earn,planProgress,stat,canAfford,ECO,DEBT_LIM,dunning} from './economy.js';
+import {pay,bill,earn,planProgress,stat,canAfford,ECO,DEBT_LIM,dunning,ledCount} from './economy.js';
 import {sfx} from './sound.js';
 import {pileTop} from './life/sprites.js';
 
@@ -438,7 +438,7 @@ function nextStop(){
  const T=J.truck,v=T.v;T.cur=T.route.shift()||null;
  if(!T.cur||v.load>=v.cap-.3){
   const pay_=Math.round((T.val||0)*ECO.market);T.val=0;
-  if(v.load>0){earn(pay_,'sprzedaż drewna');J.sold+=v.load;stat('sold',v.load);toast('Sprzedano '+displayNumber(v.load,1)+' m³ drewna za '+zl(pay_)+' (cena rynkowa ×'+displayNumber(ECO.market,2)+').')}
+  if(v.load>0){earn(pay_,'sprzedaż drewna');ledCount('m3',v.load);J.sold+=v.load;stat('sold',v.load);toast('Sprzedano '+displayNumber(v.load,1)+' m³ drewna za '+zl(pay_)+' (cena rynkowa ×'+displayNumber(ECO.market,2)+').')}
   for(const s of T.route)if(s.vol<.05)J.stacks=J.stacks.filter(z=>z!==s);T.route=[];
   T.phase='leaving';v.label='ciężarówka odjeżdża z drewnem';v.goTo(goalNode(exitNode(v.pos[0])),{leave:true});return}
  T.phase='coming';v.label='ciężarówka jedzie do stosu w oddz. '+T.cur.odd;

@@ -242,3 +242,13 @@ body.modal #msg{bottom:auto;top:14px;z-index:20}
 .top{justify-content:flex-start}.top>.gauges{margin:0 auto}
 .patrols{margin:2px 0 4px;padding-bottom:5px}.patrols .srow2{padding:3px 4px}.patrols em{color:#d9d2b4}
 .kick i{font-size:11px;color:#f1e6c2;letter-spacing:0}
+/* 1.1.4: podsumowanie kosztów */
+.bsec.wide2{grid-column:1/-1}
+.pers{display:flex;flex-wrap:wrap;gap:0 4px;margin:2px 0 8px}.pers button{background:#d4c79f;color:#384d39;box-shadow:0 3px 0 #a38c58}.pers button.on{background:#4f6d3f;color:#f1e6c2;box-shadow:0 3px 0 #2a3b2d}
+.lcols{display:grid;grid-template-columns:1fr 1fr;gap:4px 22px}
+.lcols h4{display:flex;justify-content:space-between;margin:8px 0 3px;font-size:12px;color:#384d39;border-bottom:1px solid #d4c79f;padding-bottom:2px}.lcols h4:first-child{margin-top:0}
+.lcols h4.res{font-size:13px;border:0;background:#e7dfba;padding:4px 6px}.lcols h4.res.neg b{color:#a8432c}.lcols h4.res.pos b{color:#3f6a2e}
+.lrow{position:relative;display:flex;justify-content:space-between;gap:10px;font-size:11px;padding:3px 4px;z-index:0}
+.lrow i{position:absolute;left:0;top:0;bottom:0;z-index:-1;opacity:.28}.lrow.inc i{background:#6a9a4a}.lrow.cst i{background:#b56a4a}
+.lrow span{color:#4a5a40}.lrow b{white-space:nowrap}
+@media (max-width:900px){.lcols{grid-template-columns:1fr}}

@@ -8,7 +8,7 @@ import {J,COST,PRICE,MACH,pendingCount,ordersCount,clearOrders,toggleMark,dispat
 import {R,inPlot,perimOf,plotStats,prepCost,areaHa,spotsIn,orderPrep,orderPlant,removePlot,rowsOf,fenceCost,orderFence,orderRepel,repelCost,seasonKey,MIXES,mixFor,cycleMix,mixSp} from './renew.js';
 import {signsOn,repelOn,trailOn,buySigns,buyRepel,buyTrail,vs,VC} from './visit.js';
 import {NAT,canMonument,makeMonument,toggleDeadwood,makeReserve,journalRows,MON_COST,RES_COST,richness} from './nature.js';
-import {ECO,dailyCost,costParts,costText,FIN,LOANS,dunning,owedTotal,owedCount,payAllInvoices,toggleAutoPay,takeLoan,repayLoan} from './economy.js';
+import {ECO,dailyCost,costParts,costText,LED,FIN_CATS,FIN,LOANS,dunning,owedTotal,owedCount,payAllInvoices,toggleAutoPay,takeLoan,repayLoan} from './economy.js';
 import {E} from './ents.js';
 import {dispatch,openIncidents,U,orderAssess,assessing,ASSESS,DEC,decide} from './incidents.js';
 import {prio} from './mail.js';
@@ -300,6 +300,7 @@ const SEC={
   ${btn('autopay',FIN.auto?'Płacenie automatyczne: włączone':'Płacenie automatyczne: wyłączone',false,true)}
   ${row('Pożyczka',FIN.loan?'zostało '+zl(FIN.loan.left)+' · rata '+zl(FIN.loan.inst):'—')}${FIN.loan?btn('repay','Spłać całość · '+zl(FIN.loan.left),false,true):LOANS.map((l,k)=>btn('loan'+k,'Pożyczka '+zl(l.amount)+' · '+Math.round(l.rate*100)+'%, '+l.parts+' rat')).join('')}
   ${hint('fin',`Faktura przychodzi co dzień, termin to jedna pora roku. Po terminie: upomnienie (+5%), po porze roku wezwanie (+10%, ekipy czekają na zapłatę), po trzech porach windykacja (+15%). Pożyczka: jedna naraz, raty na początku pory roku.`)}</div>`,
+  pods:costSummary(),
   znaki:`<div class="bsec"><h3>ZNAKI I EDUKACJA</h3>
   ${row('Znaki zakazu wjazdu',signsOn()?'stoją przy wjazdach':'—')}${signsOn()?'':btn('buysigns','Postaw znaki zakazu wjazdu · '+zl(VC.signs))}
   ${row('Odstraszacze zwierzyny przy szosie',repelOn()?'działają · '+zl(VC.repelDay)+'/dzień':'—')}${repelOn()?'':btn('buyrepel','Znaki A-18b i słupki z odblaskami · '+zl(VC.repel))}
@@ -322,7 +323,7 @@ const SEC={
   ${nextFeederSlot()==null?'':btn('pasnik','Wybuduj paśnik '+FEEDERS[nextFeederSlot()].name+' · '+zl(FEED_COST))}
   ${hint('pas',`Pusty paśnik zimą to zadanie dla patrolu (${zl(ECO.feedCost||120)} za karmę). Maks. ${FEED_MAX} paśniki.`)}</div>`
  };
- const TABS=[['kadry','Kadry',['kanc','kadry']],['sprzet','Budynki i sprzęt',['bud','sprz']],['fin','Finanse',['fin']],['las','Las i porządek',['zdr','porz']],['przyr','Przyroda',['znaki','przyr']],['lowy','Łowiectwo',['kolo','pas']]];
+ const TABS=[['kadry','Kadry',['kanc','kadry']],['sprzet','Budynki i sprzęt',['bud','sprz']],['fin','Finanse',['fin']],['pods','Podsumowanie kosztów',['pods']],['las','Las i porządek',['zdr','porz']],['przyr','Przyroda',['znaki','przyr']],['lowy','Łowiectwo',['kolo','pas']]];
  const tab=TABS.find(t=>t[0]===baseTab)||TABS[0],badge={fin:owedCount()?owedCount():0,las:(sick()>0?1:0)+(HL.blocks.length?1:0)};
  const od=FIN.inv.some(i=>!i.paid&&(i.st||0)>=1);const tile=(a,b,c)=>`<div class="tile ${c||''}"><span>${a}</span><b>${b}</b></div>`;
  const html=`<div class="whead"><div><div class="kicker">Leśnictwo Zielony Gaj · ${DOW[cal.dow()]}, ${SEASONS[cal.season()]}</div><h1>Leśniczówka</h1></div><button class="xbtn" data-x="base" title="Zamknij (Esc)" aria-label="Zamknij">✕</button></div>
@@ -334,6 +335,33 @@ const SEC={
  $('#base-close').onclick=()=>toggleBase(false);
 }
 export function centerOn(x,y){camera.x=x-VIEW.w/2;camera.y=y-VIEW.h/2}
+// ── 1.1.4: podsumowanie kosztów i przychodów z księgi (pora roku / poprzednia / rok / od początku) ──
+let sumPer='season';
+const PERS=[['season','Ta pora roku'],['prev','Poprzednia pora roku'],['year','Ten rok'],['all','Od początku']];
+function perRange(k){const s=Math.floor(state.days/SEASON_DAYS),y=Math.floor(state.days/(4*SEASON_DAYS));
+ return k==='season'?[s*SEASON_DAYS,(s+1)*SEASON_DAYS,SEASONS[cal.season()]+', rok '+cal.year()]:k==='prev'?[(s-1)*SEASON_DAYS,s*SEASON_DAYS,SEASONS[(s+3)%4]+', rok '+(Math.floor((s-1)/4)+1)]:k==='year'?[y*4*SEASON_DAYS,(y+1)*4*SEASON_DAYS,'rok '+cal.year()]:[-1e9,1e9,'cała gra']}
+function costSummary(){
+ const [a,b,lab]=perRange(sumPer),tot={},cnt={};
+ for(const k in LED.d){const d=+k;if(d<a||d>=b)continue;for(const c in LED.d[k])tot[c]=(tot[c]||0)+LED.d[k][c]}
+ for(const k in LED.n){const d=+k;if(d<a||d>=b)continue;for(const c in LED.n[k])cnt[c]=(cnt[c]||0)+LED.n[k][c]}
+ const fin=FIN_CATS.filter(c=>tot[c]),inc=Object.keys(tot).filter(c=>tot[c]>0.5&&!fin.includes(c)).sort((x,y)=>tot[y]-tot[x]),
+  cst=Object.keys(tot).filter(c=>tot[c]<-0.5&&!fin.includes(c)).sort((x,y)=>tot[x]-tot[y]);
+ const sI=inc.reduce((q,c)=>q+tot[c],0),sC=-cst.reduce((q,c)=>q+tot[c],0),res=sI-sC;
+ const line=(c,v,max,cls)=>`<div class="lrow ${cls}"><span>${c}</span><b>${zl(Math.round(Math.abs(v)))}</b><i style="width:${max?Math.round(Math.abs(v)/max*100):0}%"></i></div>`;
+ const fell=cnt.fell||0,m3=cnt.m3||0,fellCost=-(tot['Ścinka i wyrzynka (ekipy)']||0)-(tot['Zrywka']||0),wood=tot['Drewno (ciężarówka)']||0;
+ const owed=owedTotal(),accr=Math.round(Object.values(FIN.accr).reduce((q,v)=>q+v,0));
+ return `<div class="bsec wide2"><h3>PODSUMOWANIE KOSZTÓW · ${lab.toUpperCase()}</h3>
+  <div class="pers">${PERS.map(([k,t])=>`<button data-per="${k}" class="${k===sumPer?'on':''}">${t}</button>`).join('')}</div>
+  <div class="lcols"><div><h4>Przychody <b>${zl(Math.round(sI))}</b></h4>${inc.length?inc.map(c=>line(c,tot[c],sI,'inc')).join(''):'<p class="hint2">Brak przychodów w tym okresie.</p>'}
+   <h4 class="res ${res<0?'neg':'pos'}">Wynik z gospodarki <b>${res<0?'−':'+'}${zl(Math.round(Math.abs(res)))}</b></h4>
+   ${fin.length?'<h4>Pożyczka</h4>'+fin.map(c=>`<div class="lrow"><span>${c}</span><b>${tot[c]<0?'−':'+'}${zl(Math.round(Math.abs(tot[c])))}</b></div>`).join(''):''}
+   <h4>Wycinka w liczbach</h4>
+   ${row2('Ścięte drzewa',fell)}${row2('Ścinka i zrywka na drzewo',fell?zl(Math.round(fellCost/fell)):'—')}${row2('Drewno sprzedane (ciężarówka)',displayNumber(m3,1)+' m³'+(m3?' · '+zl(Math.round(wood/m3))+'/m³':''))}${row2('Opał sprzedany',displayNumber(cnt.opal||0,1)+' m³')}</div>
+   <div><h4>Koszty <b>${zl(Math.round(sC))}</b></h4>${cst.length?cst.map(c=>line(c,tot[c],sC,'cst')).join(''):'<p class="hint2">Brak kosztów w tym okresie.</p>'}
+   <p class="hint2">Praca ekip (ścinka, zrywka, sadzenie) liczy się w dniu wykonania, nawet jeśli faktura nie jest jeszcze zapłacona${owed||accr?' — teraz do zapłaty '+zl(owed)+(accr?' i naliczone dziś '+zl(accr):''):''}. Kary za zwłokę liczą się w dniu zapłaty.</p></div></div>
+  ${LED.note?`<p class="hint2">${LED.note}</p>`:''}</div>`;
+}
+const row2=(a,b)=>`<div class="rrow"><span>${a}</span><b>${b}</b></div>`;
 // Raport z sezonu (0.2): podsumowanie pory roku, skok wzrostu lasu, nowy plan. Gra stoi, dopóki gracz nie kliknie „Dalej”.
 const sgn=(n,d=0)=>(n>=0?'+':'−')+displayNumber(Math.abs(n),d);
 export function showReport(r){
@@ -397,6 +425,7 @@ export function bindUI(){
  $('#qbtn').addEventListener('click',()=>{const q=E.incidents.find(x=>x.status==='new');if(q)dispatch(q);else toast('Brak nowych zgłoszeń.')});
  $('#basecard').addEventListener('click',e=>{
   const tb=e.target.closest('[data-tab]');if(tb){baseTab=tb.dataset.tab;baseSig='';renderBase();return}
+  const pe=e.target.closest('[data-per]');if(pe){sumPer=pe.dataset.per;baseSig='';renderBase();return}
   const hs=e.target.closest('[data-hk]');if(hs){e.preventDefault();const k=hs.dataset.hk;hintOpen.has(k)?hintOpen.delete(k):hintOpen.add(k);baseSig='';renderBase();return}
   const b=e.target.closest('[data-b]');if(!b)return;const k=b.dataset.b;
   ({buysigns:buySigns,buyrepel:buyRepel,buytrail:buyTrail,payall:payAllInvoices,autopay:toggleAutoPay,loan0:()=>takeLoan(0),loan1:()=>takeLoan(1),loan2:()=>takeLoan(2),repay:repayLoan,ambona:()=>buyAmbona(nextAmbonaSlot()),pasnik:()=>buyFeeder(nextFeederSlot()),nplan:cycleNursery,hireB:hireCrewB,fireB:fireCrewB,hirePod:hireDeputy,firePod:fireDeputy,nursery:buildNursery,garage:buildGarage,fwd:buyForwarder,truck:()=>orderTruck(true),reduce:requestReduction,traps:buyTraps,tower:buildTower,ban:toggleBan,cams:buyCams,bar:toggleBarriers,parking:buyParking})[k]?.();

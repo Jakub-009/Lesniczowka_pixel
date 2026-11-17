@@ -11,7 +11,7 @@ import {nearestRoad} from './roads.js';
 import {paintTrail,paintFurrowRow,markAlpha} from './paint.js';
 import {Vehicle} from './life/agents.js';
 import {EDGES} from './map.js';
-import {ECO,saveFin,loadFin} from './economy.js';
+import {ECO,saveFin,loadFin,saveLed,loadLed} from './economy.js';
 import {saveNature,loadNature} from './nature.js';
 import {E,rebuildWild} from './ents.js';
 import {FA,mkFeeder} from './life/fauna.js';
@@ -36,11 +36,11 @@ function cargo(){
 export function saveGame(){
  if(!state.playing)return;
  try{
-  const o={v:3,ver:'1.1.2',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
+  const o={v:3,ver:'1.1.4',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
    stacks:[...J.stacks.filter(s=>s.vol>.05).map(s=>[s.edge.id,Math.round(s.s),+s.vol.toFixed(2),Math.round(s.value),s.sort||'tart',s.truck!==false]),...cargo()],sold:J.sold,truckPending:!!J.truck.pending,
    plants:J.plants.map(p=>[Math.round(p.x),Math.round(p.y),p.sp,p.assigned?1:0,p.plot||0,p.prep?1:0]),
    piles:E.piles.filter(p=>!p.dead).map(p=>[Math.round(p.x),Math.round(p.y),+p.a.toFixed(2),+p.vol.toFixed(3),p.sp,p.logs,p.bark,p.sorts||null,p.vals||null]),
-   eco:{ord:ECO.ord,goneRen:ECO.goneRen||0,cover0:ECO.cover0,damage:ECO.damage,plog:ECO.plog.slice(0,14).map(q=>[+q.t.toFixed(3),+q.d.toFixed(2),q.why]),plan:ECO.plan,market:ECO.market,fin:saveFin(),pod:ECO.staff.pod,nursery:ECO.nursery,feedCost:ECO.feedCost,st:ECO.st,act:ECO.act},burns:E.burns||[],inc:saveInc(f=>f.slot),
+   eco:{ord:ECO.ord,goneRen:ECO.goneRen||0,cover0:ECO.cover0,damage:ECO.damage,plog:ECO.plog.slice(0,14).map(q=>[+q.t.toFixed(3),+q.d.toFixed(2),q.why]),plan:ECO.plan,market:ECO.market,fin:saveFin(),pod:ECO.staff.pod,nursery:ECO.nursery,feedCost:ECO.feedCost,st:ECO.st,act:ECO.act,led:saveLed()},burns:E.burns||[],inc:saveInc(f=>f.slot),
    plots:R.plots.map(p=>{const q={...p};delete q.inc;return q}),nextPlot:R.nextId,trails:J.trails.slice(-160),forwarder:J.skid.owned,crewB:J.crews.length>1,
    base:{nursery:BASE.nursery,garage:BASE.garage,nplan:BASE.nplan||0,stats:BASE.stats,opal:BASE.opalPiles.filter(o=>!o.dead).map(o=>[Math.round(o.x),Math.round(o.y),+o.a.toFixed(2),+o.vol.toFixed(2),o.edge.id,Math.round(o.s),+o.day.toFixed(2),o.odd])},
    assess:ASSESS.slice(-80),hl:saveHealth(),mail:serializeMail(),nat:saveNature(),
@@ -84,7 +84,7 @@ export function loadGame(){
   // 1.1.1: statystyki sezonu przetrwają wczytanie; stary zapis bez nich liczy sezon od chwili wczytania
   if(ec.st)Object.assign(ECO.st,ec.st);else Object.assign(ECO.st,{money0:o.money,health0:o.health,protect0:o.protect});if(ec.act)Object.assign(ECO.act,ec.act);ECO.goneRen=ec.goneRen||0;ECO.damage=ec.damage;ECO.plog=(ec.plog||[]).map(([t,d,why])=>({t,d,why}));ECO.dmgBy={};ECO.plan=ec.plan;ECO.lastDay=Math.floor(o.days);ECO.lastSeason=Math.floor(o.days/SEASON_DAYS)%4;
   if(ec.ord)Object.assign(ECO.ord,ec.ord);
-  loadFin(ec.fin);if(ec.market)ECO.market=ec.market;if(ec.nursery)ECO.nursery=ec.nursery;if(ec.feedCost)ECO.feedCost=ec.feedCost;
+  loadFin(ec.fin);loadLed(ec.led);if(ec.market)ECO.market=ec.market;if(ec.nursery)ECO.nursery=ec.nursery;if(ec.feedCost)ECO.feedCost=ec.feedCost;
   E.burns=o.burns||[];loadHealth(o.hl);
   if(o.crewB&&J.crews.length<2)hireCrewB();
   if(o.base){BASE.nursery=!!o.base.nursery;BASE.garage=!!o.base.garage;BASE.nplan=o.base.nplan||0;Object.assign(BASE.stats,o.base.stats||{});

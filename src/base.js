@@ -9,7 +9,7 @@ import {Vehicle,Ped,rand} from './life/agents.js';
 import {pileTop} from './life/sprites.js';
 import {outlinedDraw,text3} from './sprite.js';
 import {trees,treesIn,removeTree} from './forest.js';
-import {ECO,pay,earn,canAfford,bumpProtect} from './economy.js';
+import {ECO,pay,earn,canAfford,bumpProtect,ledCount} from './economy.js';
 import {J,COST,PRICE,opalStack,takeFromStack,hireCrewB,fireCrewB,buyForwarder,MACH} from './jobs.js';
 import {U,hirePod,firePod,report} from './incidents.js';
 import {sfx} from './sound.js';
@@ -86,7 +86,7 @@ function deal(u,p){
   // chce 2–5 m³; jeśli przy drogach jest mniej, bierze co jest (min. 1 m³)
   const want=2+Math.floor(rand()*4),best=J.stacks.filter(q=>q.sort==='opal'&&q!==J.truck.cur&&!J.truck.route.includes(q)).sort((a,b)=>b.vol-a.vol)[0],st=opalStack(want)||(best&&best.vol>=1.2?best:null),vol=st?Math.min(want,st.vol-.2):want;
   if(!st){note('Brak drewna opałowego przy drogach — petent odszedł z niczym.');toast('Petent chciał '+want+' m³ opału, ale przy drogach nie ma stosów opału.');leave(p);return}
-  const {q,val}=takeFromStack(st,vol),price=Math.round(q*PRICE.opal);earn(price,'sprzedaż drewna opałowego');
+  const {q,val}=takeFromStack(st,vol),price=Math.round(q*PRICE.opal);earn(price,'sprzedaż drewna opałowego');ledCount('opal',q);
   BASE.stats.opal++;BASE.stats.opalVol+=q;if(ECO.st)ECO.st.opal=(ECO.st.opal||0)+q;   // 1.1.2 (U04): osobno w raporcie sezonu
   BASE.opalPiles.push({x:st.x+st.ax*26,y:st.y+st.ay*26,a:Math.atan2(st.ay,st.ax),vol:q,logs:clamp(Math.round(q*1.5),2,6),bark:'#7a5a3e',sp:'sosna',edge:st.edge,s:clamp(st.s+26,30,st.edge.len-30),day:state.days,odd:st.odd});
   toast('Kancelaria: sprzedano '+displayNumber(q,1)+' m³ opału za '+zl(price)+'. Odbiór: oddz. '+st.odd+'.');
