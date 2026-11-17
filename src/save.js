@@ -32,7 +32,7 @@ export function saveGame(){
    stacks:J.stacks.filter(s=>s.vol>.05).map(s=>[s.edge.id,Math.round(s.s),+s.vol.toFixed(2),Math.round(s.value),s.sort||'tart',s.truck!==false]),sold:J.sold,
    plants:J.plants.map(p=>[Math.round(p.x),Math.round(p.y),p.sp]),
    piles:E.piles.filter(p=>!p.dead).map(p=>[Math.round(p.x),Math.round(p.y),+p.a.toFixed(2),+p.vol.toFixed(3),p.sp,p.logs,p.bark,p.sorts||null,p.vals||null]),
-   eco:{ord:ECO.ord,goneRen:ECO.goneRen||0,cover0:ECO.cover0,damage:ECO.damage,plan:ECO.plan,market:ECO.market,fin:saveFin(),pod:ECO.staff.pod,nursery:ECO.nursery,feedCost:ECO.feedCost},burns:E.burns||[],
+   eco:{ord:ECO.ord,goneRen:ECO.goneRen||0,cover0:ECO.cover0,damage:ECO.damage,plog:ECO.plog.slice(0,14).map(q=>[+q.t.toFixed(3),+q.d.toFixed(2),q.why]),plan:ECO.plan,market:ECO.market,fin:saveFin(),pod:ECO.staff.pod,nursery:ECO.nursery,feedCost:ECO.feedCost},burns:E.burns||[],
    plots:R.plots.map(p=>({...p})),nextPlot:R.nextId,trails:J.trails.slice(-160),forwarder:J.skid.owned,crewB:J.crews.length>1,
    base:{nursery:BASE.nursery,garage:BASE.garage,nplan:BASE.nplan||0,stats:BASE.stats,opal:BASE.opalPiles.filter(o=>!o.dead).map(o=>[Math.round(o.x),Math.round(o.y),+o.a.toFixed(2),+o.vol.toFixed(2),o.edge.id,Math.round(o.s),+o.day.toFixed(2),o.odd])},
    assess:ASSESS.slice(-80),hl:saveHealth(),mail:serializeMail(),nat:saveNature(),
@@ -63,7 +63,7 @@ export function loadGame(){
   markAlpha(1);
   if(o.forwarder&&!J.skid.owned){J.skid.owned=true;placeForwarder()}
   E.piles=(o.piles||[]).map(([x,y,a,vol,sp,logs,bark,sorts,vals])=>({x:Math.min(Math.max(x,8),WORLD.w-8),y:Math.min(Math.max(y,8),WORLD.h-8),a,vol,sp,logs,bark,sorts:sorts||undefined,vals:vals||undefined,state:'ground',dead:false}));
-  const ec=o.eco||{};ECO.cover0=ec.cover0;ECO.goneRen=ec.goneRen||0;ECO.damage=ec.damage;ECO.plan=ec.plan;ECO.lastDay=Math.floor(o.days);ECO.lastSeason=Math.floor(o.days/SEASON_DAYS)%4;
+  const ec=o.eco||{};ECO.cover0=ec.cover0;ECO.goneRen=ec.goneRen||0;ECO.damage=ec.damage;ECO.plog=(ec.plog||[]).map(([t,d,why])=>({t,d,why}));ECO.dmgBy={};ECO.plan=ec.plan;ECO.lastDay=Math.floor(o.days);ECO.lastSeason=Math.floor(o.days/SEASON_DAYS)%4;
   if(ec.ord)Object.assign(ECO.ord,ec.ord);
   loadFin(ec.fin);if(ec.market)ECO.market=ec.market;if(ec.nursery)ECO.nursery=ec.nursery;if(ec.feedCost)ECO.feedCost=ec.feedCost;
   E.burns=o.burns||[];loadHealth(o.hl);

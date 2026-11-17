@@ -8,8 +8,8 @@ import {MAILBOX} from './lodge.js';
 import {E} from './ents.js';
 import {J,toggleMark,togglePlant,dispatchCrew,orderTruck,UNDO,cancelCrewTasks,clearOrders} from './jobs.js';
 import {plotAt,createPlot,createPolyPlot,planAreaPlants} from './renew.js';
-import {setTool,hud,toggleBase,toggleMail,toggleOdd} from './ui.js';
-import {toggleMap,mapOpen} from './mapview.js';
+import {setTool,hud,toggleBase,toggleOdd,cycleRate} from './ui.js';
+import {toggleWin,closeWin} from './win.js';
 import {feederAt} from './life/fauna.js';
 import {ambonaAt} from './life/ambony.js';
 import {opalPileAt} from './base.js';
@@ -81,7 +81,7 @@ export function bindInput(zoomFn){
   else if(state.tool==='plot'){
    if(state.poly){const P=state.poly;if(P.length>=3&&Math.hypot(x-P[0][0],y-P[0][1])<16)finishPoly();else P.push([x,y])}
    else{const p=plotAt(x,y);if(p)state.selected=p;else{state.poly=[[x,y]];toast('Wielokąt: klikaj narożniki, Enter kończy, Esc anuluje.')}}}
-  else{const p=pick(x,y);if(p&&p.isHouse){toggleBase(true);return}if(p&&p.isMailbox){toggleMail(true);return}state.selected=p;state.follow=null}
+  else{const p=pick(x,y);if(p&&p.isHouse){toggleBase(true);return}if(p&&p.isMailbox){toggleWin('mail');return}state.selected=p;state.follow=null}
   hud();
  });
  C.addEventListener('wheel',e=>{e.preventDefault();zoomFn(e.deltaY>0?1:-1,toWorld(e))},{passive:false});
@@ -91,24 +91,27 @@ export function bindInput(zoomFn){
   if((e.ctrlKey||e.metaKey)&&k==='z'&&state.playing&&!state.modal){e.preventDefault();undo();return}
   if(['arrowup','arrowdown','arrowleft','arrowright',' ','f1','f3','tab'].includes(k))e.preventDefault();
   if(!state.playing){if(k==='enter')$('#start').click();return}
-  if(mapOpen()&&(k==='tab'||k==='escape')){toggleMap(false);return}
-  if(state.modal){if(state.panel){if(k==='escape'||k==='l')toggleBase(false)}else if(k==='enter'||k===' '||k==='escape')$('#report-close')?.click();return}
+  if(state.modal){
+   if(state.win){if(k==='escape'||(k==='c'&&state.win==='mail')||(k==='tab'&&state.win==='map'))closeWin()}
+   else if(state.panel){if(k==='escape'||k==='l')toggleBase(false)}
+   else if(k==='enter'||k===' '||k==='escape')$('#report-close')?.click();
+   return}
   if(e.repeat&&!['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k))return;
   if(k==='1')setTool('select');else if(k==='2')setTool('mark');else if(k==='3')setTool('plant');else if(k==='4')setTool('plot');
   else if(k==='l')toggleBase(true);
-  else if(k==='c')toggleMail();
+  else if(k==='c')toggleWin('mail');
   else if(k==='o')toggleOdd(true);
-  else if(k==='tab')toggleMap(true);
+  else if(k==='tab')toggleWin('map');
   else if(k==='u'){document.body.classList.toggle('noui');toast(document.body.classList.contains('noui')?'Interfejs schowany (U — pokaż).':'Interfejs widoczny.')}
   else if(k==='e')dispatchCrew();else if(k==='x')clearOrders();else if(k==='k')orderTruck(true);
   else if(k==='q'){const q=E.incidents.find(x=>x.status==='new');if(q)dispatch(q);else toast('Brak nowych zgłoszeń.')}
   else if(k==='f')followSel();
-  else if(k==='t')$('#speedbtn').click();else if(k==='p')$('#pausebtn').click();else if(k==='m')toggleSound();
+  else if(k==='t')cycleRate(e.shiftKey);else if(k==='p')$('#pausebtn').click();else if(k==='m')toggleSound();
   else if(k==='g'){testGrow(10);toast('Las urósł o 10 lat (test).')}
   else if(k==='n'){state.noFF=!state.noFF;toast(state.noFF?'Noc płynie normalnie (N).':'Noc przewija się sama (N).')}
   else if(k==='f3')DEBUG.on=!DEBUG.on;
   else if(k==='f1'||k==='h')$('#help').classList.toggle('hidden');
-  else if(k==='escape'){setTool('select');state.selected=null;state.follow=null;$('#help').classList.add('hidden');$('#settings').classList.add('hidden');$('#plan').style.display='none';closeTutorEsc();toggleMail(false);toggleOdd(false)}
+  else if(k==='escape'){setTool('select');state.selected=null;state.follow=null;$('#help').classList.add('hidden');$('#settings').classList.add('hidden');$('#plan').style.display='none';closeTutorEsc();toggleOdd(false);state.showStumps=false}
   else if(k==='z')zoomFn(e.shiftKey?-1:1);else if(k==='+'||k==='=')zoomFn(-1);else if(k==='-')zoomFn(1);
   keys.add(k);hud();
  });

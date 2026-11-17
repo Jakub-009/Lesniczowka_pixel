@@ -29,7 +29,7 @@ export function initNature(){NAT.nests.length=0;NAT.reserve.length=0;NAT.monumen
  for(const k of ORDER)NAT.bird[k]={st:'none',at:null,tries:0};T.day=Math.floor(state.days);
  if(!ECO.seasonHooks.includes(seasonHook))ECO.seasonHooks.push(seasonHook)}
 const T={day:-1,loop:60};
-function seasonHook(){const n=NAT.reserve.length;if(n)bumpProtect(1.2*n);return {nature:{reserves:n,nests:NAT.nests.length,seen:ORDER.filter(k=>NAT.bird[k]&&NAT.bird[k].st!=='none').length}}}
+function seasonHook(){const n=NAT.reserve.length;if(n)bumpProtect(1.2*n,'rezerwaty przyrody');return {nature:{reserves:n,nests:NAT.nests.length,seen:ORDER.filter(k=>NAT.bird[k]&&NAT.bird[k].st!=='none').length}}}
 // ── drzewo na gniazdo: najstarsze odpowiednie drzewo w okolicy miejsca ──
 function pickNestTree(k){
  const S=SPEC[k],[hx,hy]=S.home;
@@ -63,7 +63,7 @@ function arrive(k){
   const t=pickNestTree(k);if(!t){B.tries++;return false}
   const n=establish(k,t);B.st='arriving';B.day=state.days;
   const f=fly(k,[S.from,[(S.from[0]+n.x)/2+(rand()-.5)*160,(S.from[1]+n.y)/2+(rand()-.5)*160],...orbit(n.x,n.y,100,2,rand()*6.28),[n.x,n.y]],{v:70,arrive:true,nest:n});
-  f.cb=()=>{B.st='settled';const m=mail('nature','Obserwacja: '+S.name+' osiadł w lesie: gniazdo na starym drzewie ('+S.place+', oddz. '+oddzial(n.x,n.y)+'). Strefa ochronna: '+NEST_R_SMALL+' px, wiosną '+NEST_R_BIG+' px.',{x:n.x,y:n.y});note('Pierwsza obserwacja: '+S.name+'. Para założyła gniazdo (oddz. '+oddzial(n.x,n.y)+').',{x:n.x,y:n.y});bumpProtect(4);sfx('coin')};
+  f.cb=()=>{B.st='settled';const m=mail('nature','Obserwacja: '+S.name+' osiadł w lesie: gniazdo na starym drzewie ('+S.place+', oddz. '+oddzial(n.x,n.y)+'). Strefa ochronna: '+NEST_R_SMALL+' px, wiosną '+NEST_R_BIG+' px.',{x:n.x,y:n.y});note('Pierwsza obserwacja: '+S.name+'. Para założyła gniazdo (oddz. '+oddzial(n.x,n.y)+').',{x:n.x,y:n.y});bumpProtect(4,'ptak założył gniazdo');sfx('coin')};
   return true}
  // gość: wlatuje, siada na chwilę, odlatuje
  const [sx,sy]=S.stop,out=[S.from[0]+(rand()-.5)*200,-60];
@@ -71,7 +71,7 @@ function arrive(k){
  B.st='visiting';B.day=state.days;f.stay=(S.night?90:130)+rand()*80;f.exit=[(rand()<.5?-80:WORLD.w+80),rand()*600-100];
  f.cb=()=>{B.st='gone'};
  mail('nature','Dziennik obserwacji: nad lasem '+(S.night?'słychać ':'widać ')+S.name+', '+S.place+'. Zostanie krótko.',{x:sx,y:sy});
- note('Pierwsza obserwacja: '+S.name+' (gość, '+S.place+').',{x:sx,y:sy});bumpProtect(1.5);sfx('coin');
+ note('Pierwsza obserwacja: '+S.name+' (gość, '+S.place+').',{x:sx,y:sy});bumpProtect(1.5,'pierwsza obserwacja rzadkiego ptaka');sfx('coin');
  return true}
 function dayRoll(){
  const d=Math.floor(state.days),se=cal.season();
@@ -128,7 +128,7 @@ export const MON_COST=600,RES_COST=2500;
 export function makeMonument(t){
  if(!canMonument(t)){toast(NAT.monuments.length>=MON_MAX?'Są już '+MON_MAX+' pomniki przyrody.':'Pomnik: zdrowe drzewo od 110 lat.');return false}
  if(!canAfford(MON_COST))return false;pay(MON_COST,'pomnik przyrody (uchwała, tablica)');
- t.mon=true;t.marked=false;NAT.monuments.push({x:t.x,y:t.y,sp:t.sp,day:state.days});dirtyTree(t);bumpProtect(2);
+ t.mon=true;t.marked=false;NAT.monuments.push({x:t.x,y:t.y,sp:t.sp,day:state.days});dirtyTree(t);bumpProtect(2,'pomnik przyrody');
  mail('nature','Pomnik przyrody ustanowiony (oddz. '+oddzial(t.x,t.y)+'). Drzewo chronione na stałe.',{x:t.x,y:t.y});note('Ustanowiono pomnik przyrody (oddz. '+oddzial(t.x,t.y)+').',{x:t.x,y:t.y});return true}
 export function toggleDeadwood(t){
  if(!t||t.st!==STAND||t.kb!==3){toast('Martwe drewno dotyczy tylko martwych drzew.');return false}
@@ -137,7 +137,7 @@ export function toggleDeadwood(t){
 export function makeReserve(id){
  if(NAT.reserve.includes(id)){NAT.reserve=NAT.reserve.filter(q=>q!==id);toast('Zniesiono rezerwat w oddz. '+id+'.');return true}
  if(NAT.reserve.length>=RES_MAX){toast('Maksymalnie '+RES_MAX+' rezerwaty.');return false}
- if(!canAfford(RES_COST))return false;pay(RES_COST,'rezerwat przyrody — oddz. '+id);NAT.reserve.push(id);bumpProtect(5);
+ if(!canAfford(RES_COST))return false;pay(RES_COST,'rezerwat przyrody — oddz. '+id);NAT.reserve.push(id);bumpProtect(5,'nowy rezerwat');
  for(const t of trees)if(t.marked&&!t.assigned&&t.st===STAND&&oddzial(t.x,t.y)===id)t.marked=false;
  mail('nature','Utworzono rezerwat przyrody w oddz. '+id+': bez wycinki, martwe drzewa zostają. Rośnie szansa na rzadkie ptaki.',{});note('Utworzono rezerwat w oddz. '+id+'.');return true}
 // ── zapis ──

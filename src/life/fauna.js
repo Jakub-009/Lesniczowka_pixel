@@ -138,7 +138,7 @@ function seasonEnd(){
  const pr=pressure()*(se===3?1.6:se===0?1.2:.8)*(se===3&&fed<.6?1.4:1)*(1-.25*clamp(wd/SD,0,1));let browsed=0,killed=0;
  if(pr>.35)for(const t of trees){if(t.st!==STAND||!t.planted||t.age>=SAPLING_AGE+3||fenced(t))continue;
   if(rand()<clamp(.07*pr*pr,0,.55)*(repelled(t)?.25:1)){browsed++;if(rand()<.35){removeTree(t);killed++}else{t.age=Math.max(1,t.age-2);t.browsed=true;dirtyTree(t)}}}
- FA.browsed=browsed;if(browsed>30)bumpDamage(Math.min(6,browsed/25));
+ FA.browsed=browsed;if(browsed>30)bumpDamage(Math.min(6,browsed/25),'zgryzanie młodników');
  out.browsed=browsed;out.browsedKilled=killed;out.pressure=pressure();out.cull=FA.seasonCull;out.popBefore=before;out.pop={...P};
  FA.seasonCull=0;FA.winterT=0;FA.emptyT=0;FA.wolf.days=0;
  // nowy rok łowiecki od wiosny

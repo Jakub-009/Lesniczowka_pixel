@@ -1,6 +1,7 @@
 // Kolejność warstw: podłoże → las (cienie, pnie, sadzonki) → przedmioty na ziemi → zwierzęta, ludzie, pojazdy →
 // korony → „prześwit” postaci pod koronami → padające drzewa, dym, znaczniki → noc i światła.
 import {ctx,VIEW,WORLD,camera,state,fx,clamp,cal,DEBUG,rect,SETTINGS,RT,LIGHT} from './core.js';
+import {drawFocus} from './focus.js';
 import {ground,markChunks,drawAmbona,PROPS} from './paint.js';
 import {drawForest,prefetchForest,trees,crownR,paintCrown,SP,STAND,QUAL,SAPLING_AGE,treesIn} from './forest.js';
 import {outlinedDraw} from './sprite.js';
@@ -143,6 +144,7 @@ export function drawWorld(){
  // prześwit: zwierzęta i ludzie pod koronami widoczni jako półprzezroczyste sylwetki
  if(SETTINGS.ghosts){ctx.globalAlpha=.5;for(const a of E.animals)if(!a.dead)a.draw();for(const p of E.people)if(!p.onStand)p.draw();for(const v of E.vehicles)if(v.off&&!v.dead)v.draw();ctx.globalAlpha=1}
  drawFire();drawFalling();drawParticles();drawPlots(ctx,state.selected);drawMarkers();
+ drawFocus(ctx);   // 1.1: podświetlone pniaki i granice oddziału (nad koronami)
  edgeCover();   // poza mapą nic nie wystaje: korony, cienie i kłody przy krawędzi są obcięte
  birds(ctx,state.elapsed,camera,VIEW);drawNature(ctx,camera,VIEW);drawVisit(ctx,camera,VIEW);
  if(DEBUG.on){ctx.strokeStyle='#40e0ff';for(const e of EDGES){const A=NODES[e.a],B=NODES[e.b];ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(B[0],B[1]);ctx.stroke()}}

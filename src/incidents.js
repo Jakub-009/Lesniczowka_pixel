@@ -38,7 +38,7 @@ const forestEdges=()=>EDGES.filter(e=>e.kind==='forest'&&e.a!=='a3'&&e.b!=='l1')
 function quadWork(v,step){
  v.rutAcc=(v.rutAcc||0)+step;if(v.rutAcc>4){v.rutAcc=0;paintRut(v.pos[0],v.pos[1],v.heading,v.spec.hw*.65)}
  v.dmgAcc=(v.dmgAcc||0)+step;
- if(v.dmgAcc>14){v.dmgAcc=0;for(const t of treesIn(v.pos[0]-9,v.pos[1]-9,v.pos[0]+9,v.pos[1]+9))if(t.st===STAND&&t.age<SAPLING_AGE&&Math.hypot(t.x-v.pos[0],t.y-v.pos[1])<9&&rand()<.3){removeTree(t);bumpDamage(.15);break}}
+ if(v.dmgAcc>14){v.dmgAcc=0;for(const t of treesIn(v.pos[0]-9,v.pos[1]-9,v.pos[0]+9,v.pos[1]+9))if(t.st===STAND&&t.age<SAPLING_AGE&&Math.hypot(t.x-v.pos[0],t.y-v.pos[1])<9&&rand()<.3){removeTree(t);bumpDamage(.15,'pojazdy w uprawach');break}}
 }
 function quadExcursion(v){
  v.exc=state.elapsed+8;                        // chwilowa blokada, także gdy się nie uda
@@ -87,7 +87,7 @@ function extinguish(f,by){
  if(f.dead)return;f.dead=true;const g=Math.max(f.peak||0,f.grow),inc=f.inc;
  const rad=g<.12?0:Math.round(18+52*g);let n=0;
  if(rad)n=burn(f,rad);
- if(g>=.12){bumpDamage(Math.round(6*g*10)/10);if(g>.45)bumpProtect(-Math.round(7*g))}
+ if(g>=.12){bumpDamage(Math.round(6*g*10)/10,'pożar');if(g>.45)bumpProtect(-Math.round(7*g),'pożar strawił las')}
  if(inc){inc.status='done';const u=inc.unit;if(u&&u.cur===inc&&u.phase==='driving'){u.cur=null;u.startNext()}}
  mail('fire',g<.12?'Pożar w '+odd(f.x,f.y)+' ugaszony w zarodku ('+by+').':'Pożar w '+odd(f.x,f.y)+' ugaszony ('+by+'). '+(n?'Spłonęło '+n+' drzew.':'Straty niewielkie.'),{x:f.x,y:f.y});
  if(inc&&inc.ft){const t=inc.ft;t.done=true;t.rel=t.men&&t.men.some(m=>!m.dead)?7:0;if(!t.rel)fireAway(t)}
@@ -260,9 +260,9 @@ class Unit{
   if(ok){
    const k=inc.type==='intruder'?inc.ref.intruder:inc.type,snare=inc.type==='trash'&&inc.ref.kind==='snare';
    if(k==='assess'){const A=inc.ref;selectThinning(A);const wb=markWindthrow(A);mail('assess','Ocena drzewostanu (oddz. '+oddzial(A.x,A.y)+'): dorodne '+A.n[0]+', przeciętne '+A.n[1]+', wadliwe '+A.n[2]+'. '+(wb?'Oznaczono też '+wb+' wiatrołomów do cięcia sanitarnego. ':'')+(A.marked?'Do trzebieży oznaczono '+A.marked+' drzew. E: wyślij ekipę.':'Bez cechowania: '+A.why+'.'),{x:A.x,y:A.y});this.startNext();return}
-   if(k==='beetle'){const n=inc.ref.n;mail('beetle',n?'Kornik potwierdzony ('+odd(inc.x,inc.y)+'): do cięcia sanitarnego oznaczono '+n+' drzew. E: wyślij ekipę.':'Patrol nie znalazł zasiedlonych drzew.',{x:inc.x,y:inc.y});bumpProtect(1);planProgress('handle',1);this.startNext();return}
+   if(k==='beetle'){const n=inc.ref.n;mail('beetle',n?'Kornik potwierdzony ('+odd(inc.x,inc.y)+'): do cięcia sanitarnego oznaczono '+n+' drzew. E: wyślij ekipę.':'Patrol nie znalazł zasiedlonych drzew.',{x:inc.x,y:inc.y});bumpProtect(1,'kornik sprawdzony');planProgress('handle',1);this.startNext();return}
    const pol=inc.dec==='police',warn=inc.dec==='warn';
-   const gain=warn?2:pol?{quad:8,poacher:10,thief:10,xmas:8}[k]??8:{block:4,quad:6,poacher:9,thief:7,xmas:5,fire:5,feed:1}[k]??(snare?3:2);bumpProtect(gain);
+   const gain=warn?2:pol?{quad:8,poacher:10,thief:10,xmas:8}[k]??8:{block:4,quad:6,poacher:9,thief:7,xmas:5,fire:5,feed:1}[k]??(snare?3:2);bumpProtect(gain,'obsłużone zgłoszenie: '+({quad:'quad',poacher:'kłusownik',thief:'złodziej drewna',xmas:'choinki',block:'zatarasowana droga',fire:'ogień',feed:'karma'}[k]||(snare?'wnyk':'drobne')));
    if(pol&&['quad','poacher','thief','xmas'].includes(k)){earn(250,'mandat i grzywna (Policja)');mail(inc.type==='intruder'?'intruder':'quad','Policja przejęła sprawę w '+odd(inc.x,inc.y)+': mandat i sprawa w sądzie, wpływ 250 zł.',{x:inc.x,y:inc.y,quiet:true})}
    if(pol&&ECO.ord&&ECO.ord.cams&&['quad','poacher','thief','xmas'].includes(k)){earn(150,'mandat z nagrania fotopułapki');mail('quad','Mandat z nagrania fotopułapki: +150 zł.',{quiet:true})}planProgress('handle',1);
    toast({quad:warn?'Kierujący pouczony i odjechał.':'Policja ukarała kierującego mandatem.',poacher:'Kłusownik zatrzymany, wnyki zebrane.',thief:'Złodziej drewna zatrzymany, drewno wróciło na stos.',xmas:'Złodziej choinek zatrzymany.',fire:'Zarzewie ugaszone.',block:'Droga udrożniona.',carcass:'Padlina zabrana z pobocza.',feed:'Paśnik uzupełniony karmą.'}[k]||(snare?'Wnyki usunięte.':'Śmieci zebrane.'));
@@ -327,7 +327,7 @@ export function updateIncidents(dt){
   if(t.kind==='dump')continue;
   if(t.fire){t.t+=dt;if(!t.dead){t.grow=Math.min(1,t.grow+dt*.0042*fireSpeed());t.peak=Math.max(t.peak||0,t.grow);if(rand()<dt*14)particle('smoke',t.x+(rand()-.5)*14*(1+t.grow),t.y,{vx:6+rand()*6,vy:-14-rand()*10,life:2.5+rand()*1.5,size:3+rand()*4*(1+t.grow)})}
    if(!t.dead&&t.inc&&!t.inc.ft&&(HL.tower||t.grow>=1)&&open_(t.inc)){
-    if(t.grow>=1&&!HL.tower){stat('ignored');bumpProtect(-3);callFire(t.inc,'Pożar rozprzestrzenił się — straż pożarną wezwali okoliczni mieszkańcy.')}
+    if(t.grow>=1&&!HL.tower){stat('ignored');bumpProtect(-3,'pożar się rozprzestrzenił');callFire(t.inc,'Pożar rozprzestrzenił się — straż pożarną wezwali okoliczni mieszkańcy.')}
     else callFire(t.inc,'Dyżurny z wieży wezwał straż pożarną.')}
    continue}
   if(t.dead)continue;t.t+=dt;
@@ -340,7 +340,7 @@ export function updateIncidents(dt){
    if(q.dead){inc.status='gone';
     // 0.9: kara tylko, gdy zgłoszenie leżało bez reakcji — jeśli patrol był wysłany albo minęło mniej niż ok. 1,5 min, sprawca po prostu uciekł
     if(escaped(inc)){mail('quad',(q.kind==='quad'?'Quad':'Crossowiec')+' uciekł z lasu przed patrolem.',{x:inc.x,y:inc.y})}
-    else{stat('ignored');bumpProtect(-5);bumpDamage(1);mail('quad',(q.kind==='quad'?'Quad':'Crossowiec')+' odjechał bezkarnie. Ochrona −5%.',{x:inc.x,y:inc.y})}if(u&&u.cur===inc){u.cur=null;u.startNext()}continue}
+    else{stat('ignored');bumpProtect(-5,'quad uciekł bezkarnie');bumpDamage(1,'quady');mail('quad',(q.kind==='quad'?'Quad':'Crossowiec')+' odjechał bezkarnie. Ochrona −5%.',{x:inc.x,y:inc.y})}if(u&&u.cur===inc){u.cur=null;u.startNext()}continue}
    inc.seen+=dt;if(inc.seen>4){inc.seen=0;inc.x=q.pos[0];inc.y=q.pos[1]}
    if(u&&u.cur===inc&&u.phase==='driving'){
     const c=u.car,d=Math.hypot(c.pos[0]-q.pos[0],c.pos[1]-q.pos[1]);
@@ -350,7 +350,7 @@ export function updateIncidents(dt){
   }
   if(inc.type==='trash'&&inc.ref.dead&&inc.status==='new')inc.status='done';
   if(inc.type==='intruder'&&inc.ref.dead&&open_(inc)){
-   inc.status='gone';const k=inc.ref.intruder;if(!escaped(inc)){stat('ignored');bumpProtect(k==='thief'?-4:-3)}
+   inc.status='gone';const k=inc.ref.intruder;if(!escaped(inc)){stat('ignored');bumpProtect(k==='thief'?-4:-3,'sprawca uciekł')}
    mail('intruder',k==='thief'?'Złodziej odjechał z drewnem ('+(inc.ref.stolen||0).toFixed(1).replace('.',',')+' m³).':k==='xmas'?'Złodziej choinek odjechał — wycięto '+(inc.ref.stolen||0)+' młodych drzewek.':'Samochód bez świateł odjechał. Mogły zostać wnyki.',{x:inc.x,y:inc.y});
    if(u&&u.cur===inc&&u.phase==='driving'){u.cur=null;u.startNext()}}
  }

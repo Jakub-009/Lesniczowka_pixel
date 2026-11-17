@@ -46,7 +46,7 @@ function spawnTour(){
   BOARDS.forEach((b,i)=>{s.push({go:[b[0]+off[0]*.5,b[1]+off[1]*.5+(guideRole?10:6)]},{wait:guideRole?11:9+rand()*2,pose:'stand',face:[b[0],b[1]]})});
   s.push({go:[TRAIL[0][0],TRAIL[0][1]+10]},{go:[x0+off[0],y0+off[1]]});return s};
  guide.run([...steps([0,0],true),{call:q=>{q.dead=true;vs().tours++;vs().kids+=n;
-   earn(VC.tourFee,'wycieczka szkolna po ścieżce przyrodniczej');bumpProtect(1.2);
+   earn(VC.tourFee,'wycieczka szkolna po ścieżce przyrodniczej');bumpProtect(1.2,'wycieczka szkolna');
    mail('nature','Wycieczka szkolna zakończona: '+n+' uczniów. Szkoła wpłaciła '+zl(VC.tourFee)+'.',{x:2900,y:1330,quiet:true});
    NAT.log.unshift({day:state.days,text:'Szkolna wycieczka na ścieżce przyrodniczej ('+n+' uczniów).',x:2900,y:1330});if(NAT.log.length>40)NAT.log.length=40}}]);
  for(let i=0;i<n;i++){

@@ -1,5 +1,5 @@
 // Punkt wejścia: budowa świata, stały krok symulacji (60 Hz, przy przyspieszeniu kilka kroków na klatkę), kamera, zoom, pętla.
-import {SET,initGuide,openTutor,toggleSettings,startTempo,closeGuides} from './guide.js';
+import {SET,initGuide,startTempo} from './guide.js';
 import {C,ctx,VIEW,WORLD,$,clamp,keys,state,camera,RT,fx,DEBUG,DAY_S,SETTINGS,toast,active,VERSION,cal} from './core.js';
 import {buildGround,fadeMarks} from './paint.js';
 import {generate,updateFalls,trees,counts,dirtyAll,seasonGrow} from './forest.js';
@@ -18,10 +18,13 @@ import {updateRenew,R,createPlot,orderPrep,orderPlant} from './renew.js';
 import {initEconomy,updateEconomy,ECO} from './economy.js';
 import {spawnWildlife as respawnWild} from './life/populate.js';
 import {drawWorld} from './render.js';
-import {hud,bindUI,centerOn,repositionInfo} from './ui.js';
+import {hud,bindUI,centerOn,repositionInfo,setRate} from './ui.js';
+import {bindWin} from './win.js';
+import {bindFocus} from './focus.js';
+import './windows.js';
+import './mapview.js';
 import {bindInput} from './input.js';
 import {updateSound,toggleSound,resumeSound} from './sound.js';
-import {toggleMap,updateMap} from './mapview.js';
 import {hasSave,clearSave,saveGame,loadGame} from './save.js';
 import {initNature,updateNature,NAT} from './nature.js';
 import {updateVisit} from './visit.js';
@@ -91,6 +94,12 @@ function zoom(d,at){
  VIEW.zoom=z;SETTINGS.zoom=z;size();
  if(at){camera.x=at[0]-before[0]*VIEW.w;camera.y=at[1]-before[1]*VIEW.h;clampCamera()}
 }
+// 1.1: „Pokaż cały oddział” — najmniejsze przybliżenie, przy którym oddział mieści się w oknie, kamera na jego środku
+addEventListener('las-fit',e=>{
+ const b=e.detail,dpr=window.devicePixelRatio||1,W=innerWidth*dpr,H=innerHeight*dpr,base=Math.max(1,Math.round(Math.min(H/360,W/560)));
+ let z=0;while(z<VIEW.maxZoom&&(W/(base-z)<(b.x1-b.x0)*1.15||H/(base-z)<(b.y1-b.y0)*1.3))z++;
+ zoom(z-VIEW.zoom);centerOn((b.x0+b.x1)/2,(b.y0+b.y1)/2);clampCamera();
+});
 addEventListener('resize',size);
 let fpsT=0,fpsN=0;
 function run(ts){
@@ -99,7 +108,7 @@ function run(ts){
  RT.acc+=frame;let n=0;while(RT.acc>=STEP&&n<4){safe('krok',step,STEP);RT.acc-=STEP;n++}if(n===4)RT.acc=0;
  safe('kamera',clampCamera);
  fpsT+=frame;fpsN++;if(fpsT>=.5){DEBUG.fps=Math.round(fpsN/fpsT);fpsT=0;fpsN=0}
- safe('rysowanie',drawWorld);safe('mapa',updateMap,frame);
+ safe('rysowanie',drawWorld);
  safe('panel',repositionInfo);RT.hudT+=frame;if(RT.hudT>=.15){RT.hudT=0;safe('interfejs',hud)}
  RT.saveT=(RT.saveT||0)+frame;if(RT.saveT>=30){RT.saveT=0;safe('zapis',saveGame)}
 }
@@ -116,7 +125,7 @@ setInterval(()=>{
  const now=performance.now();
  if(now-RT.beat>2500){DIAG.stalls.push({t:Math.round(now/1000),what:'pętla klatek stała',where:RT.where});startLoop();toast('Wykryto zacięcie, gra wznowiona.')}
  // pauza z okna, którego nie ma na ekranie: zdejmujemy blokadę
- const winOpen=!$('#report').classList.contains('hidden')||!$('#base').classList.contains('hidden');
+ const winOpen=['#report','#base','#win'].some(q=>!$(q).classList.contains('hidden'));
  if(state.modal&&!winOpen){DIAG.stalls.push({t:Math.round(now/1000),what:'blokada okna bez okna'});state.modal=false;state.panel=false;state.paused=false;toast('Odblokowano grę.')}
  if(state.skipTo!=null&&(state.modal||state.paused))stopSkip();
  {const sb=$('#skipbtn');if(sb&&state.skipTo==null&&sb.textContent!==skipLabel())sb.textContent=skipLabel()}
@@ -129,26 +138,18 @@ window.__lasDiag=()=>({stalls:DIAG.stalls,slow:DIAG.slow,errors:[...ERR],frame:R
 // ── budowa świata ──
 buildGround();generate();buildNavs();initEconomy();initFauna();initNature();initAmbony();spawnWildlife();initPatrol();initJobs();initBase();
 ECO.seasonHooks.push(()=>{respawnWild();return null});   // widoczna zwierzyna według nowej liczebności
-bindUI();bindInput(zoom);
+bindUI();bindWin();bindFocus();bindInput(zoom);
 VIEW.zoom=1;size();centerOn(720,520);clampCamera();
-$('#speedbtn').addEventListener('click',e=>{
- // domyślnie ×1 / ×2 / ×3; ×10 tylko świadomie (Shift + klik), bo przy ×10 łatwo przegapić zdarzenia
- state.rate=e&&e.shiftKey?(state.rate>3?1:10):RATES[(RATES.indexOf(state.rate)+1)%RATES.length]||1;
- $('#speedbtn').textContent='Czas ×'+state.rate;toast('Czas płynie ×'+state.rate+(state.rate>3?' (tryb szybki).':'.'))});
+for(const b of document.querySelectorAll('[data-rate]'))b.addEventListener('click',e=>{if(state.playing&&!state.modal)setRate(+b.dataset.rate,e.shiftKey)});
 $('#skipbtn').addEventListener('click',()=>{
  if(!state.playing||state.modal)return;
  if(state.skipTo!=null){stopSkip();toast('Przewijanie przerwane.');return}
  if(state.paused)$('#pausebtn').click();
  const d=Math.floor(state.days),h=(state.days%1)*24;   // cel: najbliższe 6:00
- SKIP_SEEN.clear();for(const q of E.incidents)SKIP_SEEN.add(q);state.skipTo=h<6?d+6/24:d+1+6/24;state.rate=1;$('#speedbtn').textContent='Czas ×1';
+ SKIP_SEEN.clear();for(const q of E.incidents)SKIP_SEEN.add(q);state.skipTo=h<6?d+6/24:d+1+6/24;state.rate=1;
  $('#skipbtn').textContent='Przerwij';toast('Przewijanie do 6:00. Przerwie je zgłoszenie.')});
-$('#zoomin').addEventListener('click',()=>zoom(-1));$('#zoomout').addEventListener('click',()=>zoom(1));
 $('#pausebtn').addEventListener('click',()=>{if(!state.playing||state.modal)return;state.paused=!state.paused;$('#pausebtn').textContent=state.paused?'▶':'❚❚';toast(state.paused?'Pauza (P).':'Gra wznowiona.')});
-$('#soundbtn').addEventListener('click',toggleSound);
-$('#helpbtn').addEventListener('click',()=>$('#help').classList.toggle('hidden'));
-$('#mapbtn').addEventListener('click',()=>toggleMap());
 $('#help-close').addEventListener('click',()=>$('#help').classList.add('hidden'));
-$('#help-tut').addEventListener('click',()=>{$('#help').classList.add('hidden');openTutor()});$('#help-set').addEventListener('click',()=>{$('#help').classList.add('hidden');toggleSettings(true)});
 initGuide();
 const begin=msg=>{state.playing=true;$('#overlay').classList.add('hidden');C.focus();if(state.mute)toggleSound();resumeSound();toast(msg)};
 if(hasSave()){$('#continue').style.display='block';$('#start').textContent='NOWA GRA'}

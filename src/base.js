@@ -96,7 +96,7 @@ function deal(u,p){
  else{
   const t=E.trash.find(q=>!q.dead&&!q.fire&&!q.inc);
   if(t){t.inc=report('trash',t.x,t.y,(t.kind==='snare'?'Petent zgłasza wnyki':'Petent zgłasza śmieci')+' w oddz. '+oddzial(t.x,t.y)+'.',t);note('Zgłoszenie od petenta')}
-  else{bumpProtect(.5);note('Petent pytał o grzyby i szlaki');toast('Kancelaria: petent pytał o szlaki i grzyby.')}
+  else{bumpProtect(.5,'rozmowa w kancelarii');note('Petent pytał o grzyby i szlaki');toast('Kancelaria: petent pytał o szlaki i grzyby.')}
  }
  leave(p);
 }

@@ -61,7 +61,7 @@ function beetleTick(){
   if(t.kb===3)dead++;
   keep.push(t);
  }
- HL.list=keep;if(dead)bumpDamage(Math.min(.25,dead*.01));
+ HL.list=keep;if(dead)bumpDamage(Math.min(.25,dead*.01),'kornik');
 }
 // Patrol po zgłoszeniu: sprawdza korę i cechuje do cięcia sanitarnego wszystkie zasiedlone drzewa w okolicy.
 export function sanitaryMark(A){
@@ -88,7 +88,7 @@ export function strike(){
   const p=ptAt(rp.edge,rp.s),b={edge:rp.edge,e:rp.edge.id,s:rp.s,x:p[0],y:p[1],ang:Math.atan2(p[3],p[2])+Math.PI/2};
   rp.edge.blocked=true;HL.blocks.push(b);bl++;
   b.inc=report('block',b.x,b.y,'Drzewa powalone na drodze leśnej w '+odd(b.x,b.y)+': droga nieprzejezdna.',b)}
- HL.stats.storms++;bumpDamage(Math.min(5,n*.08));
+ HL.stats.storms++;bumpDamage(Math.min(5,n*.08),'wichura');
  mail('storm','Wichura! W '+odd(cx,cy)+' powalone lub połamane drzewa: '+n+(bl?', zatarasowane drogi: '+bl:'')+'. Uprzątnij wiatrołomy, bo sprzyjają kornikowi.',{x:cx,y:cy});
 }
 export function clearBlock(b){

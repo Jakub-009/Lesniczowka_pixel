@@ -194,7 +194,7 @@ export function updateVisitors(dt){
  // 0.6.3: niektórzy odwiedzający sami zbierają śmieci po drodze
  T.clean=(T.clean||0)-dt;if(T.clean<=0){T.clean=20;for(const p of E.people){if(p.dead||p.hidden||!(p.kind==='walker'||p.kind==='picker')||p.petent)continue;
   const t=E.trash.find(q=>!q.dead&&!q.fire&&q.kind!=='snare'&&Math.hypot(q.x-p.x,q.y-p.y)<110);if(!t||rand()>.18)continue;
-  t.dead=true;if(t.inc&&t.inc.status!=='done'){t.inc.status='done';for(const u of U)u.queue=u.queue.filter(q=>q!==t.inc)}bumpProtect(.5);
+  t.dead=true;if(t.inc&&t.inc.status!=='done'){t.inc.status='done';for(const u of U)u.queue=u.queue.filter(q=>q!==t.inc)}bumpProtect(.5,'turysta posprzątał');
   toast((p.kind==='picker'?(p.berry?'Zbieracz jagód':'Grzybiarz'):'Spacerowicz')+' pozbierał śmieci w oddz. '+oddzial(t.x,t.y)+'.')}}
  const dayN=Math.floor(state.days);
  scheduleHunters(h,se,we,dayN);

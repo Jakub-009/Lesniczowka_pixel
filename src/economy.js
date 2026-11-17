@@ -6,8 +6,10 @@ import {sfx} from './sound.js';
 import {mail,prio} from './mail.js';
 import {J,COST,MACH,truckTotal} from './jobs.js';
 const blank=()=>({delivered:0,sold:0,earned:0,spent:0,felled:0,planted:0,handled:0,ignored:0,health0:state.health,protect0:state.protect,money0:state.money});
-export const ECO={cover0:1,damage:0,renew:1,stumps:0,renewed:0,unrenewed:0,lastDay:-1,lastSeason:-1,plan:null,log:[],dailyBase:300,st:null,onSeason:null,market:1,seasonHooks:[],staff:{pod:false},nursery:null,ord:{cams:false,bar:false,parking:false},act:{b:false,f:false},debtWarn:false,hintDay:-9};
+export const ECO={cover0:1,damage:0,renew:1,stumps:0,renewed:0,unrenewed:0,lastDay:-1,lastSeason:-1,plan:null,log:[],dailyBase:300,st:null,onSeason:null,market:1,seasonHooks:[],staff:{pod:false},nursery:null,ord:{cams:false,bar:false,parking:false},act:{b:false,f:false},debtWarn:false,hintDay:-9,plog:[],dmgBy:{},unrenList:[],parts:null};
 export const DEBT_LIM=8000;
+// 1.1: wzór Stanu lasu: 32 + 50 × zasłona koron + premia za młode posadzone drzewka (max 8, pełna od 150 szt.) − pniaki bez odnowienia (0,35, max 15) − śmieci − pożary − szkody
+export const HL_BASE=32,HL_COVER=50,YOUNG_MAX=8,YOUNG_FULL=150,UNREN_CAP=15,UNREN_EACH=.35;
 // ── 0.9: faktury za pracę ekip i pożyczka z ratami (bez kar: upomnienie to jednorazowa, niewielka opłata) ──
 export const FIN={inv:[],accr:{},auto:false,loan:null,nid:1};
 // 1.0: trzy pożyczki (jedna naraz): im większa, tym wyższy procent i więcej rat
@@ -72,8 +74,10 @@ export function dailyCost(real=false){return ECO.dailyBase+(ECO.ord.cams?25:0)+(
 export function canAfford(n,debet=false){if(debet?state.money-n>=-DEBT_LIM:state.money>=n)return true;toast(debet?'Limit debetu ('+zl(DEBT_LIM)+') wyczerpany. Sprzedaj drewno (K).':'Brak środków: potrzeba '+zl(n)+', w kasie '+zl(state.money)+'.');sfx('unmark');return false}
 export function pay(n,why){state.money-=n;if(ECO.st)ECO.st.spent+=n;ECO.log.unshift({t:state.days,n:-n,why});ECO.log.length=Math.min(ECO.log.length,30)}
 export function earn(n,why){state.money+=n;if(ECO.st)ECO.st.earned+=n;ECO.log.unshift({t:state.days,n,why});ECO.log.length=Math.min(ECO.log.length,30);sfx('coin')}
-export function bumpProtect(d){state.protect=clamp(state.protect+d,0,100)}
-export function bumpDamage(d){ECO.damage=clamp(ECO.damage+d,0,40)}
+// 1.1: zmiany ochrony i szkód zapisują powód — okna „Ochrona terenu” i „Stan lasu” pokazują, skąd wzięły się punkty.
+export function bumpProtect(d,why){const p=state.protect;state.protect=clamp(p+d,0,100);const dd=state.protect-p;
+ if(why&&Math.abs(dd)>=.05){ECO.plog.unshift({t:state.days,d:dd,why});if(ECO.plog.length>14)ECO.plog.length=14}}
+export function bumpDamage(d,why){ECO.damage=clamp(ECO.damage+d,0,40);if(why)ECO.dmgBy[why]=(ECO.dmgBy[why]||0)+d}
 export function stat(k,n=1){if(ECO.st)ECO.st[k]+=n}
 // Plan na porę roku: dostarczyć drewno na składnicę, posadzić sadzonki, obsłużyć zgłoszenia.
 function newPlan(){
@@ -90,13 +94,15 @@ function endSeason(){
  const rep={season:P.season,year:P.year,plan:P,st:S,grown,years:YEARS_PER_SEASON,health:state.health,protect:state.protect,money:state.money,unrenewed:ECO.unrenewed,next:cal.season(),died:G.died,young:G.young,browsed:G.browsed||0,market:ECO.market};
  for(const h of ECO.seasonHooks)Object.assign(rep,h()||{});
  // ocena nadleśniczego
- const score=(P.rewarded?2:0)+(state.health>=S.health0-1?1:-1)+(state.protect>=S.protect0?1:-1)+(S.ignored===0?1:-1)+(ECO.unrenewed<6?1:-1);
+ const score=(P.rewarded?2:0)+(state.protect>=S.protect0?1:-1)+(S.ignored===0?1:-1)+(ECO.unrenewed<6?1:-1);
  rep.verdict=score>=5?'Wzorowo prowadzone leśnictwo. Nadleśniczy jest zadowolony.':score>=3?'Dobra robota, choć jest jeszcze co poprawiać.':score>=1?'Poprawnie, ale nadleśnictwo oczekuje więcej.':'Nadleśniczy ma zastrzeżenia: las i teren wymagają więcej uwagi.';
  if(state.money<0)rep.verdict+=' Leśnictwo jest na minusie — nadleśniczy oczekuje poprawy finansów.';
  newPlan();ECO.st=blank();setMarket();rep.nextMarket=ECO.market;
  if(ECO.onSeason)ECO.onSeason(rep);else toast('Nowa pora roku: '+SEASONS[rep.next]+'.');
 }
 let accT=0;
+// kara dobowa za jedno otwarte zgłoszenie (pokazuje ją też okno Ochrony terenu); łączny sufit: 9 pkt na dobę
+export const incPenalty=q=>q.type==='feed'||q.type==='assess'||prio(q)<=0?0:q.status==='new'?[0,1,3,3][prio(q)]:(prio(q)>=2?1:0);
 export function updateEconomy(dt){
  if(J.crews[1]&&J.crews[1].phase!=='idle')ECO.act.b=true;
  if(J.skid.owned&&J.skid.trac&&!['idle','home','arriving'].includes(J.skid.phase))ECO.act.f=true;
@@ -110,22 +116,24 @@ export function updateEconomy(dt){
    // 0.6.2: najmocniej obniża ochronę zgłoszenie bez reakcji; to w kolejce patrolu — słabiej (patrol już jedzie)
    // 0.8.1: kara zależy od wagi zgłoszenia (drobiazgi ważą mało, propozycje wcale) i ma dzienny sufit, żeby zaległości nie dobijały na wysokim tempie
    const live=E.incidents.filter(q=>q.status!=='done'&&q.status!=='gone'&&q.type!=='feed'&&q.type!=='assess'&&prio(q)>0);
-   let pen=0;for(const q of live)pen+=q.status==='new'?[0,1,3,3][prio(q)]:(prio(q)>=2?1:0);
-   if(pen>0)bumpProtect(-Math.min(9,pen));else if(state.protect<74&&!live.some(q=>prio(q)>=2))bumpProtect(1.5);
-   ECO.damage=Math.max(0,ECO.damage-.4);
+   let pen=0;for(const q of live)pen+=incPenalty(q);
+   if(pen>0)bumpProtect(-Math.min(9,pen),'zgłoszenia bez reakcji');else if(state.protect<74&&!live.some(q=>prio(q)>=2))bumpProtect(1.5,'spokój w lesie');
+   {const d0=ECO.damage;ECO.damage=Math.max(0,d0-.4);const f=d0>0?ECO.damage/d0:0;for(const k in ECO.dmgBy){ECO.dmgBy[k]*=f;if(ECO.dmgBy[k]<.05)delete ECO.dmgBy[k]}}
   }
  }
  if(cal.season()!==ECO.lastSeason){ECO.lastSeason=cal.season();endSeason();installment()}
  accT+=dt;if(accT<2)return;accT=0;
- // odnowienie: pień jest „odnowiony”, gdy w pobliżu rośnie młode drzewko
- let stumps=0,ren=0;
- for(const t of trees){if(t.st!==STUMP||t.stumpAge>40)continue;stumps++;
-  if(treesIn(t.x-30,t.y-30,t.x+30,t.y+30).some(q=>q.st===STAND&&q.age<SAPLING_AGE*3))ren++}
+ // odnowienie: pień jest „odnowiony”, gdy w pobliżu rośnie młode drzewko; młode, posadzone drzewka dają premię (1.1)
+ const un=[];let ren=0,young=0;
+ for(const t of trees){
+  if(t.st===STAND){if(t.planted&&t.age<SAPLING_AGE*3)young++;continue}
+  if(t.st!==STUMP||t.stumpAge>40)continue;
+  if(treesIn(t.x-30,t.y-30,t.x+30,t.y+30).some(q=>q.st===STAND&&q.age<SAPLING_AGE*3))ren++;else un.push(t)}
  const gr=Math.round(ECO.goneRen||0);   // zdrowiejące, zniknięte pniaki nadal liczą się jako odnowione (zanikają z pamięci po kilku porach roku)
- ECO.stumps=stumps+gr;ECO.renewed=ren+gr;ECO.renew=ECO.stumps?ECO.renewed/ECO.stumps:1;
- const unren=stumps-ren;ECO.unrenewed=unren;
+ ECO.unrenList=un;ECO.stumps=ren+un.length+gr;ECO.renewed=ren+gr;ECO.renew=ECO.stumps?ECO.renewed/ECO.stumps:1;ECO.unrenewed=un.length;
  const cover=Math.min(1,coverSum()/ECO.cover0),trash=E.trash.reduce((n,t)=>n+(t.dead||t.fire?0:t.kind==='dump'?4:1),0),fires=E.incidents.filter(q=>q.type==='fire'&&q.status!=='done'&&q.status!=='gone').length;
- const target=clamp(32+50*cover-Math.min(15,unren*.35)-1.2*trash-3*fires-ECO.damage,0,100);
- state.health+=clamp(target-state.health,-3.2,3.2);   // tick co 2 s (było co .5 s i ±.8) — to samo tempo, 4× mniej pracy
+ const P={base:HL_BASE,cover:HL_COVER*cover,coverPct:cover,young,bonus:YOUNG_MAX*Math.min(1,young/YOUNG_FULL),unren:un.length,unrenPts:-Math.min(UNREN_CAP,un.length*UNREN_EACH),trash,trashPts:-1.2*trash,fires,firePts:-3*fires,damage:ECO.damage};
+ P.target=clamp(P.base+P.cover+P.bonus+P.unrenPts+P.trashPts+P.firePts-P.damage,0,100);ECO.parts=P;
+ state.health+=clamp(P.target-state.health,-3.2,3.2);   // tick co 2 s (było co .5 s i ±.8) — to samo tempo, 4× mniej pracy
  ECO.cover=cover;
 }

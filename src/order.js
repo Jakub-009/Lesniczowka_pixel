@@ -49,7 +49,7 @@ export function spawnDump(){
   const p=new Ped({kind:'driver',x:cx,y:cy,speed:13});p.label='kierowca wyrzuca odpady';
   p.run([{go:[sx,sy]},{wait:9,pose:'kneel'},{call:()=>{
     const d={x:sx,y:sy,kind:'dump',dead:false,seed:Math.floor(rand()*1e4),t:0,report:camsOn()?2:25+rand()*30};E.trash.push(d);
-    if(camsOn()){earn(450,'mandat — nagranie z fotopułapki');bumpProtect(2);mail('dump','Fotopułapka przy wjeździe nagrała sprawcę wysypiska w '+odd(sx,sy)+': mandat 450 zł.',{x:sx,y:sy,quiet:true})}}},
+    if(camsOn()){earn(450,'mandat — nagranie z fotopułapki');bumpProtect(2,'mandat z fotopułapki');mail('dump','Fotopułapka przy wjeździe nagrała sprawcę wysypiska w '+odd(sx,sy)+': mandat 450 zł.',{x:sx,y:sy,quiet:true})}}},
    {go:[cx,cy]},{call:q=>{q.dead=true;v.label='odjeżdża';v.goTo(goalNode(exitNode(v.pos[0])),{leave:true})}}]);
   v.label='samochód z przyczepą (rozładunek)';
  }});
@@ -71,7 +71,7 @@ function startWaste(inc){
   for(let i=0;i<2;i++){
    const p=new Ped({kind:'worker',x:cx+i*7,y:cy,speed:14});p.label='pracownik firmy wywozowej';
    p.run([{go:[d.x+(i?9:-9),d.y+4]},{wait:8,pose:'kneel',face:[d.x,d.y]},{call:q=>{q.prop='bag'}},{go:[cx,cy]},{call:q=>{q.dead=true;
-     if(++back>=2){d.dead=true;inc.status='done';bumpProtect(4);planProgress('handle',1);W.cur=null;
+     if(++back>=2){d.dead=true;inc.status='done';bumpProtect(4,'wysypisko uprzątnięte');planProgress('handle',1);W.cur=null;
       mail('dump','Firma wywozowa uprzątnęła dzikie wysypisko w '+odd(d.x,d.y)+'.',{x:d.x,y:d.y});
       v.label='śmieciarka odjeżdża';v.goTo(goalNode(exitNode(v.pos[0])),{leave:true})}}}]);
   }

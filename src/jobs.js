@@ -50,6 +50,18 @@ export function togglePlant(x,y){
  const why=canPlant(x,y);if(why){toast(why);return}
  J.plants.push({x,y,sp:speciesFor(x,y),assigned:false});sfx('mark');
 }
+// 1.1: sadzonka przy pniaku — pierwsze wolne miejsce w pierścieniu 12–22 px; pniaki z już zaplanowaną sadzonką są pomijane
+export function plantNear(s){
+ if(J.plants.some(p=>Math.hypot(p.x-s.x,p.y-s.y)<32))return 'plan';
+ for(const d of [12,16,22,28])for(let a=0;a<12;a++){const x=s.x+Math.cos(a*.52)*d,y=s.y+Math.sin(a*.52)*d;if(!canPlant(x,y)){J.plants.push({x,y,sp:speciesFor(x,y),assigned:false});return 'ok'}}
+ return 'none';
+}
+export function plantAtStumps(list){
+ const r={ok:0,plan:0,none:0};for(const s of list)r[plantNear(s)]++;
+ if(r.ok)sfx('mark');
+ toast(r.ok?'Zaplanowano '+r.ok+' sadzonek przy pniakach.'+(r.none?' Bez miejsca: '+r.none+'.':'')+' E: wyślij ekipę.':r.plan?'Przy tych pniakach sadzonki są już zaplanowane (E: wyślij ekipę).':'Przy tych pniakach nie ma miejsca na sadzonki.');
+ return r;
+}
 export const pendingCount=()=>trees.filter(t=>t.marked&&!t.assigned).length+J.plants.filter(p=>!p.assigned).length;
 const tpos=k=>k.type==='fell'?[k.t.x,k.t.y]:[k.p.x,k.p.y];
 const load_=C=>C.tasks.length+C.cluster.length+C.held.length;

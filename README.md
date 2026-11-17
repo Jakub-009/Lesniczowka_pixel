@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 1.0.3.** Od teraz: zamrożona — tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 1.1.0** („Czytelne okna”). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -35,20 +35,22 @@ Pory roku zmieniają las (jesienne kolory, bezlistne drzewa i śnieg zimą), jes
 | Klawisz | Działanie |
 |---|---|
 | Mysz | przeciągnij mapę, kliknij obiekt |
-| Kółko / Z / + − | przybliżenie (całkowite skale, ostre piksele) |
+| Kółko / Z / + − | przybliżenie (całkowite skale, ostre piksele); w 1.1 bez przycisków +/− |
 | 1 / 2 / 3 / 4 | podgląd / wycinka / sadzenie / odnowienie |
 | Przeciągnij lewym (w narzędziach 2–4) | zaznacz obszar: drzewa do wycinki, rzędy sadzonek, powierzchnię odnowieniową |
 | Prawy przycisk | przesuwanie mapy (w podglądzie także lewy) |
 | E | wyślij ekipę |
-| L | Leśniczówka: kadry, budynki, sprzęt, koło łowieckie, paśniki (także klik w dom) |
-| Tab | mapa leśnictwa (gatunki / wiek, klik przenosi kamerę) |
+| L | Leśniczówka: kadry, budynki, sprzęt, finanse, koło łowieckie, paśniki (także klik w dom) |
+| C | Poczta (także klik w skrzynkę przy bramie) |
+| Tab | mapa leśnictwa: warstwy Gatunki, Wiek, Odnowienie, Prace; tabela oddziałów |
 | U | schowaj / pokaż interfejs |
 | N | przewijanie nocy wł./wył. |
 | K | zamów wywóz drewna |
 | Q | patrol do najstarszego zgłoszenia |
 | F | kamera śledzi wybrany obiekt |
 | WASD / strzałki | przesuwanie widoku |
-| T / P / M | tempo ×1 ×3 ×10 / pauza / dźwięk |
+| T / P / M | tempo ×1 ×2 ×3 (Shift+T: ×10) / pauza / dźwięk (też w Menu) |
+| Esc | zamyka okno, karty i podświetlenie pniaków |
 | G | las rośnie o 10 lat (test) |
 | F3 | debug |
 
@@ -68,7 +70,10 @@ Gra zapisuje się sama co 30 s (localStorage).
 | `src/mail.js` | poczta (dziennik zdarzeń), priorytety zgłoszeń, zwalnianie czasu | nowe w 0.8.1 |
 | `src/order.js` | dzikie wysypiska, firma wywozowa, Policja (na miejscu), fotopułapki, szlabany (rura na zawiasie), zatoka parkingowa | nowe w 0.8.2, przerobione w 0.8.3 |
 | `src/crossing.js` | zwierzyna na szosie, potrącenia, padlina, myśliwy z psem | nowe w 0.8.3 |
-| `src/oddcard.js` | statystyki do karty oddziału | nowe w 0.8.1 |
+| `src/oddcard.js` | statystyki oddziału (karta i tabela mapy), granice oddziałów, kolory gatunków | nowe w 0.8.1 |
+| `src/win.js` | wspólna ramka dużych okien (Poczta, Mapa, Stan lasu, Ochrona terenu): jedno okno, pauza, Esc | nowe w 1.1 |
+| `src/windows.js` | okna Poczta, Stan lasu, Ochrona terenu | nowe w 1.1 |
+| `src/focus.js` | podświetlenie nieodnowionych pniaków i granic oddziału nad koronami | nowe w 1.1 |
 | `src/lodge.js` | zabudowa leśniczówki na osobnej warstwie (lato/zima) | nowe w 0.7.2 |
 | `src/ents.js` | rejestr obiektów, siatki nawigacji, zagrożenia dla zwierząt | nowe (z `obstacles.js`) |
 | `src/life/agents.js` | pojazdy, piesi ze scenariuszem, zwierzyna | z `life.js` + `tow.js` farmy |
@@ -80,7 +85,7 @@ Gra zapisuje się sama co 30 s (localStorage).
 | `src/renew.js` | powierzchnie odnowieniowe, pług LPz, sadzenie w rzędach | nowe |
 | `src/incidents.js` | zgłoszenia, jednostki patrolu (leśniczy, podleśniczy), intruzi | nowe |
 | `src/economy.js` | wskaźniki, plan na sezon | nowe |
-| `src/mapview.js` | mapa leśnictwa (Tab) | nowe (0.6) |
+| `src/mapview.js` | okno mapy leśnictwa (Tab): komórki 100×100, warstwy, odczyt wartości, tabela oddziałów | nowe (0.6), przebudowane w 1.1 |
 | `src/render.js` | kolejność warstw, noc, znaczniki | wzorzec z farmy |
 | `src/ui.js`, `src/input.js` | HUD, mysz i klawiatura | nowe |
 | `src/guide.js` | samouczek i ustawienia gry (localStorage `lesniczowka-set`) | nowe w 1.0 |
@@ -224,6 +229,21 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
+
+## Zmiany w 1.1.0 „Czytelne okna”
+**Wskaźniki.** Klik w pasek **Stan lasu** albo **Ochrona terenu** otwiera okno z rozbiciem na składniki i punkty oraz opisem, co poprawić.
+- Stan lasu = 32 (podstawa) + do 50 (korony) + do 8 (młode uprawy, pełne przy 150 drzewkach) − pniaki bez odnowienia (0,35 pkt za sztukę, najwyżej −15) − śmieci − pożary − szkody. Sadzenie dodaje punkty (wcześniej tylko ograniczało straty), maksimum to 90%.
+- Raport z sezonu liczy się z rzeczy, na które gracz ma wpływ (pniaki bez odnowienia, zgłoszenia, plan), a nie z całego wskaźnika.
+- **Pokaż nieodnowione pniaki**: pierścienie nad koronami (żółte: do posadzenia, zielone: sadzonka zaplanowana), pasek pod Zgłoszeniami z przyciskami „Posadź przy wszystkich” i „Wyłącz”. Esc też wyłącza.
+- Okno Ochrony terenu: otwarte zgłoszenia z kosztem na dobę, przyciski „Pokaż” i „Wyślij patrol”, dziennik ostatnich zmian z powodami (zapisywany w grze) i krótkie zasady.
+
+**Mapa leśnictwa (Tab)** w wielkim oknie: płaskie kolory komórek zamiast kropek, warstwy Gatunki / Wiek / Odnowienie / Prace (warstwa „Jakość” usunięta), odczyt wartości pod kursorem (oddział i komórka), tabela 8 oddziałów. Klik w mapę: kamera i karta oddziału. Klik w wiersz tabeli: pokaż cały oddział.
+
+**Poczta (C)** jako okno jak Leśniczówka (gra stoi): zakładki Wszystkie / Faktury / Zdarzenia / Przyroda / Plan, grupy dniami, pierwsze zdanie jako tytuł, „Pokaż na mapie”. Faktury płaci się tylko w Leśniczówce (Finanse); w poczcie jest „Przejdź do finansów”, a wiersz „Do zapłaty” na dole też otwiera Finanse.
+
+**Panel sterowania**: duży zegar, jedna linia daty z dniem tygodnia, jedna linia pogody i zagrożenia pożarowego, tempo jako przyciski ×1 ×2 ×3 obok pauzy (×10 tylko Shift), osobny przycisk „Do jutra”, jeden przycisk Menu (ustawienia, samouczek, pomoc). Usunięte: przyciski zoomu (kółko myszy), dźwięku (jest w Menu i pod M), osobne „?” i „⚙”. Przycisk Mapa przeniesiony do dolnego paska, „Q Wyślij patrol” jest przyciskiem nad listą zgłoszeń.
+
+**Karta oddziału (O)**: większy druk, trzy sekcje (Drzewostan z paskiem gatunków, Do zrobienia, Stan), granice oddziału podświetlone w świecie (ramka i przyciemnione otoczenie), „Pokaż cały oddział” (dopasowanie kamery) zamiast „Pokaż środek”, „Posadź przy nieodnowionych pniakach (N)”, rezerwat.
 
 ## Zmiany w 1.0.3
 - Pniak: po zaplanowaniu sadzonki przycisk znika, a karta pokazuje „Sadzonka zaplanowana”. Wcześniej każde kliknięcie przestawiało sadzonkę albo wyświetlało komunikat.

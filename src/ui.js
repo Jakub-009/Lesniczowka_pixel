@@ -4,11 +4,11 @@ import {$,state,cal,SEASONS,DOW,displayNumber,zl,SETTINGS,camera,VIEW,clamp,toas
 import {HL,WX,LVLN,fireLvl,trapsOn,sick,buyTraps,buildTower,toggleBan,COSTS as HC} from './health.js';
 import {SP,STAND,STUMP,SAPLING_AGE,CUT_AGE,THIN_AGE,crownR,heightM,dbhCm,volume,counts,treesIn,QUAL,SORTS,sortSplit,treeValue} from './forest.js';
 import {STANDS,oddzial} from './map.js';
-import {J,COST,PRICE,MACH,pendingCount,ordersCount,clearOrders,toggleMark,dispatchCrew,orderTruck,togglePlant,canPlant,buyForwarder,stackTotal,stackValue,hireCrewB,fireCrewB,truckTotal,pileSorts,spotOf} from './jobs.js';
+import {J,COST,PRICE,MACH,pendingCount,ordersCount,clearOrders,toggleMark,dispatchCrew,orderTruck,plantNear,plantAtStumps,buyForwarder,stackTotal,stackValue,hireCrewB,fireCrewB,truckTotal,pileSorts,spotOf} from './jobs.js';
 import {R,inPlot,perimOf,plotStats,prepCost,areaHa,spotsIn,orderPrep,orderPlant,removePlot,rowsOf,fenceCost,orderFence,orderRepel,repelCost,seasonKey,MIXES,mixFor,cycleMix,mixSp} from './renew.js';
 import {signsOn,repelOn,trailOn,buySigns,buyRepel,buyTrail,vs,VC} from './visit.js';
 import {NAT,canMonument,makeMonument,toggleDeadwood,makeReserve,journalRows,MON_COST,RES_COST,richness} from './nature.js';
-import {ECO,dailyCost,FIN,LOANS,dunning,owedTotal,owedCount,payInvoice,payAllInvoices,toggleAutoPay,takeLoan,repayLoan} from './economy.js';
+import {ECO,dailyCost,FIN,LOANS,dunning,owedTotal,owedCount,payAllInvoices,toggleAutoPay,takeLoan,repayLoan} from './economy.js';
 import {E} from './ents.js';
 import {dispatch,openIncidents,U,orderAssess,assessing,ASSESS,DEC,decide} from './incidents.js';
 import {FA,NAMES,pressure,planLeft,requestReduction,FEED_COST,FEED_MAX,nextFeederSlot,buyFeeder} from './life/fauna.js';
@@ -16,13 +16,21 @@ import {FEEDERS} from './map.js';
 import {AMB,AMB_COST,AMB_MAX,AMB_R,AMBONY,nextAmbonaSlot,buyAmbona} from './life/ambony.js';
 import {BASE,BUILD,buildNursery,buildGarage,hireDeputy,fireDeputy,NPLANS,cycleNursery,nurseryText} from './base.js';
 import {VSPEC,ASPEC} from './life/agents.js';
-import {MAIL,mail,unreadMail,stamp} from './mail.js';
-import {oddStats} from './oddcard.js';
+import {unreadMail} from './mail.js';
+import {oddStats,oddBounds,SPCOL} from './oddcard.js';
+import {renderWin,closeWin} from './win.js';
+import {sfx} from './sound.js';
+import {showStumps,updateFocusBar} from './focus.js';
 import {COSTS as OC,buyCams,toggleBarriers,buyParking,camsOn,barClosed,parkingOn,CAM_COUNT} from './order.js';
 
 export function lat(n){n=Math.round(n);const d=n%10,dd=n%100;return n+(n===1?' rok':(d>=2&&d<=4&&!(dd>=12&&dd<=14))?' lata':' lat')}
 const pct=v=>Math.round(v)+'%';
 function barCol(v){return v>=70?'#8ec86a':v>=50?'#d8b665':'#e0704f'}
+// tempo: ×1/×2/×3 przyciskami albo T; ×10 tylko świadomie (Shift), bo przy ×10 łatwo przegapić zdarzenia
+export function setRate(r,shift){
+ state.rate=shift?(state.rate>3?1:10):r;toast('Czas płynie ×'+state.rate+(state.rate>3?' (tryb szybki).':'.'));
+}
+export const cycleRate=shift=>setRate([1,2,3][([1,2,3].indexOf(state.rate)+1)%3]||1,shift);
 export function setTool(t){state.tool=t;state.poly=null;state.hover=null;state.box=null;for(const b of document.querySelectorAll('[data-tool]'))b.classList.toggle('on',b.dataset.tool===t);
  const msg={select:'Kliknij drzewo, zwierzę, pojazd, zgłoszenie lub powierzchnię.',mark:'Klik: drzewo (trzebież od '+THIN_AGE+' lat). Przeciągnij: obszar (wycinka od '+CUT_AGE+' lat). Shift: odznacz. Ctrl+Z: cofnij.',plant:'Klik: sadzonka. Przeciągnij: rzędy sadzonek.',plot:'Przeciągnij prostokąt albo klikaj narożniki wielokąta (Enter kończy, Esc anuluje).'}[t];
  $('#toolhint').textContent=msg;
@@ -31,10 +39,10 @@ let incSig='',infoSig='',taskSig='';
 export function hud(){
  const h=cal.hour(),hh=Math.floor(h),mm=Math.floor((h-hh)*60);
  $('#time').textContent=String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
- $('#date').textContent='Rok '+cal.year()+' · '+SEASONS[cal.season()]+' · dzień '+cal.dayOf();
+ $('#date').textContent='Rok '+cal.year()+' · '+SEASONS[cal.season()]+' · dzień '+cal.dayOf()+' · '+DOW[cal.dow()]+(cal.weekend()?' (weekend)':'');
  {const lv=fireLvl(),w=$('#wx');w.textContent=WX[HL.wx]+(lv?' · pożary: '+LVLN[lv]:'');w.style.color=lv===3?'#ff9a7a':lv===2?'#f0d070':''}
- $('#dow').textContent=DOW[cal.dow()]+(cal.weekend()?' (weekend)':'');
- {const f=$('#ff');f.style.display=state.ff>1?'block':'none';f.textContent=state.skipTo!=null?'PRZEWIJANIE · do 6:00':'NOC · czas ×'+state.ff}
+ {const f=$('#ff'),t=state.skipTo!=null?'PRZEWIJANIE · do 6:00':state.ff>1?'NOC · czas ×'+state.ff:state.rate>3?'TRYB SZYBKI ×'+state.rate:'';f.style.display=t?'block':'none';f.textContent=t}
+ for(const b of document.querySelectorAll('[data-rate]'))b.classList.toggle('on',+b.dataset.rate===state.rate);$('#pausebtn').classList.toggle('on',state.paused);
  $('#money').textContent=Math.round(state.money).toLocaleString('pl-PL');$('#money').style.color=state.money<0?'#ff8a6a':'';
  $('#health').textContent=pct(state.health);$('#healthbar').style.width=clamp(state.health,0,100)+'%';$('#healthbar').style.background=barCol(state.health);
  $('#protect').textContent=pct(state.protect);$('#protectbar').style.width=clamp(state.protect,0,100)+'%';$('#protectbar').style.background=barCol(state.protect);
@@ -63,11 +71,11 @@ export function hud(){
   $('#incidents').innerHTML=open.length?open.map(q=>`<div class="inc ${q.type}"><span class="go" data-go="${q.id}">${q.text}</span>${q.status==='new'?`<button data-inc="${q.id}">${incLabel(q)}</button>`:`<i>${incWait(q)}</i>`}</div>`).join(''):'<div class="muted">Spokojnie w lesie.</div>';
  }
   const um=unreadMail();$('#mailn').textContent=um?'('+um+')':'';$('#mailbtn').classList.toggle('hot',um>0);
- if(state.mailOpen)renderMail();if(state.oddOpen)renderOdd();
+ renderWin();if(state.oddOpen)renderOdd();updateFocusBar();
  renderDecide();info();
 }
-const incLabel=q=>q.type==='feed'?'Dowieź karmę':q.type==='dump'?'Zleć wywóz · '+zl(OC.waste):'Wyślij patrol';
-const incWait=q=>q.type==='dump'?(q.status==='queued'?'czeka na firmę wywozową':'śmieciarka działa'):q.status==='queued'?'w kolejce':(q.unit&&U.length>1?q.unit.name+' działa':'patrol działa');
+export const incLabel=q=>q.type==='feed'?'Dowieź karmę':q.type==='dump'?'Zleć wywóz · '+zl(OC.waste):'Wyślij patrol';
+export const incWait=q=>q.type==='dump'?(q.status==='queued'?'czeka na firmę wywozową':'śmieciarka działa'):q.status==='queued'?'w kolejce':(q.unit&&U.length>1?q.unit.name+' działa':'patrol działa');
 function treeInfo(t){
  const st=STANDS[oddzial(t.x,t.y)],sp=SP[t.sp];
  if(t.st===STUMP){
@@ -159,49 +167,45 @@ function placeInfo(el,s){
  let x=sx+24,y=sy-h/2;if(x+w>innerWidth-8)x=sx-24-w;x=clamp(x,8,innerWidth-w-8);y=clamp(y,8,innerHeight-h-8);
  el.style.position='fixed';el.style.left=Math.round(x)+'px';el.style.top=Math.round(y)+'px';el.style.bottom='auto';
 }
-// ── Poczta (C) i skrzynka przy bramie (0.8.1) ──
-let mailSig='',mailFresh=new Set();
-export function toggleMail(open){
- const el=$('#mailbox');open=open??!state.mailOpen;
- if(open){state.mailOpen=true;mailFresh=new Set(MAIL.filter(m=>!m.read).map(m=>m.id));for(const m of MAIL)m.read=true;mailSig='';el.style.display='block';renderMail()}
- else{state.mailOpen=false;el.style.display='none'}
-}
-const KIND={dump:["■","#b08a5a"],fire:['■','#e0482f'],quad:['■','#e8a32e'],intruder:['■','#e8a32e'],trash:['■','#d8c23a'],beetle:['■','#c9764a'],storm:['■','#8fb4d8'],plan:['✉','#9fd27a'],money:['■','#e0704f'],assess:['✔','#9fd27a'],wolf:['■','#9fb4c8'],road:['■','#b89a6a'],invoice:['✉','#e0b04f'],nature:['✦','#8fd6c0']};
-const invBtn=m=>{if(m.inv==null)return '';const i=FIN.inv.find(q=>q.id===m.inv);if(!i)return '';return i.paid?' <span class="muted">(zapłacona)</span>':`<div><button class="sec" data-pay="${i.id}">Zapłać ${zl(i.amount)}</button></div>`};
-export function renderMail(){
- for(const m of MAIL)if(!m.read)mailFresh.add(m.id),m.read=true;
- const sig=MAIL.map(m=>m.id).join()+mailFresh.size+FIN.inv.map(i=>i.id+(i.paid?'p':'u')+i.amount).join();if(sig===mailSig)return;mailSig=sig;
- const row=m=>{const k=KIND[m.kind]||['■','#9aa587'];return `<div class="mrow ${mailFresh.has(m.id)?'new':''}"><span class="mk" style="color:${k[1]}">${k[0]}</span><div><div class="muted">${stamp(m.day)}</div><span class="${m.x!=null?'go':''}" data-mgo="${m.id}">${m.text}</span>${invBtn(m)}</div></div>`};
- $('#mailbox').innerHTML=`<div class="wh"><b>POCZTA</b><button class="xbtn sm" data-x="mail" aria-label="Zamknij">✕</button></div>`+(MAIL.length?MAIL.map(row).join(''):'<div class="muted">Skrzynka jest pusta. Tu trafiają ważne wiadomości i to, co przy szybkim czasie łatwo przeoczyć.</div>')+`<div class="ibtns"><button id="mailclose">Zamknij</button></div>`;
- $('#mailclose').onclick=()=>toggleMail(false);
-}
 // ── Karta oddziału (O) ──
-let oddId=null,oddT=0;
+// 1.1: trzy sekcje (Drzewostan, Do zrobienia, Stan), granice oddziału podświetlone w świecie (focus.js) i dopasowanie kamery.
+let oddId=null,oddT=0,oddSig='';
+const inOdd=(t,B)=>t.x>=B.x0&&t.x<B.x1&&t.y>=B.y0&&t.y<B.y1;
 export function toggleOdd(open,id){
  const el=$('#oddcard');open=open??!state.oddOpen;
  if(open){const s=state.selected,c=s&&(s.pos||[s.x,s.y]);const px=c?c[0]:camera.x+VIEW.w/2,py=c?c[1]:camera.y+VIEW.h/2;
-  oddId=id||oddzial(px,py);state.oddOpen=true;oddT=0;el.style.display='block';renderOdd(true)}
- else{state.oddOpen=false;el.style.display='none'}
+  oddId=String(id||oddzial(px,py));state.oddOpen=true;state.oddFocus=oddId;oddT=0;oddSig='';el.style.display='block';renderOdd(true)}
+ else{state.oddOpen=false;state.oddFocus=null;el.style.display='none'}
 }
 export function renderOdd(force){
  oddT-=.15;if(!force&&oddT>0)return;oddT=1;
  const S=oddStats(oddId),d=S.def,row=(a,b)=>`<div class="srow"><span>${a}</span><i>${b}</i></div>`;
- const spl=Object.entries(S.sp).sort((a,b)=>b[1]-a[1]).map(([k,n])=>SP[k].name+' '+Math.round(n/Math.max(1,S.stand)*100)+'%').join(' · ');
+ const tot=Math.max(1,S.stand),sp=Object.entries(S.sp).sort((a,b)=>b[1]-a[1]);
+ const bar=`<div class="spbar">${sp.map(([k,n])=>`<i style="width:${n/tot*100}%;background:${SPCOL[k]}" title="${SP[k].name}"></i>`).join('')}</div><div class="splg">${sp.map(([k,n])=>`<span><i style="background:${SPCOL[k]}"></i>${SP[k].name.split(' ')[0]} ${Math.round(n/tot*100)}%</span>`).join('')}</div>`;
  const ago=S.lastAssess!=null?(state.days-S.lastAssess)/SEASON_DAYS*YEARS_PER_SEASON:null;
- const q=S.assessed?`${Math.round(S.assessed/Math.max(1,S.aged)*100)}% ocenione: dorodne ${S.q[0]}, przeciętne ${S.q[1]}, wadliwe ${S.q[2]}`:'nieocenione — zleć ocenę drzewostanu';
- $('#oddcard').innerHTML=`<div class="wh"><b>Oddział ${S.id}</b><button class="xbtn sm" data-x="odd" aria-label="Zamknij">✕</button></div><div class="ln">${d.desc}</div>
+ const q=S.assessed?`${Math.round(S.assessed/Math.max(1,S.aged)*100)}% ocenione: dorodne ${S.q[0]}, przeciętne ${S.q[1]}, wadliwe ${S.q[2]}`:'nieocenione';
+ const res=NAT.reserve.includes(S.id),hl=String(state.showStumps)===String(S.id);
+ const html=`<div class="wh"><b>Oddział ${S.id}</b><button class="xbtn sm" data-x="odd" aria-label="Zamknij">✕</button></div><div class="ln">${d.desc}</div>
+  <div class="ibtns"><button data-oa="fit">Pokaż cały oddział</button><button class="sec" data-oa="res">${res?'Znieś rezerwat':'Utwórz rezerwat · '+zl(RES_COST)}</button></div>
+  <div class="osec"><h4>Drzewostan</h4>${bar}
   ${row('Drzewa',S.stand+' (w tym sadzonki '+S.sapl+')')}${row('Średni wiek',S.aged?lat(S.age):'—')}${row('Miąższość',displayNumber(S.vol,0)+' m³')}
-  <div class="ln small">${spl||'—'}</div>
-  ${row('Dojrzałe (od '+CUT_AGE+' lat)',S.mature)}${row('Do trzebieży ('+THIN_AGE+'–'+(CUT_AGE-1)+' lat)',S.thin)}
-  ${row('Jakość',q)}${row('Oznaczone do cięcia',S.marked?S.marked+' drz. · '+displayNumber(S.markedVol,0)+' m³':'—')}
-  ${row('Zamierające (kornik, wiatrołomy)',S.sick||'—')}${row('Pniaki / nieodnowione',S.stumps+' / '+S.unren)}
-  ${row('Powierzchnie odnowieniowe',S.plots.length?S.plots.length+' (ogrodzone '+S.fenced+')':'—')}${row('Otwarte zgłoszenia',S.incidents||'—')}
-  ${row('Ostatnie cechowanie',ago==null?'nigdy':ago<1?'w tym roku':Math.round(ago)+' lat temu')}
-  ${row('Rezerwat',NAT.reserve.includes(S.id)?'tak — bez wycinki':'—')}
-  <div class="ibtns"><button id="oddgo">Pokaż środek oddziału</button><button id="oddres">${NAT.reserve.includes(S.id)?'Znieś rezerwat':'Utwórz rezerwat · '+zl(RES_COST)}</button><button id="oddclose">Zamknij</button></div>`;
- $('#oddres').onclick=()=>{makeReserve(oddId);renderOdd(true);hud()};
- $('#oddgo').onclick=()=>{centerOn(S.center[0],S.center[1]);state.follow=null};
- $('#oddclose').onclick=()=>toggleOdd(false);
+  ${row('Dojrzałe (od '+CUT_AGE+' lat)',S.mature)}${row('Do trzebieży ('+THIN_AGE+'–'+(CUT_AGE-1)+' lat)',S.thin)}${row('Jakość',q)}</div>
+  <div class="osec"><h4>Do zrobienia</h4>
+  ${row('Oznaczone do cięcia',S.marked?S.marked+' drz. · '+displayNumber(S.markedVol,0)+' m³':'—')}
+  ${row('Pniaki / w tym nieodnowione',S.stumps+' / <b class="'+(S.unren?'warnv':'')+'">'+S.unren+'</b>')}
+  ${S.unren?`<div class="ibtns"><button data-oa="stumps">${hl?'Wyłącz podświetlenie':'Pokaż nieodnowione pniaki'}</button><button data-oa="plant">Posadź przy nieodnowionych pniakach (${S.unren})</button></div>`:''}
+  ${row('Otwarte zgłoszenia',S.incidents||'—')}${row('Ostatnie cechowanie',ago==null?'nigdy':ago<1?'w tym roku':Math.round(ago)+' lat temu')}</div>
+  <div class="osec"><h4>Stan</h4>
+  ${row('Zamierające (kornik, wiatrołomy)',S.sick||'—')}${row('Powierzchnie odnowieniowe',S.plots.length?S.plots.length+' (ogrodzone '+S.fenced+')':'—')}${row('Rezerwat',res?'tak — bez wycinki':'nie')}</div>`;
+ if(html===oddSig)return;oddSig=html;$('#oddcard').innerHTML=html;
+}
+function oddAct(k){
+ const B=oddBounds(oddId);
+ if(k==='fit'){state.follow=null;dispatchEvent(new CustomEvent('las-fit',{detail:B}))}
+ else if(k==='res'){makeReserve(oddId);hud()}
+ else if(k==='stumps')showStumps(String(state.showStumps)===oddId?false:+oddId);
+ else if(k==='plant')plantAtStumps(ECO.unrenList.filter(t=>inOdd(t,B)));
+ oddSig='';renderOdd(true);
 }
 // ── panel Leśniczówki (L) ──
 let baseSig='',baseTab='kadry';const hintOpen=new Set();
@@ -211,6 +215,7 @@ export function toggleBase(open){
  if(open){if(state.modal&&!state.panel)return;if(!state.modal)state.wasPaused=state.paused;el.classList.remove('hidden');state.panel=true;state.modal=true;state.paused=true;baseSig='';renderBase()}
  else{el.classList.add('hidden');if(state.panel&&state.modal){state.modal=false;state.paused=!!state.wasPaused}state.panel=false}
 }
+export function openBaseTab(t){baseTab=t;baseSig='';toggleBase(true)}
 export function renderBase(){
  const row=(a,b)=>`<div class="rrow"><span>${a}</span><b>${b}</b></div>`,btn=(k,t,dis,sec)=>`<button data-b="${k}" ${dis?'disabled':''} class="${sec?'sec':''}">${t}</button>`;
  const B=BASE.stats,crewB=!!J.crews[1],pod=ECO.staff.pod,pr=pressure();
@@ -335,14 +340,15 @@ export function bindUI(){
   else if(k==='odd')toggleOdd(true,oddzial(s.x+(s.w?s.w/2:0),s.y+(s.h?s.h/2:0)));
   else if(k==='repel')orderRepel(s);
   else if(k==='prep')orderPrep(s);else if(k==='plantplot')orderPlant(s);else if(k==='delplot'){removePlot(s);if(!R.plots.includes(s))state.selected=null}
-  else if(k==='plantnear'){let ok=false;for(const d of [12,16,22])for(let a=0;a<12&&!ok;a++){const x=s.x+Math.cos(a*.52)*d,y=s.y+Math.sin(a*.52)*d;if(!canPlant(x,y)){togglePlant(x,y);ok=true}}if(!ok)toast('Przy tym pniaku nie ma miejsca na sadzonkę.')}
+  else if(k==='plantnear'){const r=plantNear(s);if(r==='ok')sfx('mark');else toast(r==='plan'?'Sadzonka przy tym pniaku jest już zaplanowana.':'Przy tym pniaku nie ma miejsca na sadzonkę.')}
   infoSig='';hud();
  });
  $('#basebtn').addEventListener('click',()=>toggleBase(true));
  $('#planbtn').addEventListener('click',e=>{e.stopPropagation();const p=$('#plan');p.style.display=p.style.display==='none'?'block':'none'});
  document.addEventListener('click',e=>{if(!e.target.closest('#plan'))$('#plan').style.display='none'});
- $('#mailbtn').addEventListener('click',()=>toggleMail());
- $('#mailbox').addEventListener('click',e=>{const pb=e.target.closest('[data-pay]');if(pb){payInvoice(+pb.dataset.pay);mailSig='';renderMail();hud();return}const g=e.target.closest('[data-mgo]');if(!g)return;const m=MAIL.find(x=>x.id==g.dataset.mgo);if(m&&m.x!=null){centerOn(m.x,m.y);state.follow=null}});
+ $('#oddcard').addEventListener('click',e=>{const b=e.target.closest('[data-oa]');if(b)oddAct(b.dataset.oa)});
+ $('#owedrow').addEventListener('click',()=>openBaseTab('fin'));
+ $('#qbtn').addEventListener('click',()=>{const q=E.incidents.find(x=>x.status==='new');if(q)dispatch(q);else toast('Brak nowych zgłoszeń.')});
  $('#basecard').addEventListener('click',e=>{
   const tb=e.target.closest('[data-tab]');if(tb){baseTab=tb.dataset.tab;baseSig='';renderBase();return}
   const hs=e.target.closest('[data-hk]');if(hs){e.preventDefault();const k=hs.dataset.hk;hintOpen.has(k)?hintOpen.delete(k):hintOpen.add(k);baseSig='';renderBase();return}
@@ -351,8 +357,8 @@ export function bindUI(){
   baseSig='';renderBase();hud()});
  // 1.0: spójne zamykanie okien — ✕, klik w tło (poza kartą); Esc obsługuje input.js
  document.addEventListener('click',e=>{
-  const x=e.target.closest('.xbtn');const id=x?x.dataset.x:(e.target.classList&&e.target.classList.contains('panel')?e.target.id:null);if(!id)return;
-  if(id==='base')toggleBase(false);else if(id==='help')$('#help').classList.add('hidden');else if(id==='report')$('#report-close')?.click();else if(id==='mail')toggleMail(false);else if(id==='tutor')closeTutor();else if(id==='plan')$('#plan').style.display='none';else if(id==='info'){state.selected=null;state.follow=null}else if(id==='settings')toggleSettings(false);else if(id==='odd')toggleOdd(false);
+  const x=e.target.closest('.xbtn,.wclose');const id=x?x.dataset.x:(e.target.classList&&e.target.classList.contains('panel')?e.target.id:null);if(!id)return;
+  if(id==='base')toggleBase(false);else if(id==='help')$('#help').classList.add('hidden');else if(id==='report')$('#report-close')?.click();else if(id==='win')closeWin();else if(id==='tutor')closeTutor();else if(id==='plan')$('#plan').style.display='none';else if(id==='info'){state.selected=null;state.follow=null}else if(id==='settings')toggleSettings(false);else if(id==='odd')toggleOdd(false);
  });
  setTool('select');
  ECO.onSeason=showReport;
