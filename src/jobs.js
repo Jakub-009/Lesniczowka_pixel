@@ -121,6 +121,8 @@ export function dispatchCrew(){
  for(const p of pl){p.assigned=true;tasks.push({type:'plant',p})}
  launch(distribute(tasks),'Zlecenie: '+fell.length+' do wycinki, '+pl.length+' do posadzenia —');
 }
+// 1.1.1: po wczytaniu zapisu zlecone wcześniej zadania wracają do ekip po cichu; ekipa rusza sama w godzinach pracy (updateJobs)
+export function restoreCrewTasks(tasks){if(!tasks.length)return;distribute(tasks);for(const C of J.crews)sortHeld(C,true)}
 // Zadania z powierzchni odnowieniowej (sadzenie w rzędach) — przez ten sam podział na ekipy.
 export function addCrewTasks(tasks,msg){launch(distribute(tasks),msg)}
 // Ekipy pracują pon.–pt. 7:00–17:00 i w sobotę do 13:00 (nowe zlecenie przyjmują do 16:30). Zimą nie sadzą (zamarznięta ziemia), wiosną nie tną w oddz. 103 (okres lęgowy).

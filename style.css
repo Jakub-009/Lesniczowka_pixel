@@ -33,7 +33,7 @@
 #overlay,.panel{position:absolute;inset:0;display:grid;place-items:center;background:#111c15b8;z-index:6;padding:14px}
 #overlay.hidden,.panel.hidden{display:none}
 .card{position:relative;width:min(560px,94vw);background:#f1e6c2 linear-gradient(#f4ebcb,#ede0b8);color:#363d2f;padding:20px 24px;box-shadow:0 0 0 3px #1b2c1f,0 0 0 7px #6f4f2c,0 0 0 9px #8fae5f,0 0 0 12px #1b2c1f,8px 12px 0 8px #0d150f80}
-.card::before{content:'';position:absolute;left:-1px;right:-1px;top:-1px;height:6px;background:repeating-linear-gradient(90deg,#4f6d3f 0 10px,#6f8f4e 10px 14px,#3f5a35 14px 24px)}
+.card::before{content:'';position:absolute;left:0;right:0;top:0;height:6px;background:repeating-linear-gradient(90deg,#4f6d3f 0 10px,#6f8f4e 10px 14px,#3f5a35 14px 24px)}
 .whead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.whead h1{margin-top:2px}
 .xbtn{flex:none;cursor:pointer;border:0;font:900 14px ui-monospace,monospace;line-height:1;width:30px;height:30px;background:#8a5a45;color:#f1e6c2;box-shadow:0 3px 0 #4a2f25,0 0 0 2px #1b2c1f}.xbtn:hover{background:#a56a50}.xbtn:active{transform:translateY(2px);box-shadow:0 1px 0 #4a2f25,0 0 0 2px #1b2c1f}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0 10px}
@@ -93,7 +93,7 @@ body.noui .ui>*:not(#msg){display:none}
 .plan{top:96px;left:262px;width:290px;z-index:4}
 .plan .wh{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;color:#e8c77a;font-weight:900;letter-spacing:.12em;font-size:10px;text-transform:uppercase}
 .planbtn{align-self:center;white-space:nowrap}.planbtn b{color:#2a3b2d}.planbtn.hot{background:#9fd27a;box-shadow:0 3px 0 #4f7a3a}
-.toolbar{left:50%;bottom:22px;transform:translateX(-50%);width:max-content;max-width:min(800px,calc(100vw - 540px));min-width:420px}
+.toolbar{left:50%;bottom:22px;transform:translateX(-50%);width:max-content;max-width:min(800px,calc(100vw - 600px));min-width:420px}
 .toolbar .toolhint{min-height:0;margin:0 0 8px;text-align:center;font-size:10px;color:#c9d2ad}.toolbar .toolhint:empty{display:none}
 .trow2{display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:center}
 .trow2 .grp{display:flex;gap:6px;align-items:center}
@@ -185,3 +185,56 @@ body.noui .ui>*:not(#msg){display:none}
 .spbar{display:flex;height:12px;box-shadow:0 0 0 1px #14201a;margin-bottom:4px}.spbar i{display:block;height:100%}
 .splg{display:flex;flex-wrap:wrap;gap:3px 12px;margin-bottom:6px;font-size:11px}.splg span{display:flex;align-items:center;gap:4px}.splg i{width:9px;height:9px;display:inline-block}
 .oddcard .ibtns button{font-size:11px;padding:7px 10px}.ocard .ibtns button.sec{background:#8a5a45;box-shadow:0 3px 0 #4a2f25}
+
+
+/* ── 1.1.2: porządek HUD-u — prawa kolumna jako jeden stos, czytelne wiersze, większe litery (11–12 px) ── */
+.ui{font-size:12px}
+.top{right:316px}
+.right{position:absolute;top:18px;right:20px;width:276px;display:flex;flex-direction:column;gap:20px}
+.right>.plate{width:100%}
+.topright{min-width:0}
+.topright .ff{display:block;min-height:15px;margin:0;font-size:11px;color:#9ec0ff;letter-spacing:.06em;visibility:hidden}.topright .ff.on{visibility:visible}
+.seg.wide{flex:0 0 62%}
+.dline{font-size:12px}
+.lbl{font-size:11px}.lbl strong{font-size:14px}.sub{font-size:11px}
+.gbtn::after{font-size:10px}
+.money::after{content:none}
+.owe{font-size:10px;margin-top:4px;color:#8fae5f;white-space:nowrap}.owe.warn{color:#f4d58a}.owe.bad{color:#ff8a6a;font-weight:800}
+.gbtn.money:hover .owe{color:#f4d58a;text-decoration:underline}
+.kick{font-size:11px}.kick i{font-style:normal;color:#f1e6c2;letter-spacing:0}
+.topbtn{font-size:11px}
+/* zgłoszenia: wiersz = kropka typu · nazwa i oddział · stan albo przycisk */
+.irow{display:flex;align-items:center;gap:9px;padding:7px 4px;border-top:1px solid #3e523f;cursor:pointer}
+.irow:hover{background:#334836}
+.irow .ib{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.irow .ib b{font-size:12px;color:#f1e6c2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.irow .ib span{font-size:11px;color:#9aa587}
+.irow button{flex:none;cursor:pointer;border:0;font:800 11px ui-monospace,monospace;background:#f1e6c2;color:#2a3b2d;padding:5px 8px;box-shadow:0 3px 0 #a38c58}
+.irow button:active{transform:translateY(2px);box-shadow:0 1px 0 #a38c58}
+.dot{flex:none;display:inline-block;width:9px;height:9px;box-shadow:0 0 0 1px #14201a;background:#5f6a58}
+.chip2{flex:none;font-style:normal;font-size:11px;font-weight:800;padding:3px 7px;background:#3e523f;color:#e8c77a}.chip2.go{background:#3f5a35;color:#9fd27a}
+.imore{padding:7px 4px 2px;border-top:1px solid #3e523f;font-size:11px;color:#8fae5f;cursor:pointer}.imore:hover{color:#f4d58a;text-decoration:underline}
+.incidents .muted{font-size:12px;padding:4px 0}
+/* panel ekip i maszyn */
+.status{width:268px}
+.sgrp{font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#e8c77a;margin:8px 0 3px}.sgrp:first-child{margin-top:0}
+.srow2{display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 2px;cursor:pointer}
+.srow2:hover{background:#334836}
+.srow2 span{flex:none;color:#b9c49a}.srow2 em{flex:1;font-size:11px;font-style:normal;color:#f1e6c2;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* plan na porę roku: lista rozwijana pod przyciskiem */
+.planbtn{font-size:11px}
+.plan{position:fixed;width:300px;z-index:4}
+.plan::after{content:'';position:absolute;top:-14px;left:50%;margin-left:-7px;border:7px solid transparent;border-bottom-color:#8fae5f}
+.pgoal{margin:7px 0}.pgoal .trow{font-size:12px;margin:0 0 4px}.pgoal.ok .trow{color:#9fd27a}
+.pbar{height:7px;background:#14201a;padding:1px}.pbar i{display:block;height:100%;background:#d8b665}.pgoal.ok .pbar i{background:#8ec86a}
+.pfoot{display:flex;flex-direction:column;gap:3px;margin-top:9px;padding-top:7px;border-top:1px solid #3e523f;font-size:11px;color:#b9c49a}.pfoot b{color:#f4d58a}
+.toolbar .toolhint{font-size:11px}.toolbar .tool,.toolbar .act{font-size:12px}
+@media (max-width:1100px){.top{right:282px}.right{width:244px}.status{width:236px}.gauge{min-width:118px}.dline{font-size:11px}.gauges{gap:16px}.toolbar{max-width:calc(100vw - 540px)}}
+/* ekran startowy i okna: przewijanie przy niskim oknie, widoczny fokus z klawiatury, komunikat nad oknami */
+#overlay .card{max-height:calc(100vh - 28px);overflow:auto}
+button:focus-visible,.tab:focus-visible{outline:2px solid #f4d58a;outline-offset:2px}
+#start.arm,#newgame.arm{background:#b5482f;box-shadow:0 4px #6a2a1c,0 0 0 2px #14201a}
+body.modal #msg{bottom:auto;top:14px;z-index:20}
+.offer{background:#e7dfba;border-left:4px solid #8b6b3d;padding:6px 8px;margin:6px 0 2px;display:flex;flex-direction:column;gap:3px}.offer b{font-size:12px;color:#384d39}.offer span{font-family:system-ui,sans-serif;font-size:12px;color:#5f6a55;line-height:1.4}
+.tile small{font-size:10px;color:#6a7a52;font-weight:700}.tile em{font-style:normal;font-size:9px;color:#6a7a52}
+#msg{max-width:min(60vw,calc(100vw - 640px))}
+.status{width:272px}.srow2{gap:6px}

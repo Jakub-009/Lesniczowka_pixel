@@ -1,5 +1,5 @@
 // Punkt wejścia: budowa świata, stały krok symulacji (60 Hz, przy przyspieszeniu kilka kroków na klatkę), kamera, zoom, pętla.
-import {SET,initGuide,startTempo} from './guide.js';
+import {SET,initGuide,startTempo,openTutor} from './guide.js';
 import {C,ctx,VIEW,WORLD,$,clamp,keys,state,camera,RT,fx,DEBUG,DAY_S,SETTINGS,toast,active,VERSION,cal} from './core.js';
 import {buildGround,fadeMarks} from './paint.js';
 import {generate,updateFalls,trees,counts,dirtyAll,seasonGrow} from './forest.js';
@@ -53,13 +53,16 @@ function sim(dt){
 }
 const SKIP_SEEN=new Set();   // zgłoszenia już otwarte w chwili startu przewijania nie przerywają go
 const skipLabel=()=>cal.night()?'Do rana':'Do jutra';
-function stopSkip(){state.skipTo=null;state.ff=1;const b=$('#skipbtn');if(b)b.textContent=skipLabel()}
+function stopSkip(why){state.skipTo=null;state.ff=1;const b=$('#skipbtn');if(b)b.textContent=skipLabel();if(why)toast(why)}
+// 1.1.1 (U05): przewijanie mówi, dlaczego się zatrzymało
+const busyWhy=()=>{const u=U.find(u=>u.phase!=='home');if(u)return 'Przewijanie wstrzymane: '+u.name+' jest w terenie (interwencja). Czas płynie normalnie, tempo zmienisz przyciskami ×1–×3.';const q=E.incidents.find(q=>q.status==='new'&&(q.type==='fire'||q.type==='intruder'));if(q)return 'Przewijanie wstrzymane: '+(q.type==='fire'?'pożar w lesie':'nocny intruz')+' czeka na reakcję (Q: wyślij patrol).';return 'Przewijanie wstrzymane: trwa obsługa zgłoszenia.'};
 function step(dt){
  if(!active())return;
  // noc przewija się sama (×8), chyba że trwa interwencja albo w lesie pali się / kręci kłusownik
  const busy=U.some(u=>u.phase!=='home')||E.incidents.some(q=>q.status==='assigned'||(q.status==='new'&&(q.type==='fire'||q.type==='intruder')));
  // 0.9: „Do rana / Do jutra” przewija czas do 6:00; przerywa je każde nowe zgłoszenie, interwencja, okno albo pauza
- if(state.skipTo!=null&&(busy||state.days>=state.skipTo||E.incidents.some(q=>q.status==='new'&&!SKIP_SEEN.has(q))))stopSkip();
+ if(state.skipTo!=null){const nq=E.incidents.find(q=>q.status==='new'&&!SKIP_SEEN.has(q));
+  if(busy)stopSkip(busyWhy());else if(nq)stopSkip('Przewijanie przerwane: nowe zgłoszenie — '+nq.text);else if(state.days>=state.skipTo)stopSkip()}
  const skipping=state.skipTo!=null;
  state.ff=skipping?SKIP_DT*SKIP_N:cal.night()&&!busy&&!state.noFF?NIGHT_FF:1;
  if(skipping){for(let i=0;i<SKIP_N;i++)sim(dt*SKIP_DT)}   // większy krok czasu zamiast 40 małych: przewijanie jest szybkie i nie zacina
@@ -71,7 +74,6 @@ function step(dt){
  const f=state.follow;
  if(f){if(f.dead||f.hidden)state.follow=null;else{const [x,y]=f.pos||[f.x,f.y];camera.x+=(x-VIEW.w/2-camera.x)*Math.min(1,dt*4);camera.y+=(y-VIEW.h/2-camera.y)*Math.min(1,dt*4)}}
  updateSound(dt);
- if(RT.msgT>0){RT.msgT-=dt;if(RT.msgT<=0)$('#msg').style.opacity='0'}
 }
 // 0.6: kamera może wyjechać poza krawędź mapy o szerokość paneli, żeby rogi lasu nie były zasłonięte
 function clampCamera(){
@@ -105,6 +107,8 @@ let fpsT=0,fpsN=0;
 function run(ts){
  RT.beat=performance.now();
  const frame=RT.last?Math.min((ts-RT.last)/1000,.1):0;RT.last=ts;RT.frame++;
+ // 1.1.1 (U02): komunikat znika według czasu rzeczywistego — także w pauzie i przy otwartym oknie
+ if(RT.msgT>0){RT.msgT-=frame;if(RT.msgT<=0)$('#msg').style.opacity='0'}
  RT.acc+=frame;let n=0;while(RT.acc>=STEP&&n<4){safe('krok',step,STEP);RT.acc-=STEP;n++}if(n===4)RT.acc=0;
  safe('kamera',clampCamera);
  fpsT+=frame;fpsN++;if(fpsT>=.5){DEBUG.fps=Math.round(fpsN/fpsT);fpsT=0;fpsN=0}
@@ -127,7 +131,7 @@ setInterval(()=>{
  // pauza z okna, którego nie ma na ekranie: zdejmujemy blokadę
  const winOpen=['#report','#base','#win'].some(q=>!$(q).classList.contains('hidden'));
  if(state.modal&&!winOpen){DIAG.stalls.push({t:Math.round(now/1000),what:'blokada okna bez okna'});state.modal=false;state.panel=false;state.paused=false;toast('Odblokowano grę.')}
- if(state.skipTo!=null&&(state.modal||state.paused))stopSkip();
+ if(state.skipTo!=null&&(state.modal||state.paused))stopSkip(state.paused&&!state.modal?'Przewijanie przerwane: pauza.':null);
  {const sb=$('#skipbtn');if(sb&&state.skipTo==null&&sb.textContent!==skipLabel())sb.textContent=skipLabel()}
  const pb=$('#pausebtn'),want=state.paused?'▶':'❚❚';if(pb.textContent!==want)pb.textContent=want;
  // czas stoi mimo braku pauzy
@@ -143,7 +147,8 @@ VIEW.zoom=1;size();centerOn(720,520);clampCamera();
 for(const b of document.querySelectorAll('[data-rate]'))b.addEventListener('click',e=>{if(state.playing&&!state.modal)setRate(+b.dataset.rate,e.shiftKey)});
 $('#skipbtn').addEventListener('click',()=>{
  if(!state.playing||state.modal)return;
- if(state.skipTo!=null){stopSkip();toast('Przewijanie przerwane.');return}
+ if(state.skipTo!=null){stopSkip('Przewijanie przerwane.');return}
+ {const busy=U.some(u=>u.phase!=='home')||E.incidents.some(q=>q.status==='assigned'||(q.status==='new'&&(q.type==='fire'||q.type==='intruder')));if(busy){toast(busyWhy().replace('Przewijanie wstrzymane','Nie da się teraz przewinąć'));return}}
  if(state.paused)$('#pausebtn').click();
  const d=Math.floor(state.days),h=(state.days%1)*24;   // cel: najbliższe 6:00
  SKIP_SEEN.clear();for(const q of E.incidents)SKIP_SEEN.add(q);state.skipTo=h<6?d+6/24:d+1+6/24;state.rate=1;
@@ -152,10 +157,17 @@ $('#pausebtn').addEventListener('click',()=>{if(!state.playing||state.modal)retu
 $('#help-close').addEventListener('click',()=>$('#help').classList.add('hidden'));
 initGuide();
 const begin=msg=>{state.playing=true;$('#overlay').classList.add('hidden');C.focus();if(state.mute)toggleSound();resumeSound();toast(msg)};
+// 1.1.1: „Nowa gra” przy istniejącym zapisie wymaga drugiego kliknięcia (zapis jest kasowany); Enter na ekranie startowym wczytuje zapis
+function confirmNew(b,go){
+ if(!hasSave()||b.dataset.arm){go();return}
+ const t0=b.textContent;b.dataset.arm='1';b.classList.add('arm');b.textContent='NA PEWNO? KLIKNIJ JESZCZE RAZ — ZAPIS ZOSTANIE SKASOWANY';
+ setTimeout(()=>{delete b.dataset.arm;b.classList.remove('arm');b.textContent=t0},4000);
+}
 if(hasSave()){$('#continue').style.display='block';$('#start').textContent='NOWA GRA'}
-$('#start').addEventListener('click',()=>{clearSave();begin('Witaj w leśnictwie. H: pomoc.');startTempo();if(SET.tut)openTutor()});
+setTimeout(()=>{if(!state.playing)(hasSave()?$('#continue'):$('#start')).focus()},0);
+$('#start').addEventListener('click',()=>confirmNew($('#start'),()=>{clearSave();begin('Witaj w leśnictwie. H: pomoc.');startTempo();if(SET.tut)openTutor()}));
 $('#continue').addEventListener('click',()=>{if(loadGame()){hud();begin('Zapis wczytany.')}else{toast('Nie udało się wczytać zapisu.');$('#continue').style.display='none'}});
-$('#newgame').addEventListener('click',()=>{clearSave();state.playing=false;location.reload()});
+$('#newgame').addEventListener('click',()=>confirmNew($('#newgame'),()=>{clearSave();state.playing=false;removeEventListener('beforeunload',saveGame);location.reload()}));
 addEventListener('beforeunload',saveGame);
 document.addEventListener('visibilitychange',()=>{if(document.hidden){saveGame();if(state.playing&&!state.paused)$('#pausebtn').click()}});
 document.title='Leśniczówka '+VERSION;

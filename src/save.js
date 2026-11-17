@@ -5,8 +5,9 @@ import {state,SEASON_DAYS,WORLD} from './core.js';
 import {serializeTrees,loadTrees,trees,removeTree,STAND,fillVerges} from './forest.js';
 import {inRect} from './map.js';
 import {roadClearance} from './map.js';
-import {J,MACH,restoreStack,hireCrewB,placeForwarder,stackFor} from './jobs.js';
-import {R,passesOf} from './renew.js';
+import {J,MACH,restoreStack,hireCrewB,placeForwarder,stackFor,restoreCrewTasks} from './jobs.js';
+import {R,passesOf,restorePlots,plantDone} from './renew.js';
+import {nearestRoad} from './roads.js';
 import {paintTrail,paintFurrowRow,markAlpha} from './paint.js';
 import {Vehicle} from './life/agents.js';
 import {EDGES} from './map.js';
@@ -18,22 +19,29 @@ import {loadAmbony,saveAmbony} from './life/ambony.js';
 import {WX} from './life/agents.js';
 import {spawnWildlife} from './life/populate.js';
 import {BASE} from './base.js';
-import {hirePod,ASSESS} from './incidents.js';
+import {hirePod,ASSESS,saveInc,loadInc,redispatch} from './incidents.js';
 import {saveHealth,loadHealth} from './health.js';
 import {serializeMail,loadMail} from './mail.js';
 const KEY='lesniczowka-save-4';   // 0.9: mapa przycięta (bez części południowej, dukty) — zapisy sprzed 0.9 nie pasują; zaczyna się nową grę
 const FADE=.88;   // koleiny i bruzdy blakną o 12% dziennie
 export function hasSave(){try{return !!localStorage.getItem(KEY)}catch(e){return false}}
 export function clearSave(){try{localStorage.removeItem(KEY)}catch(e){}}
+// 1.1.1 (S01): drewno w jadącym ciągniku/forwarderze i na ciężarówce zapisuje się jako stos przy najbliższej drodze — nie znika po wczytaniu
+function cargo(){
+ const out=[],at=(v,ks,vol,val)=>{const rp=nearestRoad(v.pos[0],v.pos[1],['main','forest','dukt']);for(const k of ks)if(vol[k]>.01)out.push([rp.edge.id,Math.round(rp.s),+vol[k].toFixed(2),Math.round(val[k]||0),k,k!=='opal'])};
+ const S=J.skid;if(S.trac&&!S.trac.dead&&S.trac.load>.01&&S.ls)at(S.trac,['tart','pap','opal'],S.ls,S.lv||{});
+ const T=J.truck;if(T.v&&!T.v.dead&&T.v.load>.01)at(T.v,['tart'],{tart:T.v.load},{tart:T.val||0});
+ return out;
+}
 export function saveGame(){
  if(!state.playing)return;
  try{
-  const o={v:3,ver:'0.9.0',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
-   stacks:J.stacks.filter(s=>s.vol>.05).map(s=>[s.edge.id,Math.round(s.s),+s.vol.toFixed(2),Math.round(s.value),s.sort||'tart',s.truck!==false]),sold:J.sold,
-   plants:J.plants.map(p=>[Math.round(p.x),Math.round(p.y),p.sp]),
+  const o={v:3,ver:'1.1.2',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
+   stacks:[...J.stacks.filter(s=>s.vol>.05).map(s=>[s.edge.id,Math.round(s.s),+s.vol.toFixed(2),Math.round(s.value),s.sort||'tart',s.truck!==false]),...cargo()],sold:J.sold,truckPending:!!J.truck.pending,
+   plants:J.plants.map(p=>[Math.round(p.x),Math.round(p.y),p.sp,p.assigned?1:0,p.plot||0,p.prep?1:0]),
    piles:E.piles.filter(p=>!p.dead).map(p=>[Math.round(p.x),Math.round(p.y),+p.a.toFixed(2),+p.vol.toFixed(3),p.sp,p.logs,p.bark,p.sorts||null,p.vals||null]),
-   eco:{ord:ECO.ord,goneRen:ECO.goneRen||0,cover0:ECO.cover0,damage:ECO.damage,plog:ECO.plog.slice(0,14).map(q=>[+q.t.toFixed(3),+q.d.toFixed(2),q.why]),plan:ECO.plan,market:ECO.market,fin:saveFin(),pod:ECO.staff.pod,nursery:ECO.nursery,feedCost:ECO.feedCost},burns:E.burns||[],
-   plots:R.plots.map(p=>({...p})),nextPlot:R.nextId,trails:J.trails.slice(-160),forwarder:J.skid.owned,crewB:J.crews.length>1,
+   eco:{ord:ECO.ord,goneRen:ECO.goneRen||0,cover0:ECO.cover0,damage:ECO.damage,plog:ECO.plog.slice(0,14).map(q=>[+q.t.toFixed(3),+q.d.toFixed(2),q.why]),plan:ECO.plan,market:ECO.market,fin:saveFin(),pod:ECO.staff.pod,nursery:ECO.nursery,feedCost:ECO.feedCost,st:ECO.st,act:ECO.act},burns:E.burns||[],inc:saveInc(f=>f.slot),
+   plots:R.plots.map(p=>{const q={...p};delete q.inc;return q}),nextPlot:R.nextId,trails:J.trails.slice(-160),forwarder:J.skid.owned,crewB:J.crews.length>1,
    base:{nursery:BASE.nursery,garage:BASE.garage,nplan:BASE.nplan||0,stats:BASE.stats,opal:BASE.opalPiles.filter(o=>!o.dead).map(o=>[Math.round(o.x),Math.round(o.y),+o.a.toFixed(2),+o.vol.toFixed(2),o.edge.id,Math.round(o.s),+o.day.toFixed(2),o.odd])},
    assess:ASSESS.slice(-80),hl:saveHealth(),mail:serializeMail(),nat:saveNature(),
    fauna:{wolf:{...FA.wolf},pop:FA.pop,plan:FA.plan,culled:FA.culled,reduction:FA.reduction,feeders:FA.feeders.map(f=>[f.slot,+f.level.toFixed(3)]),ambony:saveAmbony(),winterT:FA.winterT,emptyT:FA.emptyT}};
@@ -54,16 +62,27 @@ export function loadGame(){
   for(const [id,s,vol,val,sort,truck] of o.stacks||[]){
    if(restoreStack(id,s,vol,val,sort||'tart',truck))continue;const G=GONE[id];if(!G)continue;
    const L=Math.hypot(G[2]-G[0],G[3]-G[1]),k=Math.min(1,s/L),st=stackFor(G[0]+(G[2]-G[0])*k,G[1]+(G[3]-G[1])*k,sort||'tart');st.vol+=vol;st.value+=val;if(truck===false)st.truck=false}
-  J.plants=(o.plants||[]).map(([x,y,sp])=>({x,y,sp,assigned:false}));
+  J.plants=(o.plants||[]).map(([x,y,sp,as,plot,prep])=>({x,y,sp,assigned:!!as,plot:plot||undefined,prep:!!prep}));J.truck.pending=!!o.truckPending;
   // powierzchnie odnowieniowe i szlaki: dane + ponowne malowanie bruzd i kolein (z wyblaknięciem według wieku)
+  const st0={};for(const p of o.plots||[])st0[p.id]=p.state;
   R.plots=(o.plots||[]).map(p=>({...p,state:p.state==='planting'||p.state==='queued'||p.state==='prepping'?(p.prepared?'prepared':'new'):p.state}));R.nextId=o.nextPlot||R.plots.length+1;
+  restorePlots(st0);
+  // 1.1.1: zlecone sadzonki (także z powierzchni) i zlecone drzewa wracają do ekip
+  const tasks=[];
+  for(const q of J.plants){if(!q.assigned)continue;
+   if(q.plot){const p=R.plots.find(z=>z.id===q.plot);if(!p){q.assigned=false;q.plot=undefined;continue}q.onDone=plantDone(p);if(st0[p.id]==='planting')p.state='planting'}
+   tasks.push({type:'plant',p:q})}
+  for(const p of R.plots)if(p.state==='planting'&&!J.plants.some(q=>q.plot===p.id))p.state='planted';
+  for(const t of trees)if(t.wasQ){delete t.wasQ;if(t.st===STAND){t.marked=true;t.assigned=true;tasks.push({type:'fell',t})}}
   for(const p of R.plots)if(p.prepared){const age=state.days-(p.prepDay??state.days);if(age>25)continue;markAlpha(FADE**age);for(const q of passesOf(p))paintFurrowRow(q.y,q.x0,q.x1)}
   J.trails=(o.trails||[]).map(t=>Array.isArray(t)?{d:o.days,p:t}:t).filter(t=>state.days-t.d<25);
   for(const t of J.trails){markAlpha(FADE**(state.days-t.d));paintTrail(t.p)}
   markAlpha(1);
   if(o.forwarder&&!J.skid.owned){J.skid.owned=true;placeForwarder()}
   E.piles=(o.piles||[]).map(([x,y,a,vol,sp,logs,bark,sorts,vals])=>({x:Math.min(Math.max(x,8),WORLD.w-8),y:Math.min(Math.max(y,8),WORLD.h-8),a,vol,sp,logs,bark,sorts:sorts||undefined,vals:vals||undefined,state:'ground',dead:false}));
-  const ec=o.eco||{};ECO.cover0=ec.cover0;ECO.goneRen=ec.goneRen||0;ECO.damage=ec.damage;ECO.plog=(ec.plog||[]).map(([t,d,why])=>({t,d,why}));ECO.dmgBy={};ECO.plan=ec.plan;ECO.lastDay=Math.floor(o.days);ECO.lastSeason=Math.floor(o.days/SEASON_DAYS)%4;
+  const ec=o.eco||{};ECO.cover0=ec.cover0;
+  // 1.1.1: statystyki sezonu przetrwają wczytanie; stary zapis bez nich liczy sezon od chwili wczytania
+  if(ec.st)Object.assign(ECO.st,ec.st);else Object.assign(ECO.st,{money0:o.money,health0:o.health,protect0:o.protect});if(ec.act)Object.assign(ECO.act,ec.act);ECO.goneRen=ec.goneRen||0;ECO.damage=ec.damage;ECO.plog=(ec.plog||[]).map(([t,d,why])=>({t,d,why}));ECO.dmgBy={};ECO.plan=ec.plan;ECO.lastDay=Math.floor(o.days);ECO.lastSeason=Math.floor(o.days/SEASON_DAYS)%4;
   if(ec.ord)Object.assign(ECO.ord,ec.ord);
   loadFin(ec.fin);if(ec.market)ECO.market=ec.market;if(ec.nursery)ECO.nursery=ec.nursery;if(ec.feedCost)ECO.feedCost=ec.feedCost;
   E.burns=o.burns||[];loadHealth(o.hl);
@@ -80,7 +99,9 @@ export function loadGame(){
   if(!o.ver){const old=[[820,2300,300,2300],[300,2300,300,1720],[2600,1720,2600,2380],[2600,2380,3260,2380],[3260,2380,3260,1720]];
    fillVerges(old,(x,y)=>R.plots.some(p=>inRect(x,y,p,10))||J.stacks.some(s=>Math.hypot(s.x-x,s.y-y)<40))}
   loadMail(o.mail);loadNature(o.nat);
+  const redo=loadInc(o.inc,id=>R.plots.find(p=>p.id===id),k=>FA.feeders.find(f=>f.slot===k));
   rebuildWild();spawnWildlife();
+  restoreCrewTasks(tasks);redispatch(redo);
   return true;
  }catch(e){console.warn('Wczytanie zapisu nie powiodło się:',e);return false}
 }

@@ -69,6 +69,9 @@ function setMarket(){const se=cal.season();ECO.market=+((se===3?1.1:se===1?.9:1)
 // Koszty dzienne: utrzymanie leśniczówki i paliwo + pensje i sprzęt. 0.8.3: ekipa B i forwarder kosztują tylko w dni, w których pracowały
 // (real=true — tyle schodzi z kasy; bez argumentu — pełna stawka, pokazywana w panelu).
 export function dailyCost(real=false){return ECO.dailyBase+(ECO.ord.cams?25:0)+(ECO.ord.parking?15:0)+(ECO.ord.repel?10:0)+(J.crews.length>1&&(!real||ECO.act.b)?COST.crewB:0)+(ECO.staff.pod?COST.pod:0)+(J.skid.owned&&(!real||ECO.act.f)?COST.fwd:0)}
+// 1.1.2 (U06): rozbicie kosztów — stałe schodzą codziennie, ekipa B i forwarder tylko za dni, w których pracowały
+export function costParts(){const varB=J.crews.length>1?COST.crewB:0,varF=J.skid.owned?COST.fwd:0;return{fixed:dailyCost()-varB-varF,varB,varF}}
+export function costText(){const c=costParts(),v=[c.varB?'ekipa B +'+zl(c.varB):'',c.varF?'forwarder +'+zl(c.varF):''].filter(Boolean);return zl(c.fixed)+' stałe'+(v.length?' · za dzień pracy: '+v.join(', '):'')}
 // Zlecenia wymagają pieniędzy w kasie — bez nich trzeba najpierw sprzedać drewno.
 // 0.8.3: debet=true — zlecenia, które zarabiają (wycinka), wolno zlecać na debecie do −DEBT_LIM, inaczej z minusu nie da się wyjść.
 export function canAfford(n,debet=false){if(debet?state.money-n>=-DEBT_LIM:state.money>=n)return true;toast(debet?'Limit debetu ('+zl(DEBT_LIM)+') wyczerpany. Sprzedaj drewno (K).':'Brak środków: potrzeba '+zl(n)+', w kasie '+zl(state.money)+'.');sfx('unmark');return false}

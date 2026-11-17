@@ -137,13 +137,21 @@ function plowUpdate(){
  }
 }
 // ── sadzenie w rzędach ──
+export const plantDone=p=>()=>{p.planted++;if(p.planted>=p.toPlant){p.state='planted';toast('P'+p.id+' obsadzona: '+p.planted+' sadzonek ('+MIXES[p.mix||mixFor(p.sp)].name+').')}};
+// 1.1.1: po wczytaniu opłacona orka wraca do kolejki pługa (bez ponownej zapłaty), a przerwane sadzenie — do ekip
+export function restorePlots(saved){
+ R.plow.queue=[];
+ const q=R.plots.filter(p=>!p.prepared&&saved[p.id]&&(saved[p.id]==='queued'||saved[p.id]==='prepping')).sort((a,b)=>(saved[b.id]==='prepping')-(saved[a.id]==='prepping')||a.id-b.id);
+ for(const p of q){p.state='queued';R.plow.queue.push(p)}
+ return q.length;
+}
 export function orderPlant(p){
  if(p.state==='planting'){toast('Sadzenie już trwa.');return}
  const spots=spotsIn(p.x,p.y,p.w,p.h,(x,y)=>inPlot(p,x,y,-6));
  if(!spots.length){toast('Brak wolnych miejsc na sadzonki w tej powierzchni.');return}
  if(!canAfford(Math.min(spots.length,40)*COST.plant))return;
  const tasks=[];
- for(const [x,y] of spots){const q={x,y,sp:mixSp(p,x,y),assigned:true,plot:p.id,prep:p.prepared,onDone:()=>{p.planted++;if(p.planted>=p.toPlant){p.state='planted';toast('P'+p.id+' obsadzona: '+p.planted+' sadzonek ('+MIXES[p.mix||mixFor(p.sp)].name+').')}}};J.plants.push(q);tasks.push({type:'plant',p:q})}
+ for(const [x,y] of spots){const q={x,y,sp:mixSp(p,x,y),assigned:true,plot:p.id,prep:p.prepared,onDone:plantDone(p)};J.plants.push(q);tasks.push({type:'plant',p:q})}
  p.state='planting';p.toPlant=p.planted+spots.length;
  addCrewTasks(tasks,'Sadzenie na P'+p.id+': '+spots.length+' sadzonek ('+MIXES[p.mix||mixFor(p.sp)].name+(p.prepared?', w bruzdach':', bez przygotowania gleby')+').');
 }

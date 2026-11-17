@@ -8,7 +8,7 @@ import {MAILBOX} from './lodge.js';
 import {E} from './ents.js';
 import {J,toggleMark,togglePlant,dispatchCrew,orderTruck,UNDO,cancelCrewTasks,clearOrders} from './jobs.js';
 import {plotAt,createPlot,createPolyPlot,planAreaPlants} from './renew.js';
-import {setTool,hud,toggleBase,toggleOdd,cycleRate} from './ui.js';
+import {setTool,hud,toggleBase,toggleOdd,cycleRate,togglePlan} from './ui.js';
 import {toggleWin,closeWin} from './win.js';
 import {feederAt} from './life/fauna.js';
 import {ambonaAt} from './life/ambony.js';
@@ -74,7 +74,7 @@ export function bindInput(zoomFn){
    hud();return}
   if(d.drag)return;
   if(d.btn===2){state.poly=null;setTool('select');state.selected=null;return}
-  if(!active())return;
+  if(!state.playing||state.modal)return;   // 1.1.1: w pauzie można oglądać i planować (pauza zatrzymuje tylko symulację)
   const [x,y]=toWorld(e);
   if(state.tool==='mark'){const t=treeAt(x,y,t=>t.st===STAND);if(t){toggleMark(t);state.selected=t}else{if(state.selected)state.selected=null;else toast('Kliknij koronę drzewa.')}}   // 1.0: klik w puste miejsce zamyka kartę drzewa
   else if(state.tool==='plant')togglePlant(x,y);
@@ -89,8 +89,11 @@ export function bindInput(zoomFn){
   const k=e.key.toLowerCase();
   if(state.poly&&state.playing){if(k==='enter'){e.preventDefault();finishPoly();return}if(k==='escape'){state.poly=null;toast('Wielokąt anulowany.');return}}
   if((e.ctrlKey||e.metaKey)&&k==='z'&&state.playing&&!state.modal){e.preventDefault();undo();return}
+  // 1.1.1: skróty przeglądarki (Ctrl/Cmd/Alt + litera) nie uruchamiają akcji gry
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  // ekran startowy: Enter wczytuje zapis (jeśli jest), Tab normalnie przechodzi między przyciskami
+  if(!state.playing){if(k==='enter'&&!(document.activeElement&&document.activeElement.tagName==='BUTTON')){e.preventDefault();const c=$('#continue');(c&&c.style.display!=='none'?c:$('#start')).click()}return}
   if(['arrowup','arrowdown','arrowleft','arrowright',' ','f1','f3','tab'].includes(k))e.preventDefault();
-  if(!state.playing){if(k==='enter')$('#start').click();return}
   if(state.modal){
    if(state.win){if(k==='escape'||(k==='c'&&state.win==='mail')||(k==='tab'&&state.win==='map'))closeWin()}
    else if(state.panel){if(k==='escape'||k==='l')toggleBase(false)}
@@ -107,11 +110,11 @@ export function bindInput(zoomFn){
   else if(k==='q'){const q=E.incidents.find(x=>x.status==='new');if(q)dispatch(q);else toast('Brak nowych zgłoszeń.')}
   else if(k==='f')followSel();
   else if(k==='t')cycleRate(e.shiftKey);else if(k==='p')$('#pausebtn').click();else if(k==='m')toggleSound();
-  else if(k==='g'){testGrow(10);toast('Las urósł o 10 lat (test).')}
+  else if(k==='g'&&DEBUG.on){testGrow(10);toast('Las urósł o 10 lat (test).')}   // 1.1.1: tylko w trybie diagnostycznym (F3)
   else if(k==='n'){state.noFF=!state.noFF;toast(state.noFF?'Noc płynie normalnie (N).':'Noc przewija się sama (N).')}
   else if(k==='f3')DEBUG.on=!DEBUG.on;
   else if(k==='f1'||k==='h')$('#help').classList.toggle('hidden');
-  else if(k==='escape'){setTool('select');state.selected=null;state.follow=null;$('#help').classList.add('hidden');$('#settings').classList.add('hidden');$('#plan').style.display='none';closeTutorEsc();toggleOdd(false);state.showStumps=false}
+  else if(k==='escape'){setTool('select');state.selected=null;state.follow=null;$('#help').classList.add('hidden');$('#settings').classList.add('hidden');togglePlan(false);closeTutorEsc();toggleOdd(false);state.showStumps=false}
   else if(k==='z')zoomFn(e.shiftKey?-1:1);else if(k==='+'||k==='=')zoomFn(-1);else if(k==='-')zoomFn(1);
   keys.add(k);hud();
  });

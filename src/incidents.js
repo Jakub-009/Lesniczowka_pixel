@@ -13,7 +13,7 @@ import {paintRut} from './paint.js';
 import {J,takeFromStack} from './jobs.js';
 import {fireMult,fireSpeed,sanitaryMark,clearBlock,HL} from './health.js';
 import {mail,PRIO,prio,MAXOPEN,TTL,slowDown} from './mail.js';
-export const HK={waste:null,police:null};   // ustawiane przez order.js (bez cyklu importów)
+export const HK={waste:null,police:null,requeue:null};   // ustawiane przez order.js (bez cyklu importów)
 
 let nextId=1;
 const odd=(x,y)=>'oddz. '+oddzial(x,y);
@@ -189,7 +189,7 @@ class Unit{
   const inc=fire||this.queue.slice().sort((a,b)=>Math.hypot(a.x-cx,a.y-cy)-Math.hypot(b.x-cx,b.y-cy))[0];
   if(inc)this.queue=this.queue.filter(q=>q!==inc);
   if(!inc){this.goHome();return}
-  this.cur=inc;inc.status='assigned';inc.unit=this;pay(35,'paliwo — wyjazd patrolu');
+  this.cur=inc;inc.status='assigned';inc.unit=this;if(!inc.paid){pay(35,'paliwo — wyjazd patrolu');inc.paid=true}   // 1.1.1: po wczytaniu zapisu wyjazd nie jest opłacany drugi raz
   const r=this.person;
   if(r.hidden&&!r.sleeping){this.drive(inc);return}
   if(r.sleeping){r.sleeping=false;r.hidden=false;r.x=DOOR[0];r.y=DOOR[1]+8;toast(this.name+' wstaje i jedzie na interwencję.')}
@@ -287,13 +287,13 @@ export function initPatrol(){
 export function hirePod(){const u=new Unit('podleśniczy',1,CAR_EDGE.len-70,'#6a7a4a');U.push(u);return u}
 export function firePod(){const u=U[1];if(!u)return false;if(u.phase!=='home'){toast('Podleśniczy jest w terenie — zwolnisz go po powrocie.');return false}
  u.car.dead=true;u.person.dead=true;U.pop();return true}
-export function dispatch(inc){
+export function dispatch(inc,quiet){
  if(!inc||inc.status!=='new')return;
  if(inc.type==='dump'){HK.waste&&HK.waste(inc);return}
  const free=U.find(u=>u.phase==='home'||u.phase==='return'),u=free||U.slice().sort((a,b)=>a.queue.length-b.queue.length)[0];
  inc.status='queued';u.queue.push(inc);
  if(u.phase==='home'||u.phase==='return')u.startNext();
- else toast('Patrol jest zajęty — zgłoszenie czeka w kolejce ('+u.name+').');
+ else if(!quiet)toast('Patrol jest zajęty — zgłoszenie czeka w kolejce ('+u.name+').');
 }
 // ───────── aktualizacja ─────────
 const TM={day:-1,rider:null,smoke:null,night:null,nightKind:null,first:true};
@@ -416,3 +416,46 @@ export function orderAssess(x,y){
 }
 export function feedTask(f,name){return report('feed',f.x,f.y,'Paśnik '+name+' pusty. Dowieź karmę.',f)}
 RENEW_HOOK.report=report;
+
+// ── 1.1.1: zapis zgłoszeń, śmieci i ognisk ──
+// Zapisujemy wszystko, co leży w lesie (śmieci, wnyki, wysypiska, zarzewia) i otwarte zgłoszenia, które da się odtworzyć.
+// Po wczytaniu zgłoszenia, które patrol już obsługiwał albo miał w kolejce, wracają do patrolu bez ponownej opłaty za wyjazd.
+// Quady i nocni intruzi to pojazdy — nie wracają. Liczymy je jak ucieczkę: kara tylko, gdy zgłoszenie wisiało bez reakcji.
+export function saveInc(feederSlot){
+ const tr=E.trash.filter(t=>!t.dead);
+ const trash=tr.map(t=>t.fire?[Math.round(t.x),Math.round(t.y),'fire',0,+(t.t||0).toFixed(1),0,+(t.grow||0).toFixed(3),+(t.peak||0).toFixed(3)]:[Math.round(t.x),Math.round(t.y),t.kind,t.seed||0,+(t.t||0).toFixed(1),+(t.report||0).toFixed(1)]);
+ const inc=[];
+ for(const q of E.incidents){if(!open_(q))continue;
+  const o={type:q.type,x:Math.round(q.x),y:Math.round(q.y),text:q.text,st:q.status,t:+(q.t||0).toFixed(1),day:q.day,paid:!!(q.paid||q.status==='assigned'),ws:!!q.wasSent,ft:!!q.ft};
+  if(q.type==='trash'||q.type==='dump'||q.type==='fire'){const i=tr.indexOf(q.ref);if(i<0)continue;o.r=i}
+  else if(q.type==='beetle'||q.type==='assess')o.r={...q.ref};
+  else if(q.type==='feed'){o.r=feederSlot(q.ref);if(o.r==null)continue}
+  else if(q.type==='fence'){if(!q.ref||q.ref.id==null)continue;o.r=q.ref.id}
+  else if(q.type==='quad')o.k=q.ref&&q.ref.kind;
+  else if(q.type==='intruder')o.k=q.ref&&q.ref.intruder;
+  else if(q.type!=='block')continue;   // padlina przy szosie znika razem z pojazdem; zatarasowane drogi odtwarza health.js
+  inc.push(o)}
+ return{trash,inc,nid:nextId};
+}
+export function loadInc(o,plotById,feederBySlot){
+ const redo=[];if(!o)return redo;
+ E.trash=(o.trash||[]).map(([x,y,kind,seed,t,rep,grow,peak])=>kind==='fire'?{x,y,t,grow,peak,dead:false,fire:true}:{x,y,kind,seed,t,report:rep,dead:false});
+ nextId=Math.max(nextId,o.nid||1);
+ for(const s of o.inc||[]){
+  if(s.type==='quad'||s.type==='intruder'){
+   const pen=!s.ws&&s.t>=60;
+   if(pen){stat('ignored');if(s.type==='quad'){bumpProtect(-5,'quad uciekł bezkarnie');bumpDamage(1,'quady')}else bumpProtect(s.k==='thief'?-4:-3,'sprawca uciekł')}
+   mail(s.type,(s.type==='quad'?(s.k==='cross'?'Crossowiec':'Quad'):s.k==='thief'?'Złodziej drewna':s.k==='xmas'?'Złodziej choinek':'Nocny intruz')+' odjechał podczas przerwy w grze ('+odd(s.x,s.y)+').'+(pen?' Zgłoszenie było bez reakcji — ochrona spada.':''),{x:s.x,y:s.y,quiet:true});
+   continue}
+  if(s.type==='block'){const q=E.incidents.find(q=>q.type==='block'&&open_(q)&&Math.hypot(q.x-s.x,q.y-s.y)<6);if(q){q.paid=s.paid;q.t=s.t;q.day=s.day;if(s.st!=='new')redo.push(q)}continue}
+  const ref=s.type==='trash'||s.type==='dump'||s.type==='fire'?E.trash[s.r]:s.type==='beetle'||s.type==='assess'?s.r:s.type==='feed'?feederBySlot(s.r):s.type==='fence'?plotById(s.r):null;
+  if(!ref)continue;
+  const inc={id:nextId++,type:s.type,x:s.x,y:s.y,text:s.text,ref,status:'new',t:s.t,seen:0,day:s.day,paid:s.paid,wasSent:s.ws};E.incidents.push(inc);
+  if(s.type==='trash'||s.type==='dump'||s.type==='fire')ref.inc=inc;else if(s.type==='feed')ref.task=inc;
+  if(s.type==='fire'&&s.ft)callFire(inc,'Straż pożarna jedzie do pożaru w '+odd(s.x,s.y)+'.');
+  if(s.st!=='new')redo.push(inc);
+ }
+ return redo;
+}
+// Zgłoszenia, które przed zapisem były w kolejce albo w toku, wracają do patrolu / firmy wywozowej (bez ponownej opłaty).
+export function redispatch(list){for(const q of list){if(q.status!=='new')continue;if(q.type==='dump'){HK.requeue&&HK.requeue(q)}else dispatch(q,true)}}

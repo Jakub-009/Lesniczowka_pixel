@@ -127,13 +127,17 @@ export function loadTrees(arr,migrate){
   if(uprawa&&x>940&&x<1380&&y>660&&y<950){dropped++;continue}
   const t=addTree(x,y,sp,age,{st,marked:!!marked,stumpR,stumpAge,burnt:!!burnt,uprawa:!!uprawa,planted:!!(flags&1),prep:!!(flags&2),gb:gb||0});if(seed)t.seed=seed;
   if(flags&32){t.q=(flags>>3)&3;t.qk=!!(flags&4);t.kb=(flags>>6)&7}
+  if(flags&512)t.wasQ=true;if(flags&1024)t.san=true;   // 1.1.1: drzewo było zlecone ekipie / do cięcia sanitarnego
   if(slash)t.slash={x:slash[0],y:slash[1],a:slash[2]};
  }
  if(dropped)refillArea(960,680,400,250);
  if(migrate)migrateLodgeArea();
  dirtyAll();
 }
-export function serializeTrees(){return trees.map(t=>[+t.x.toFixed(1),+t.y.toFixed(1),t.sp,+t.age.toFixed(2),t.st===STUMP||t.lying?1:0,t.marked||t.assigned?1:0,t.stumpR||(t.lying?clamp(t.lying.r*.2,3,8):0),+(t.stumpAge||0).toFixed(1),t.slash?[Math.round(t.slash.x),Math.round(t.slash.y),+t.slash.a.toFixed(2)]:0,t.burnt?1:0,t.uprawa?1:0,t.seed,(t.planted?1:0)|(t.prep?2:0)|(t.qk?4:0)|((t.q||0)<<3)|((t.kb||0)<<6)|32,+(t.gb||0).toFixed(2)])}
+// 1.1.1: drzewo zlecone ekipie zapisuje się z bitem 512 (wraca do kolejki po wczytaniu); powalone, ale jeszcze nieprzerobione zlecone drzewo
+// zapisuje się jako stojące — po wczytaniu ekipa zetnie je ponownie (ścinka jest fakturowana dopiero po wyrzynce, więc nie ma podwójnej opłaty)
+const queued=t=>t.assigned&&t.st===STAND;
+export function serializeTrees(){return trees.map(t=>[+t.x.toFixed(1),+t.y.toFixed(1),t.sp,+t.age.toFixed(2),t.st===STUMP||(t.lying&&!queued(t))?1:0,t.marked||t.assigned?1:0,t.stumpR||(t.lying?clamp(t.lying.r*.2,3,8):0),+(t.stumpAge||0).toFixed(1),t.slash?[Math.round(t.slash.x),Math.round(t.slash.y),+t.slash.a.toFixed(2)]:0,t.burnt?1:0,t.uprawa?1:0,t.seed,(t.planted?1:0)|(t.prep?2:0)|(t.qk?4:0)|((t.q||0)<<3)|((t.kb||0)<<6)|32|(queued(t)?512:0)|(t.san?1024:0),+(t.gb||0).toFixed(2)])}
 // ── indeks przestrzenny (kubełki 128 px) ──
 const BK=128,BW=Math.ceil(WORLD.w/BK)+1,BH=Math.ceil(WORLD.h/BK)+1,buckets=Array.from({length:BW*BH},()=>[]);
 function bucketAdd(t){buckets[clamp(Math.floor(t.y/BK),0,BH-1)*BW+clamp(Math.floor(t.x/BK),0,BW-1)].push(t)}

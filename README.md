@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 1.1.0** („Czytelne okna”). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 1.1.2** („Czytelne okna” + trwały zapis i porządek HUD-u). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -229,6 +229,16 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
+
+## Zmiany w 1.1.2 (razem z 1.1.1) „Trwały zapis i porządek HUD-u”
+- **Zapis zobowiązań:** po wczytaniu opłacona orka wraca do kolejki pługa bez dopłaty; zlecona wycinka i sadzenie (także przerwane sadzenie na powierzchni) wracają do ekip, które ruszają same o 7:00; zgłoszenia w kolejce i w toku wracają do patrolu bez ponownej opłaty za wyjazd; opłacony wywóz wysypiska czeka na śmieciarkę; śmieci, wnyki, wysypiska i zarzewia zostają w lesie (odświeżenie strony nie sprząta lasu). Quad lub nocny intruz znika podczas przerwy — kara tylko, jeśli zgłoszenie wisiało bez reakcji.
+- **Raport sezonu** liczy cały sezon, także pracę sprzed wczytania (statystyki sezonu są w zapisie). Drewno w jadącym ciągniku, forwarderze i ciężarówce zapisuje się jako stos przy drodze.
+- **Ekran startowy:** Enter wczytuje zapis; „Nowa gra” (także w Pomocy) przy istniejącym zapisie wymaga drugiego kliknięcia. Karta przewija się przy niskim oknie, Tab przechodzi między przyciskami.
+- **Klawiatura:** skróty przeglądarki (Ctrl/Cmd/Alt + litera) nie uruchamiają akcji gry; testowe postarzanie lasu (G) działa tylko w trybie diagnostycznym (F3). Samouczek znów otwiera się przy nowej grze.
+- **Pauza** zatrzymuje tylko symulację: karty drzew, obiektów i planowanie działają. Komunikaty znikają według czasu rzeczywistego, przy otwartym oknie pokazują się u góry ekranu. „Do jutra” mówi, dlaczego nie przewija (interwencja, pożar, intruz, nowe zgłoszenie).
+- **HUD:** prawa kolumna to jeden stos (zegar, zgłoszenia, pasek pniaków) — panel zegara nie zmienia wysokości w nocy. Zgłoszenia jako wiersze: kropka typu, nazwa, oddział, przycisk albo stan; najwyżej 4, reszta w oknie Ochrona terenu. Plan sezonu rozwija się pod przyciskiem (paski postępu, premia, czas do końca pory roku). Panel ekip w grupach Ekipy / Zrywka i wywóz / Patrol z kropkami stanu; klik w wiersz pokazuje jednostkę. „Do zapłaty” jest pod budżetem (klik → Finanse). Litery HUD-u 11–12 px.
+- **Koszty jawne:** oferta forwardera pokazuje przed zakupem utrzymanie (140 zł za dzień pracy) i korzyści; koszty dzienne rozbite na stałe i płatne tylko za dni pracy (ekipa B, forwarder). Raport sezonu pokazuje osobno wywóz ciężarówką i opał sprzedany w kancelarii.
+- Okna bez zbędnego poziomego suwaka.
 
 ## Zmiany w 1.1.0 „Czytelne okna”
 **Wskaźniki.** Klik w pasek **Stan lasu** albo **Ochrona terenu** otwiera okno z rozbiciem na składniki i punkty oraz opisem, co poprawić.

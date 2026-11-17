@@ -8,9 +8,10 @@ import {J,COST,PRICE,MACH,pendingCount,ordersCount,clearOrders,toggleMark,dispat
 import {R,inPlot,perimOf,plotStats,prepCost,areaHa,spotsIn,orderPrep,orderPlant,removePlot,rowsOf,fenceCost,orderFence,orderRepel,repelCost,seasonKey,MIXES,mixFor,cycleMix,mixSp} from './renew.js';
 import {signsOn,repelOn,trailOn,buySigns,buyRepel,buyTrail,vs,VC} from './visit.js';
 import {NAT,canMonument,makeMonument,toggleDeadwood,makeReserve,journalRows,MON_COST,RES_COST,richness} from './nature.js';
-import {ECO,dailyCost,FIN,LOANS,dunning,owedTotal,owedCount,payAllInvoices,toggleAutoPay,takeLoan,repayLoan} from './economy.js';
+import {ECO,dailyCost,costParts,costText,FIN,LOANS,dunning,owedTotal,owedCount,payAllInvoices,toggleAutoPay,takeLoan,repayLoan} from './economy.js';
 import {E} from './ents.js';
 import {dispatch,openIncidents,U,orderAssess,assessing,ASSESS,DEC,decide} from './incidents.js';
+import {prio} from './mail.js';
 import {FA,NAMES,pressure,planLeft,requestReduction,FEED_COST,FEED_MAX,nextFeederSlot,buyFeeder} from './life/fauna.js';
 import {FEEDERS} from './map.js';
 import {AMB,AMB_COST,AMB_MAX,AMB_R,AMBONY,nextAmbonaSlot,buyAmbona} from './life/ambony.js';
@@ -37,45 +38,87 @@ export function setTool(t){state.tool=t;state.poly=null;state.hover=null;state.b
 }
 let incSig='',infoSig='',taskSig='';
 export function hud(){
+ document.body.classList.toggle('modal',!!state.modal);   // 1.1.2: przy otwartym oknie komunikat idzie na górę ekranu, nie na przyciski okna
+ {const tb=$('#toolbar'),m=$('#msg');if(tb&&!state.modal){const b=Math.round(innerHeight-tb.getBoundingClientRect().top+16)+'px';if(m.style.bottom!==b)m.style.bottom=b}else if(m.style.bottom)m.style.bottom=''}   // komunikat zawsze tuż nad paskiem narzędzi
  const h=cal.hour(),hh=Math.floor(h),mm=Math.floor((h-hh)*60);
  $('#time').textContent=String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
  $('#date').textContent='Rok '+cal.year()+' · '+SEASONS[cal.season()]+' · dzień '+cal.dayOf()+' · '+DOW[cal.dow()]+(cal.weekend()?' (weekend)':'');
  {const lv=fireLvl(),w=$('#wx');w.textContent=WX[HL.wx]+(lv?' · pożary: '+LVLN[lv]:'');w.style.color=lv===3?'#ff9a7a':lv===2?'#f0d070':''}
- {const f=$('#ff'),t=state.skipTo!=null?'PRZEWIJANIE · do 6:00':state.ff>1?'NOC · czas ×'+state.ff:state.rate>3?'TRYB SZYBKI ×'+state.rate:'';f.style.display=t?'block':'none';f.textContent=t}
+ {const f=$('#ff'),t=state.skipTo!=null?'PRZEWIJANIE · do 6:00':state.ff>1?'NOC · czas ×'+state.ff:state.rate>3?'TRYB SZYBKI ×'+state.rate:'';f.textContent=t||'\u00a0';f.classList.toggle('on',!!t)}   // 1.1.2: wiersz zawsze zajmuje miejsce — panel nie zmienia wysokości
  for(const b of document.querySelectorAll('[data-rate]'))b.classList.toggle('on',+b.dataset.rate===state.rate);$('#pausebtn').classList.toggle('on',state.paused);
  $('#money').textContent=Math.round(state.money).toLocaleString('pl-PL');$('#money').style.color=state.money<0?'#ff8a6a':'';
  $('#health').textContent=pct(state.health);$('#healthbar').style.width=clamp(state.health,0,100)+'%';$('#healthbar').style.background=barCol(state.health);
  $('#protect').textContent=pct(state.protect);$('#protectbar').style.width=clamp(state.protect,0,100)+'%';$('#protectbar').style.background=barCol(state.protect);
  const n=pendingCount();$('#crewn').textContent=n?'('+n+')':'';$('#crewbtn').classList.toggle('hot',n>0);const oc=ordersCount();$('#cancelbtn').style.display=oc?'':'none';$('#canceln').textContent=oc?'('+oc+')':'';
- const ns=J.stacks.filter(q=>q.vol>.05).length;$('#stackinfo').textContent=displayNumber(stackTotal(),1)+' m³ (opał '+displayNumber(stackTotal(q=>q.sort==='opal'),1)+')'+(J.truck.v?' · TIR':J.truck.pending?' · zamów.':'');$('#stackinfo').title=ns+' stosów przy drogach';
- {const oc=owedCount();$('#owedrow').style.display=oc?'flex':'none';$('#owed').textContent=oc?zl(owedTotal())+' ('+oc+')':'—';$('#owed').style.color=dunning()?'#ff8a6a':''}
- const crewTxt=C=>{const nt=C.tasks.length+C.cluster.length,held=C.held.length;
-  return (C.phase==='idle'&&nt?'czeka · '+cal.nextStart(7,17):({idle:'wolna',driving:'w drodze',working:'pracuje',leaving:'odjeżdża'}[C.phase]+(nt?' · zadań: '+nt:'')))+(held?' · wstrzym.: '+held:'')};
- $('#crewstate').textContent=crewTxt(J.crews[0]);
- $('#crewBrow').style.display=J.crews[1]?'flex':'none';if(J.crews[1])$('#crewBstate').textContent=crewTxt(J.crews[1]);
-  $('#skidstate').textContent=!J.skid.trac?(J.skid.owned?'forwarder: w drodze':'usługa: przyjedzie do kłód'):(J.skid.mach==='forwarder'?'forwarder: ':'ciągnik: ')+(J.skid.phase==='idle'&&!cal.work(7,17)?'po pracy':{idle:'czeka',arriving:'dojeżdża',driving:'jedzie po drewno',in:'w szlaku',load:'ładuje',out:'wraca na drogę',tostack:'wiezie na stos',unload:'układa stos',home:'jedzie na plac'}[J.skid.phase]||J.skid.phase);
- const PL=R.plow;$('#plowrow').style.display=PL.phase!=='idle'||PL.queue.length?'flex':'none';$('#plowstate').textContent=PL.phase==='idle'?(PL.queue.length?'czeka · '+cal.nextStart(7,17):'—'):PL.phase==='plowing'?'orze P'+PL.cur.id:'w drodze';
- const uTxt=u=>u.phase==='home'&&u.person.sleeping?'śpi':u.phase==='home'&&u.person.busyOffice?'kancelaria':{home:U.length>1?'w domu':'w leśniczówce',boarding:'wyjeżdża',driving:'w drodze',onsite:'na miejscu',return:'wraca'}[u.phase]+(u.queue.length?' (+'+u.queue.length+')':'');
- $('#patrolstate').textContent=U.map((u,i)=>(U.length>1?(i?'P: ':'L: '):'')+uTxt(u)).join(', ');
+ statusPanel();
+ // 1.1.2: „Do zapłaty” pod budżetem (klik → Finanse), na czerwono przy wezwaniu do zapłaty
+ {const oc=owedCount(),o=$('#owe'),txt=oc?'do zapłaty '+zl(owedTotal())+' ('+oc+') ›':'faktury opłacone ›';if(o.textContent!==txt)o.textContent=txt;o.className='owe'+(dunning()?' bad':oc?' warn':'')}
  if(state.panel)renderBase();
- // plan na sezon
- const Pl=ECO.plan;if(Pl){const sig=[Pl.doneCut.toFixed(1),Pl.donePlant,Pl.doneHandle,Pl.rewarded,Pl.season].join();if(sig!==taskSig){taskSig=sig;
-  const row=(ok,txt,a,b)=>`<div class="trow ${ok?'ok':''}"><span>${ok?'✔':'·'} ${txt}</span><b>${a} / ${b}</b></div>`;
-  const goals=[[Pl.doneCut>=Pl.cut,'Drewno zerwane do dróg',displayNumber(Math.min(Pl.doneCut,Pl.cut),1),Pl.cut+' m³']];
-  if(!(Pl.season===3||!Pl.plant))goals.push([Pl.donePlant>=Pl.plant,'Posadzone sadzonki',Math.min(Pl.donePlant,Pl.plant),Pl.plant]);
-  goals.push([Pl.doneHandle>=Pl.handle,'Obsłużone zgłoszenia',Math.min(Pl.doneHandle,Pl.handle),Pl.handle]);
-  $('#plansum').textContent=goals.filter(g=>g[0]).length+'/'+goals.length;$('#planbtn').classList.toggle('hot',goals.every(g=>g[0]));
-  $('#tasks').innerHTML=goals.map(g=>row(...g)).join('')+`<div class="muted small">${Pl.rewarded?'Plan wykonany, premia wypłacona.':'Premia: '+zl(Pl.reward)}</div>`}} // zgłoszenia
- const open=openIncidents(),sig=open.map(q=>q.id+q.status).join('|');
- if(sig!==incSig){incSig=sig;
-  $('#incidents').innerHTML=open.length?open.map(q=>`<div class="inc ${q.type}"><span class="go" data-go="${q.id}">${q.text}</span>${q.status==='new'?`<button data-inc="${q.id}">${incLabel(q)}</button>`:`<i>${incWait(q)}</i>`}</div>`).join(''):'<div class="muted">Spokojnie w lesie.</div>';
+ planPanel();
+ // zgłoszenia (1.1.2): wiersze z kropką typu, oddziałem i stanem; najwyżej 4, reszta w oknie Ochrony terenu
+ const open=openIncidents(),sig=open.map(q=>q.id+q.status+(q.unit?q.unit.name:'')).join('|');
+ if(sig!==incSig){incSig=sig;$('#incn').textContent=open.length?'('+open.length+')':'';
+  const ord=open.slice().sort((a,b)=>(b.status==='new')-(a.status==='new')||prio(b)-prio(a)||a.id-b.id),shown=ord.slice(0,4);
+  $('#incidents').innerHTML=open.length?shown.map(q=>`<div class="irow" data-go="${q.id}" title="${q.text.replace(/"/g,'&quot;')}"><i class="dot" style="background:${incCol(q)}"></i><div class="ib"><b>${incName(q)}</b><span>oddz. ${oddzial(q.x,q.y)}</span></div>${q.status==='new'?`<button data-inc="${q.id}">${incLabel(q)}</button>`:`<em class="chip2 ${q.status==='assigned'?'go':''}">${incWait(q)}</em>`}</div>`).join('')+(open.length>4?`<div class="imore" data-win="protect">+ jeszcze ${open.length-4} — pokaż wszystkie ›</div>`:''):'<div class="muted">Spokojnie w lesie.</div>';
  }
   const um=unreadMail();$('#mailn').textContent=um?'('+um+')':'';$('#mailbtn').classList.toggle('hot',um>0);
  renderWin();if(state.oddOpen)renderOdd();updateFocusBar();
  renderDecide();info();
 }
-export const incLabel=q=>q.type==='feed'?'Dowieź karmę':q.type==='dump'?'Zleć wywóz · '+zl(OC.waste):'Wyślij patrol';
-export const incWait=q=>q.type==='dump'?(q.status==='queued'?'czeka na firmę wywozową':'śmieciarka działa'):q.status==='queued'?'w kolejce':(q.unit&&U.length>1?q.unit.name+' działa':'patrol działa');
+export const incLabel=q=>q.type==='feed'?'Dowieź karmę':q.type==='dump'?'Wywóz · '+zl(OC.waste):q.type==='assess'?'Wyślij':'Wyślij patrol';
+const INC_NAME={trash:'Śmieci w lesie',dump:'Dzikie wysypisko',fire:'Pożar',quad:'Quad / cross',intruder:'Nocny intruz',beetle:'Kornik',assess:'Ocena drzewostanu',feed:'Pusty paśnik',fence:'Siatka do zdjęcia',block:'Drzewa na drodze',carcass:'Padlina przy szosie'};
+export const incName=q=>q.type==='trash'&&q.ref&&q.ref.kind==='snare'?'Wnyki':q.type==='intruder'&&q.ref&&q.ref.intruder?({poacher:'Kłusownik',thief:'Złodziej drewna',xmas:'Złodziej choinek'}[q.ref.intruder]||INC_NAME.intruder):INC_NAME[q.type]||'Zgłoszenie';
+const INC_COL={fire:'#e0482f',intruder:'#e8732e',quad:'#e8a32e',dump:'#c9a03a',trash:'#d8c23a',beetle:'#b5763a',block:'#a88c62',carcass:'#9a8a7a',feed:'#8ec86a',assess:'#8fae5f',fence:'#8fae5f'};
+const incCol=q=>INC_COL[q.type]||'#d9d2b4';
+// ── 1.1.2: panel ekip i maszyn (lewy dół): grupy, kropki stanu (zielona: praca, żółta: czeka, szara: bezczynna) ──
+const DOT={work:'#8ec86a',wait:'#e8c77a',idle:'#5f6a58'};
+const setRow=(dot,id,txt,k)=>{const e=$('#'+id);if(e.textContent!==txt)e.textContent=txt;$('#'+dot).style.background=DOT[k]};
+function statusPanel(){
+ const crew=C=>{const nt=C.tasks.length+C.cluster.length,held=C.held.length;
+  if(C.phase==='idle')return nt?['czeka · '+cal.nextStart(7,17)+' ('+nt+')','wait']:held?['wstrzymane: '+held,'wait']:['wolna','idle'];
+  return[{driving:'w drodze',working:'pracuje',leaving:'wraca do bazy'}[C.phase]+(nt?' · zadań '+nt:''),C.phase==='leaving'?'idle':'work']};
+ const [ta,ka]=crew(J.crews[0]);setRow('dotA','crewstate',ta,ka);
+ $('#crewBrow').style.display=J.crews[1]?'flex':'none';if(J.crews[1]){const [tb,kb]=crew(J.crews[1]);setRow('dotB','crewBstate',tb,kb)}
+ {const S=J.skid,nm=S.trac?(S.mach==='forwarder'?'Forwarder':'Ciągnik'):S.owned?'Forwarder':'Zrywka';if($('#skidname').textContent!==nm)$('#skidname').textContent=nm;
+  const ph={idle:'czeka na kłody',arriving:'dojeżdża',driving:'jedzie po drewno',in:'w szlaku',load:'ładuje',out:'wraca na drogę',tostack:'wiezie na stos',unload:'układa stos',home:'wraca na plac'};
+  if(!S.trac)setRow('dotS','skidstate',S.owned?'w drodze':E.piles.some(p=>!p.dead)?'usługa · '+(cal.work(7,15)?'przyjedzie':cal.nextStart(7,15)):'usługa na wezwanie','idle');
+  else if(S.phase==='idle'&&!cal.work(7,17))setRow('dotS','skidstate','po pracy','idle');
+  else setRow('dotS','skidstate',ph[S.phase]||S.phase,S.phase==='idle'||S.phase==='home'?'wait':'work')}
+ {const PL=R.plow,on=PL.phase!=='idle'||PL.queue.length;$('#plowrow').style.display=on?'flex':'none';
+  if(on)setRow('dotP','plowstate',PL.phase==='idle'?'czeka · '+cal.nextStart(7,16)+' ('+PL.queue.length+')':PL.phase==='plowing'?'orze P'+PL.cur.id:PL.phase==='leaving'?'odjeżdża':'w drodze do P'+(PL.cur?PL.cur.id:''),PL.phase==='idle'?'wait':'work')}
+ {const T=J.truck,tot=stackTotal(),op=stackTotal(q=>q.sort==='opal');
+  setRow('dotT','stackinfo',displayNumber(tot,1)+' m³'+(T.v?' · TIR':T.pending?' · zamówiony':op>.05?' · opał '+displayNumber(op,1):''),T.v?'work':T.pending?'wait':'idle');$('#stackinfo').parentNode.title=J.stacks.filter(q=>q.vol>.05).length+' stosów przy drogach, w tym opał '+displayNumber(op,1)+' m³'+(T.v?'; ciężarówka odbiera drewno':T.pending?'; wywóz zamówiony':'')+'. Kliknij: pokaż największy stos.'}
+ const pat=u=>u.phase==='home'?[u.person.sleeping?'śpi':u.person.busyOffice?'w kancelarii':'w leśniczówce','idle']:[{boarding:'wyjeżdża',driving:'w drodze',onsite:'na miejscu',return:'wraca'}[u.phase]+(u.queue.length?' · kolejka '+u.queue.length:''),'work'];
+ {const [t,k]=pat(U[0]);setRow('dotL','patrolstate',t,k)}
+ $('#podrow').style.display=U[1]?'flex':'none';if(U[1]){const [t,k]=pat(U[1]);setRow('dotD','podstate',t,k)}
+}
+// klik w wiersz panelu: kamera jedzie do jednostki i ją śledzi
+function showUnit(k){
+ const go=(o,msg)=>{if(!o||o.dead){toast(msg);return}const [x,y]=o.pos||[o.x,o.y];centerOn(x,y);state.follow=o.pos?o:null;state.selected=o.pos?o:state.selected};
+ if(k==='crew0'||k==='crew1'){const C=J.crews[+k.slice(4)];if(!C)return;const w=C.workers.find(q=>!q.dead&&!q.hidden);go(w||C.van,'Ekipa '+C.id+' jest w bazie'+(C.tasks.length?' — przyjedzie '+cal.nextStart(7,17)+'.':'.'))}
+ else if(k==='skid')go(J.skid.trac,J.skid.owned?'Forwarder jest w drodze.':'Ciągnik przyjedzie, gdy w lesie leżą kłody.');
+ else if(k==='plow')go(R.plow.v,'Pług przyjedzie '+cal.nextStart(7,16)+'.');
+ else if(k==='stacks'){if(J.truck.v){go(J.truck.v,'');return}const st=J.stacks.filter(q=>q.vol>.05).sort((a,b)=>b.vol-a.vol)[0];if(st){centerOn(st.x,st.y);state.selected=st;state.follow=null}else toast('Przy drogach nie ma drewna.')}
+ else if(k==='pat0'||k==='pat1'){const u=U[+k.slice(3)];if(!u)return;if(u.phase==='home'){const p=u.person;centerOn(p.x,p.y);state.follow=null}else go(u.car,'')}
+ hud();
+}
+// ── 1.1.2: plan na porę roku jako lista rozwijana pod przyciskiem ──
+function planPanel(){
+ const Pl=ECO.plan;if(!Pl)return;
+ const left=(Math.floor(state.days/SEASON_DAYS)+1)*SEASON_DAYS-state.days,dl=Math.floor(left),hl=Math.floor((left-dl)*24);
+ const sig=[Pl.doneCut.toFixed(1),Pl.donePlant,Pl.doneHandle,Pl.rewarded,Pl.season,dl,hl].join();if(sig===taskSig)return;taskSig=sig;
+ const goals=[[Pl.doneCut>=Pl.cut,'Drewno zerwane do dróg',Math.min(Pl.doneCut,Pl.cut),Pl.cut,' m³',1]];
+ if(!(Pl.season===3||!Pl.plant))goals.push([Pl.donePlant>=Pl.plant,'Posadzone sadzonki',Math.min(Pl.donePlant,Pl.plant),Pl.plant,' szt.',0]);
+ goals.push([Pl.doneHandle>=Pl.handle,'Obsłużone zgłoszenia',Math.min(Pl.doneHandle,Pl.handle),Pl.handle,'',0]);
+ $('#plansum').textContent=goals.filter(g=>g[0]).length+'/'+goals.length;$('#planbtn').classList.toggle('hot',goals.every(g=>g[0]));
+ $('#planseason').textContent=SEASONS[Pl.season];
+ $('#tasks').innerHTML=goals.map(([ok,txt,a,b,u,d])=>`<div class="pgoal ${ok?'ok':''}"><div class="trow"><span>${ok?'✔':'·'} ${txt}</span><b>${displayNumber(a,d)} / ${b}${u}</b></div><div class="pbar"><i style="width:${Math.round(clamp(a/b,0,1)*100)}%"></i></div></div>`).join('')
+  +`<div class="pfoot"><span>${Pl.rewarded?'Plan wykonany — premia wypłacona.':'Premia za cały plan: <b>'+zl(Pl.reward)+'</b>'}</span><span>Do końca pory roku: <b>${dl?dl+' d ':''}${hl} h</b></span></div>`;
+}
+function placePlan(){const p=$('#plan'),r=$('#planbtn').getBoundingClientRect();p.style.top=Math.round(r.bottom+14)+'px';p.style.left=Math.round(clamp(r.left+r.width/2-150,12,innerWidth-312))+'px'}
+export function togglePlan(open){const p=$('#plan');open=open??p.style.display==='none';if(open){taskSig='';planPanel();placePlan()}p.style.display=open?'block':'none';$('#planbtn').setAttribute('aria-expanded',open?'true':'false')}
+
+export const incWait=q=>q.type==='dump'?(q.status==='queued'?'czeka na firmę':'śmieciarka'):q.status==='queued'?'w kolejce':(q.unit&&U.length>1?(q.unit===U[0]?'leśniczy':'podleśniczy')+' działa':'patrol działa');
 function treeInfo(t){
  const st=STANDS[oddzial(t.x,t.y)],sp=SP[t.sp];
  if(t.st===STUMP){
@@ -225,8 +268,8 @@ const SEC={
   ${row('Petenci obsłużeni / nieobsłużeni',B.visits+' / '+B.missed)}${row('Sprzedany opał',displayNumber(B.opalVol,1)+' m³ ('+B.opal+' umów)')}${row('Zezwolenia / sadzonki',B.permits+' / '+B.seedlings)}
   ${BASE.log.length?'<p class="hint2">'+BASE.log.slice(0,3).join(' · ')+'</p>':''}</div>`,
   kadry:`<div class="bsec"><h3>KADRY</h3>
-  ${row('Ekipa A (pilarze)','stała umowa')}${row('Ekipa B',crewB?'zatrudniona · '+zl(COST.crewB)+'/dzień':'—')}
-  ${crewB?btn('fireB','Rozwiąż umowę z ekipą B',false,true):btn('hireB','Zatrudnij ekipę B · '+zl(COST.crewB)+'/dzień')}
+  ${row('Ekipa A (pilarze)','stała umowa')}${row('Ekipa B',crewB?'zatrudniona · '+zl(COST.crewB)+' za dzień pracy':'—')}
+  ${crewB?btn('fireB','Rozwiąż umowę z ekipą B',false,true):btn('hireB','Zatrudnij ekipę B · '+zl(COST.crewB)+' za dzień pracy')}
   ${row('Podleśniczy',pod?'pracuje · '+zl(COST.pod)+'/dzień':BASE.garage?'—':'wymaga garażu')}
   ${pod?btn('firePod','Zwolnij podleśniczego',false,true):btn('hirePod','Zatrudnij podleśniczego · '+zl(COST.pod)+'/dzień',!BASE.garage)}
   ${hint('kadry',`Podleśniczy to drugi patrol i dyżur w kancelarii. Ekipy dzielą zadania po skupiskach.`)}</div>`,
@@ -235,10 +278,10 @@ const SEC={
   ${row('Garaż z magazynem',BASE.garage?'gotowy · karma '+zl(ECO.feedCost):'—')}${BASE.garage?'':btn('garage','Zbuduj garaż z magazynem · '+zl(BUILD.garage))}
   ${hint('bud',`Sadzonka ze szkółki: ${zl(COST.plantNursery)} zamiast ${zl(COST.plant)}, lepiej się przyjmuje. Garaż: druga terenówka i tańsza karma.`)}</div>`,
   sprz:`<div class="bsec"><h3>SPRZĘT</h3>
-  ${row('Zrywka',MACH[J.skid.mach].name)}${J.skid.owned?row('Utrzymanie forwardera',zl(COST.fwd)+'/dzień'):btn('fwd','Kup forwarder · '+zl(MACH.forwarder.price))}
+  ${row('Zrywka',J.skid.owned?MACH.forwarder.name+' (własny)':MACH.tractor.name+' (usługa)')}${J.skid.owned?row('Utrzymanie forwardera',zl(COST.fwd)+' za dzień pracy'):`<div class="offer"><b>Forwarder z żurawiem · ${zl(MACH.forwarder.price)}</b><span>Utrzymanie: ${zl(COST.fwd)} za każdy dzień, w którym pracuje (dni bez pracy nic nie kosztują).</span><span>Ładowność ${MACH.forwarder.cap} m³ zamiast ${MACH.tractor.cap} m³, ładuje żurawiem, stoi na placu — nie czeka na przyjazd usługi. Stawka zrywki na fakturze bez zmian: ${zl(COST.skid)}/m³.</span></div>${btn('fwd','Kup forwarder · '+zl(MACH.forwarder.price))}`}
   ${row('Drewno przy drogach',displayNumber(stackTotal(),1)+' m³ · ok. '+zl(Math.round(stackValue()*ECO.market)))}${row('w tym opał dla ludności',displayNumber(stackTotal(q=>q.sort==='opal'),1)+' m³')}${row('Cena rynkowa','×'+displayNumber(ECO.market,2))}
   ${J.truck.v?'':btn('truck','Zamów wywóz drewna')}
-  ${row('Koszty dzienne razem',zl(dailyCost()))}</div>`,
+  ${(()=>{const c=costParts(),v=[c.varB?'ekipa B '+zl(c.varB):'',c.varF?'forwarder '+zl(c.varF):''].filter(Boolean).join(', ');return row('Koszty dzienne stałe',zl(c.fixed))+(v?row('Tylko za dzień pracy',v):'')})()}</div>`,
   zdr:`<div class="bsec"><h3>ZDROWIE LASU</h3>
   ${row('Pogoda',WX[HL.wx])}${row('Susza ściółki',Math.round(HL.dry*100)+'%')}${meter(HL.dry)}${row('Zagrożenie pożarowe',LVLN[fireLvl()])}
   ${row('Zamierające drzewa (widoczne)',sick())}${row('Zatarasowane drogi',HL.blocks.length)}${row('Cięte sanitarnie',HL.stats.cutSan)}
@@ -282,7 +325,7 @@ const SEC={
  const tab=TABS.find(t=>t[0]===baseTab)||TABS[0],badge={fin:owedCount()?owedCount():0,las:(sick()>0?1:0)+(HL.blocks.length?1:0)};
  const od=FIN.inv.some(i=>!i.paid&&(i.st||0)>=1);const tile=(a,b,c)=>`<div class="tile ${c||''}"><span>${a}</span><b>${b}</b></div>`;
  const html=`<div class="whead"><div><div class="kicker">Leśnictwo Zielony Gaj · ${DOW[cal.dow()]}, ${SEASONS[cal.season()]}</div><h1>Leśniczówka</h1></div><button class="xbtn" data-x="base" title="Zamknij (Esc)" aria-label="Zamknij">✕</button></div>
- <div class="tiles">${tile('Budżet',zl(Math.round(state.money)),state.money<0?'bad':'')}${tile('Koszty dzienne',zl(dailyCost()))}${tile('Faktury do zapłaty',owedCount()?owedCount()+' · '+zl(owedTotal()):'brak',dunning()?'bad':owedCount()?'warn':'')}${tile('Zagrożenie pożarowe',LVLN[fireLvl()])}</div>
+ <div class="tiles">${tile('Budżet',zl(Math.round(state.money)),state.money<0?'bad':'')}${(()=>{const c=costParts(),v=c.varB+c.varF;return `<div class="tile" title="${costText()}"><span>Koszty dzienne</span><b>${zl(c.fixed)}${v?' <small>+ do '+zl(v)+'</small>':''}</b>${v?'<em>dopłata tylko za dni pracy</em>':''}</div>`})()}${tile('Faktury do zapłaty',owedCount()?owedCount()+' · '+zl(owedTotal()):'brak',dunning()?'bad':owedCount()?'warn':'')}${tile('Zagrożenie pożarowe',LVLN[fireLvl()])}</div>
  <div class="tabs">${TABS.map(t=>`<button class="tab ${t[0]===tab[0]?'on':''}" data-tab="${t[0]}">${t[1]}${badge[t[0]]?' <i>'+badge[t[0]]+'</i>':''}</button>`).join('')}</div>
  <div class="bgrid">${tab[2].map(k=>SEC[k]).join('')}</div>
  <div class="wfoot"><button id="base-close">ZAMKNIJ (L / Esc)</button></div>`;
@@ -297,7 +340,7 @@ export function showReport(r){
  const row=(a,b)=>`<div class="rrow"><span>${a}</span><b>${b}</b></div>`;
  $('#reportcard').innerHTML=`<div class="whead"><div><div class="kicker">Raport z sezonu · rok ${r.year}</div><h1>${SEASONS[r.season][0].toUpperCase()+SEASONS[r.season].slice(1)} — podsumowanie</h1></div><button class="xbtn" data-x="report" title="Dalej (Enter / Esc)" aria-label="Dalej">✕</button></div>
   <p class="verdict">${r.verdict}</p><div class="rep">
-  ${row('Drewno zerwane do dróg',displayNumber(S.delivered,1)+' m³')}${row('Drewno sprzedane',displayNumber(S.sold,1)+' m³')}
+  ${row('Drewno zerwane do dróg',displayNumber(S.delivered,1)+' m³')}${row('Drewno sprzedane — wywóz ciężarówką',displayNumber(S.sold,1)+' m³')}${row('Opał sprzedany w kancelarii',displayNumber(S.opal||0,1)+' m³')}
   ${row('Ścięte drzewa / posadzone sadzonki',S.felled+' / '+S.planted)}${row('Zgłoszenia obsłużone / zignorowane',S.handled+' / '+S.ignored)}
   ${row('Przychody / wydatki','+'+zl(S.earned)+' / −'+zl(S.spent))}
   ${row('Budżet',zl(r.money)+' ('+sgn(r.money-S.money0)+' zł)')}${row('Stan lasu',Math.round(r.health)+'% ('+sgn(r.health-S.health0)+')')}${row('Ochrona terenu',Math.round(r.protect)+'% ('+sgn(r.protect-S.protect0)+')')}
@@ -324,7 +367,7 @@ export function bindUI(){
  $('#decide').addEventListener('click',e=>{const b=e.target.closest('[data-dec]');if(b){decide(b.dataset.dec);renderDecide()}});
  $('#incidents').addEventListener('click',e=>{
   const b=e.target.closest('[data-inc]');if(b){const q=E.incidents.find(x=>x.id==b.dataset.inc);dispatch(q);incSig='';hud();return}
-  const g=e.target.closest('[data-go]');if(g){const q=E.incidents.find(x=>x.id==g.dataset.go);if(q){centerOn(q.x,q.y);state.selected=q;state.follow=null}}
+  const g=e.target.closest('[data-go]');if(g){const q=E.incidents.find(x=>x.id==g.dataset.go);if(q){centerOn(q.x,q.y);state.selected=q;state.follow=null;hud()}}
  });
  $('#info').addEventListener('click',e=>{
   const b=e.target.closest('[data-ia]');if(!b)return;const s=state.selected,k=b.dataset.ia;
@@ -344,10 +387,12 @@ export function bindUI(){
   infoSig='';hud();
  });
  $('#basebtn').addEventListener('click',()=>toggleBase(true));
- $('#planbtn').addEventListener('click',e=>{e.stopPropagation();const p=$('#plan');p.style.display=p.style.display==='none'?'block':'none'});
- document.addEventListener('click',e=>{if(!e.target.closest('#plan'))$('#plan').style.display='none'});
+ $('#planbtn').addEventListener('click',e=>{e.stopPropagation();togglePlan()});
+ document.addEventListener('click',e=>{if(!e.target.closest('#plan')&&$('#plan').style.display!=='none')togglePlan(false)});
+ addEventListener('resize',()=>{if($('#plan').style.display!=='none')placePlan()});
+ $('#status').addEventListener('click',e=>{const r=e.target.closest('[data-unit]');if(r&&state.playing&&!state.modal)showUnit(r.dataset.unit)});
  $('#oddcard').addEventListener('click',e=>{const b=e.target.closest('[data-oa]');if(b)oddAct(b.dataset.oa)});
- $('#owedrow').addEventListener('click',()=>openBaseTab('fin'));
+ $('#moneybtn').addEventListener('click',()=>{if(state.playing)openBaseTab('fin')});
  $('#qbtn').addEventListener('click',()=>{const q=E.incidents.find(x=>x.status==='new');if(q)dispatch(q);else toast('Brak nowych zgłoszeń.')});
  $('#basecard').addEventListener('click',e=>{
   const tb=e.target.closest('[data-tab]');if(tb){baseTab=tb.dataset.tab;baseSig='';renderBase();return}
@@ -358,7 +403,7 @@ export function bindUI(){
  // 1.0: spójne zamykanie okien — ✕, klik w tło (poza kartą); Esc obsługuje input.js
  document.addEventListener('click',e=>{
   const x=e.target.closest('.xbtn,.wclose');const id=x?x.dataset.x:(e.target.classList&&e.target.classList.contains('panel')?e.target.id:null);if(!id)return;
-  if(id==='base')toggleBase(false);else if(id==='help')$('#help').classList.add('hidden');else if(id==='report')$('#report-close')?.click();else if(id==='win')closeWin();else if(id==='tutor')closeTutor();else if(id==='plan')$('#plan').style.display='none';else if(id==='info'){state.selected=null;state.follow=null}else if(id==='settings')toggleSettings(false);else if(id==='odd')toggleOdd(false);
+  if(id==='base')toggleBase(false);else if(id==='help')$('#help').classList.add('hidden');else if(id==='report')$('#report-close')?.click();else if(id==='win')closeWin();else if(id==='tutor')closeTutor();else if(id==='plan')togglePlan(false);else if(id==='info'){state.selected=null;state.follow=null}else if(id==='settings')toggleSettings(false);else if(id==='odd')toggleOdd(false);
  });
  setTool('select');
  ECO.onSeason=showReport;

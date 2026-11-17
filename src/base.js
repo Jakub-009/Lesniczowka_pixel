@@ -87,7 +87,7 @@ function deal(u,p){
   const want=2+Math.floor(rand()*4),best=J.stacks.filter(q=>q.sort==='opal'&&q!==J.truck.cur&&!J.truck.route.includes(q)).sort((a,b)=>b.vol-a.vol)[0],st=opalStack(want)||(best&&best.vol>=1.2?best:null),vol=st?Math.min(want,st.vol-.2):want;
   if(!st){note('Brak drewna opałowego przy drogach — petent odszedł z niczym.');toast('Petent chciał '+want+' m³ opału, ale przy drogach nie ma stosów opału.');leave(p);return}
   const {q,val}=takeFromStack(st,vol),price=Math.round(q*PRICE.opal);earn(price,'sprzedaż drewna opałowego');
-  BASE.stats.opal++;BASE.stats.opalVol+=q;
+  BASE.stats.opal++;BASE.stats.opalVol+=q;if(ECO.st)ECO.st.opal=(ECO.st.opal||0)+q;   // 1.1.2 (U04): osobno w raporcie sezonu
   BASE.opalPiles.push({x:st.x+st.ax*26,y:st.y+st.ay*26,a:Math.atan2(st.ay,st.ax),vol:q,logs:clamp(Math.round(q*1.5),2,6),bark:'#7a5a3e',sp:'sosna',edge:st.edge,s:clamp(st.s+26,30,st.edge.len-30),day:state.days,odd:st.odd});
   toast('Kancelaria: sprzedano '+displayNumber(q,1)+' m³ opału za '+zl(price)+'. Odbiór: oddz. '+st.odd+'.');
   note('Sprzedaż opału: '+displayNumber(q,1)+' m³ ('+zl(price)+')');

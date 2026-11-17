@@ -62,6 +62,8 @@ export function orderWaste(inc){
  pay(COSTS.waste,'firma wywozowa — dzikie wysypisko');inc.status='queued';W.q.push(inc);
  toast('Wywóz odpadów zlecony ('+zl(COSTS.waste)+'). Śmieciarka przyjedzie w godz. 7–16.');
 }
+// 1.1.1: opłacony wywóz po wczytaniu zapisu wraca do kolejki śmieciarki bez ponownej zapłaty
+function requeueWaste(inc){if(!inc||inc.ref.dead)return;inc.status='queued';W.q.push(inc)}
 function startWaste(inc){
  const d=inc.ref,rp=nearestRoad(d.x,d.y,['main','forest']),truck=new Vehicle('waste',{...ENTRY(rand()<.5)});
  truck.label='śmieciarka jedzie po dzikie wysypisko';W.cur={inc,truck};inc.status='assigned';
@@ -160,7 +162,7 @@ export function updateOrder(dt){
  updatePolice(dt);
  const tg=ECO.ord.bar?1:0;swing=swing==null?tg:swing+clamp(tg-swing,-dt*.45,dt*.45);
 }
-HK.waste=orderWaste;HK.police=dispatchPolice;HK2.free=freeSlot;HK2.edge=i=>SLOTS[i].B.e;HK2.approach=i=>SLOTS[i].B.approach;HK2.park=parkInBay;HK2.reserve=(i,v)=>{SLOTS[i].q.car=v};
+HK.waste=orderWaste;HK.requeue=requeueWaste;HK.police=dispatchPolice;HK2.free=freeSlot;HK2.edge=i=>SLOTS[i].B.e;HK2.approach=i=>SLOTS[i].B.approach;HK2.park=parkInBay;HK2.reserve=(i,v)=>{SLOTS[i].q.car=v};
 
 // ───────── rysowanie ─────────
 // ── szlabany: dwa słupki przy dukcie i czerwono-biała rura na zawiasie (otwarty: wzdłuż drogi, zamknięty: w poprzek, na kłódkę) ──
