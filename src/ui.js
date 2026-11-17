@@ -300,7 +300,7 @@ const SEC={
   ${row('Fotopułapki przy wjazdach',camsOn()?'działają · '+zl(OC.camsDay)+'/dzień':'—')}${camsOn()?'':btn('cams','Zamontuj fotopułapki · '+zl(OC.cams))}
   ${row('Szlabany na wjazdach',barClosed()?'zamknięte':'otwarte')}${btn('bar',barClosed()?'Otwórz szlabany':'Zamknij szlabany',false,barClosed())}
   ${row('Parking leśny z koszem',parkingOn()?'jest · '+zl(OC.parkingDay)+'/dzień':'—')}${parkingOn()?'':btn('parking','Zbuduj parking przy szosie · '+zl(OC.parking))}
-  ${hint('porz',`Fotopułapki zgłaszają wjazdy i wysypiska od razu. Szlabany ograniczają wjazdy od szosy, ale bez parkingu ubywa też grzybiarzy. Wywóz wysypiska: ${zl(OC.waste)}.`)}</div>`,
+  ${hint('porz',`Fotopułapki zgłaszają wjazdy i wysypiska od razu. Zamknięte szlabany: auta odwiedzających zostają na parkingu albo poboczu przed szlabanem (bez parkingu część rezygnuje), rowery, quady i crossy przejeżdżają obok. Ekipy, maszyny i myśliwi otwierają i zamykają szlaban sami, straż i Policja przejeżdżają bez postoju. Wywóz wysypiska: ${zl(OC.waste)}.`)}</div>`,
   fin:`<div class="bsec"><h3>FINANSE</h3>
   ${row('Faktury do zapłaty',owedCount()?owedCount()+' · '+zl(owedTotal()):'—')}${owedCount()?btn('payall','Zapłać wszystkie · '+zl(owedTotal())):''}
   ${btn('autopay',FIN.auto?'Płacenie automatyczne: włączone':'Płacenie automatyczne: wyłączone',false,true)}

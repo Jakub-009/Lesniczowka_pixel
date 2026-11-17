@@ -44,7 +44,7 @@ FH.wolves=()=>{
  addPack(g,(kind,x,y,G,o={})=>new Wild({kind,x:x+(rand()-.5)*40,y:y+(rand()-.5)*40,seed:seed++,group:G,...o}));
 };
 // ───────── goście w lesie ─────────
-export const HK2={free:()=>-1,edge:null,approach:()=>0,park:null,reserve:null};   // ustawiane przez order.js (bez cyklu importów)
+export const HK2={free:()=>-1,edge:null,approach:()=>0,park:null,reserve:null,verge:()=>null};   // ustawiane przez order.js (bez cyklu importów)
 const T={car:3,pick:6,walk:14,bike:20,hunt:0,huntDay:-1};
 const forestEdges=()=>EDGES.filter(e=>e.kind==='forest'&&e.b!=='l1'&&e.a!=='l1');
 function sideSpot(v,dist){const h=v.heading,sgn=rand()<.5?1:1;return[v.pos[0]+Math.cos(h)*dist*sgn,v.pos[1]+Math.sin(h)*dist*sgn]}
@@ -54,9 +54,11 @@ function leaveMap(v){v.goTo(goalNode(exitNode(v.pos[0]+(rand()-.5)*1200)),{leave
 export function spawnPickers(berry){
  // jagody: bory sosnowe (101, 104, 107, 108); grzyby: wszędzie
  const E2=berry?EDGES.filter(e=>['a3-a1','a1-b1','j2-b1'].includes(e.id)):forestEdges(),who=berry?'zbieracze jagód':'grzybiarze';
- const bay=rand()<.6?HK2.free():-1;   // 0.8.3: część odwiedzających parkuje w zatoce przy drodze (gdy jest zbudowana)
- const e=bay>=0?HK2.edge(bay):pick(E2),s=bay>=0?HK2.approach(bay):60+rand()*(e.len-120);
- const car=spawnFrom('car',{color:pick(CAR_COLS)});car.label=who;if(bay>=0)HK2.reserve(bay,car);
+ // 1.1.7: przy zamkniętych szlabanach nikt z odwiedzających nie wjeżdża za szlaban: parking, a gdy pełny — pobocze przed szlabanem; bez miejsca rezygnują
+ const shut=!!ECO.ord.bar,bay=shut||rand()<.6?HK2.free():-1,vg=shut&&bay<0?HK2.verge():null;   // 0.8.3: część odwiedzających parkuje w zatoce przy drodze (gdy jest zbudowana)
+ if(shut&&bay<0&&!vg)return;
+ const e=bay>=0?HK2.edge(bay):vg?vg.e:pick(E2),s=bay>=0?HK2.approach(bay):vg?vg.s:60+rand()*(e.len-120);
+ const car=spawnFrom('car',{color:pick(CAR_COLS)});car.label=who;if(bay>=0)HK2.reserve(bay,car);if(vg)vg.car=car;
  const walk=(v,cx,cy)=>{
   const n=1+(rand()<.55?1:0);let back=0;
   for(let i=0;i<n;i++){
@@ -179,7 +181,7 @@ function updateDrive(){
 function shot(q){sfx('shot');for(const a of E.animals)if(a.kind!=='dog'&&!a.dead&&Math.hypot(a.x-q.x,a.y-q.y)<420)a.escape&&a.escape(q.x,q.y)}
 // Rozkład dnia (0.2): goście przyjeżdżają w swoich godzinach, w weekend więcej, w nocy las jest pusty.
 export function updateVisitors(dt){
- const closed=ECO.ord.bar&&!ECO.ord.parking,ban=banned()||(closed&&rand()<.6);
+ const closed=ECO.ord.bar&&!ECO.ord.parking,ban=banned()||(closed&&rand()<.4);   // 1.1.7: bez parkingu część rezygnuje; reszta staje na poboczu przed szlabanem
  const h=cal.hour(),se=cal.season(),we=cal.weekend(),night=cal.night(),winter=se===3;
  for(const k of ['car','pick','walk','bike'])T[k]-=dt;
  const cars=E.vehicles.filter(v=>v.kind==='car'&&v.roam).length,rush=(h>6&&h<9)||(h>15&&h<18);

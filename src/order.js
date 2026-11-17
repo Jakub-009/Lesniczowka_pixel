@@ -1,9 +1,9 @@
 // Porządek w lesie (0.8.2, przerobiony w 0.8.3): dzikie wysypiska i firma wywozowa, Policja wzywana na miejscu zdarzenia, fotopułapki, szlabany z rury i zatoka parkingowa.
 import {state,toast,cal,clamp,rect,line,DAY_S,zl,hash,camera,VIEW,WORLD} from './core.js';
 import {EDGES,BARRIERS,oddzial,roadClearance,ptAt,hy} from './map.js';
-import {ENTRY,exitNode,goalNode,nearestRoad,pointOn} from './roads.js';
+import {ENTRY,exitNode,goalNode,nearestRoad,pointOn,edgeOf} from './roads.js';
 import {E,NAV} from './ents.js';
-import {Vehicle,Ped,rand} from './life/agents.js';
+import {Vehicle,Ped,rand,VHOOK} from './life/agents.js';
 import {ECO,pay,earn,canAfford,bumpProtect,planProgress} from './economy.js';
 import {report,U,HK} from './incidents.js';
 import {mail} from './mail.js';
@@ -40,7 +40,8 @@ export const CAM_SPOTS=[...BARRIERS,edgeSpot('b1-n3',true),edgeSpot('d1-e4',true
 // ───────── dzikie wysypiska ─────────
 const forestEdges=()=>EDGES.filter(e=>e.kind==='forest'&&e.a!=='l1'&&e.b!=='l1'&&e.a!=='a3'&&e.b!=='a3');
 export function spawnDump(){
- const E2=forestEdges(),e=E2[Math.floor(rand()*E2.length)],s=60+rand()*(e.len-120);
+ // 1.1.7: przy zamkniętych szlabanach wysypisko powstaje przed szlabanem, na poboczu dojazdu
+ const vg=ECO.ord.bar?vergeSpot():null,E2=forestEdges(),e=vg?vg.e:E2[Math.floor(rand()*E2.length)],s=vg?vg.s:60+rand()*(e.len-120);
  const car=new Vehicle('car',{...ENTRY(rand()<.5),color:'#6a6a64'});car.dark=true;car.label='samochód z przyczepą';
  car.goTo({edge:e,s},{park:true,onArrive:v=>{
   const h=v.heading,cx=v.pos[0]+Math.cos(h)*18,cy=v.pos[1]+Math.sin(h)*18;
@@ -136,7 +137,7 @@ export function buyCams(){
 }
 export function toggleBarriers(){
  ECO.ord.bar=!ECO.ord.bar;
- toast(ECO.ord.bar?'Szlabany zamknięte.'+(parkingOn()?'':' Ubędzie też grzybiarzy i spacerowiczów.'):'Szlabany otwarte.');
+ toast(ECO.ord.bar?'Szlabany zamknięte. Odwiedzający zostawiają auta '+(parkingOn()?'na parkingu albo ':'')+'na poboczu przed szlabanem; ekipy i maszyny otwierają i zamykają je same.':'Szlabany otwarte.');
 }
 export function buyParking(){
  if(parkingOn()){toast('Parking leśny już stoi.');return}
@@ -160,9 +161,9 @@ export function updateOrder(dt){
  if(!W.cur&&W.q.length&&cal.work(7,16)){const inc=W.q.shift();if(inc.status==='queued'&&!inc.ref.dead)startWaste(inc)}
  if(W.cur&&(W.cur.truck.dead)){W.cur.inc.status='new';W.cur=null}
  updatePolice(dt);
- const tg=ECO.ord.bar?1:0;swing=swing==null?tg:swing+clamp(tg-swing,-dt*.45,dt*.45);
+ updateGates(dt);
 }
-HK.waste=orderWaste;HK.requeue=requeueWaste;HK.police=dispatchPolice;HK2.free=freeSlot;HK2.edge=i=>SLOTS[i].B.e;HK2.approach=i=>SLOTS[i].B.approach;HK2.park=parkInBay;HK2.reserve=(i,v)=>{SLOTS[i].q.car=v};
+HK.waste=orderWaste;HK.requeue=requeueWaste;HK.police=dispatchPolice;HK2.free=freeSlot;HK2.verge=()=>vergeSpot();HK2.edge=i=>SLOTS[i].B.e;HK2.approach=i=>SLOTS[i].B.approach;HK2.park=parkInBay;HK2.reserve=(i,v)=>{SLOTS[i].q.car=v};
 
 // ───────── rysowanie ─────────
 // ── szlabany: dwa słupki przy dukcie i czerwono-biała rura na zawiasie (otwarty: wzdłuż drogi, zamknięty: w poprzek, na kłódkę) ──
@@ -178,11 +179,10 @@ function barGeo(b){
  }
  return g;
 }
-let swing=null;
 const vis_=(x,y,m=90)=>x>camera.x-m&&y>camera.y-m&&x<camera.x+VIEW.w+m&&y<camera.y+VIEW.h+m;
 function post(c,x,y,cap){x=Math.round(x);y=Math.round(y);c.fillStyle='#00000030';c.fillRect(x-2,y-1,9,9);rect(c,x-3,y-3,7,7,'#3e3b35');rect(c,x-2,y-2,5,5,'#8a867b');rect(c,x-2,y-2,5,1,'#b7b3a6');if(cap)rect(c,x-1,y-1,3,3,cap)}
 function drawBarrier(c,b){
- const g=barGeo(b),k=swing??(ECO.ord.bar?1:0),th=g.a0+g.df*k,[ax,ay]=g.A,[bx,by]=g.B,ex=ax+Math.cos(th)*g.L,ey=ay+Math.sin(th)*g.L;
+ const g=barGeo(b),k=GATES[BARRIERS.indexOf(b)]?.k??(ECO.ord.bar?1:0),th=g.a0+g.df*k,[ax,ay]=g.A,[bx,by]=g.B,ex=ax+Math.cos(th)*g.L,ey=ay+Math.sin(th)*g.L;
  post(c,bx,by,'#5a4a30');post(c,ax,ay,'#c8a24a');
  // cień rury, potem rura w czerwono-białe pasy
  line(c,ax+3,ay+4,ex+3,ey+4,'#0000002e',5);
@@ -224,3 +224,57 @@ if(ECO.ord.cams)for(const b of CAM_SPOTS){
  }
 }
 export const CAM_COUNT=CAM_SPOTS.length;
+
+// ───────── 1.1.7: obsługa szlabanów ─────────
+// Szlaban zamknięty (ustawienie w Leśniczówce): auta odwiedzających zostają przed nim (parking albo pobocze), rowery, quady i crossy
+// przejeżdżają obok. Ekipy, maszyny, ciężarówka, myśliwi, petenci z przyczepą i patrol zatrzymują się: kierowca wysiada, otwiera,
+// pojazd przejeżdża, za szlabanem staje, ktoś zamyka. Kilka pojazdów naraz — zamyka ostatni. Straż pożarna i Policja: szlaban otwiera się bez postoju.
+const FREE=new Set(['bike','quad','cross']),EMERG=new Set(['firetruck','police']);
+export const GATES=BARRIERS.map(b=>{const rp=nearestRoad(b.x,b.y,['forest']);return{b,edge:rp.edge,s:rp.s,rx:rp.x,ry:rp.y,k:ECO.ord.bar?1:0,held:false,emerg:0,users:new Set(),man:null,wait:new Set()}});
+// odległość (wzdłuż trasy) do szlabanu przed pojazdem; null — szlaban nie leży na najbliższym odcinku trasy
+function gateAhead(v,G){
+ const e=G.edge,gA=G.s;
+ if(v.edge===e){const dirA=v.from===e.a,pos=dirA?v.s:v.len-v.s,d=dirA?gA-pos:pos-gA;if(d<-2)return null;
+  if(v.final&&v.stopS!=null){const st=dirA?v.stopS:v.len-v.stopS;if(dirA?st<gA-4:st>gA+4)return null}return d}
+ if(v.final)return null;const nx=v.route&&v.route[0];if(!nx)return null;const ne=edgeOf(v.to,nx);if(ne!==e)return null;
+ return (v.len-v.s)+(v.to===e.a?gA:e.len-gA);
+}
+function gateMan(G,v,close){
+ const h=v.heading,dx=v.pos[0]+Math.cos(h)*14,dy=v.pos[1]+Math.sin(h)*14;
+ const p=new Ped({kind:'driver',x:dx,y:dy,speed:15});p.label=close?'zamyka szlaban':'otwiera szlaban';G.man=p;G.manT=0;
+ p.run([{go:[G.b.x,G.b.y]},{wait:1.4,pose:'stand',face:[G.rx,G.ry]},{call:()=>{G.held=!close}},{go:[dx,dy]},{call:q=>{q.dead=true;if(G.man===q)G.man=null;if(close&&v.gClose===G)v.gClose=null}}]);
+}
+function gateHook(v,dt){
+ if(FREE.has(v.kind)||v.dead||v.intruder||v.roam)return false;   // intruz omija szlaban duktem; ruch tranzytowy jeździ tylko szosą
+ const closedSet=ECO.ord.bar;let stop=false;
+ for(const G of GATES){
+  const d=Math.hypot(v.pos[0]-G.rx,v.pos[1]-G.ry);
+  if(v.gDone===G&&d>160)v.gDone=null;
+  if(v.gClose===G){stop=true;continue}
+  if(EMERG.has(v.kind)||v.beacon){if(d<160)G.emerg=4;continue}
+  if(G.users.has(v)){const past=gateAhead(v,G)==null&&d>45+(v.cart?70:0);
+   if(past||v.leave&&d>200){G.users.delete(v);v.gDone=G;
+    if(closedSet&&G.held&&!G.users.size&&!G.wait.size&&!G.man&&!E.vehicles.some(w=>w!==v&&!w.dead&&!FREE.has(w.kind)&&(gateAhead(w,G)??999)<120)){v.gClose=G;gateMan(G,v,true);stop=true}}
+   continue}
+  if(!closedSet||v.gDone===G)continue;
+  const a=gateAhead(v,G);if(a==null||a>60)continue;
+  if(G.held&&G.k<.06&&!G.man){G.wait.delete(v);G.users.add(v);continue}
+  G.wait.add(v);if(!G.held&&!G.man)gateMan(G,v,false);stop=true;
+ }
+ return stop;
+}
+function updateGates(dt){
+ for(const G of GATES){
+  for(const v of G.wait)if(v.dead||gateAhead(v,G)==null)G.wait.delete(v);
+  for(const v of G.users)if(v.dead)G.users.delete(v);
+  if(G.man){G.manT+=dt;if(G.man.dead)G.man=null;else if(G.manT>30){G.man.dead=true;G.man=null;G.held=G.users.size>0||G.wait.size>0}}   // zabezpieczenie: kierowca utknął
+  if(!ECO.ord.bar){G.held=false;G.users.clear();G.wait.clear()}
+  G.emerg=Math.max(0,G.emerg-dt);
+  const tg=ECO.ord.bar&&!G.held&&G.emerg<=0?1:0;G.k+=clamp(tg-G.k,-dt*.6,dt*.6);
+ }
+ for(const v of E.vehicles)if(v.gClose&&(v.dead||!GATES.some(G=>G.man&&v.gClose===G)))v.gClose=null;
+}
+VHOOK.gate=gateHook;
+// miejsca przed szlabanami dla aut odwiedzających (pobocze), gdy szlaban zamknięty, a na parkingu nie ma miejsca
+export const VERGE=[{e:'j1-a3',s:[262,226]},{e:'j2-b1',s:[150,104]}].flatMap(o=>{const e=EDGES.find(q=>q.id===o.e);return o.s.map(s=>({e,s,car:null}))});
+export function vergeSpot(){const f=VERGE.filter(q=>!q.car||q.car.dead||q.car.leave);return f.length?f[Math.floor(rand()*f.length)]:null}

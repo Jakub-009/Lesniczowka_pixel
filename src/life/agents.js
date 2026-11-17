@@ -50,6 +50,8 @@ export const VSPEC={
 // i skręta jak prawdziwy pojazd (model rowerowy, skręt kół ograniczony). Nie przesuwa się bokiem i nie obraca w miejscu.
 const MAXSTEER=.72;
 const SMALLV=new Set(['car','patrol','van','quad','cross','bike','police']);
+// 1.1.7: haczyk szlabanów (order.js) — zwraca true, gdy pojazd ma stać przed szlabanem albo za nim (otwieranie / zamykanie)
+export const VHOOK={gate:null};
 export class Vehicle{
  constructor(kind,o={}){
   this.kind=kind;this.spec=VSPEC[kind];this.allow=o.allow||this.spec.allow||['main','forest'];
@@ -166,6 +168,7 @@ export class Vehicle{
   if(this.dwell>0){this.dwell-=dt}
   else{
    target=this.cruise();let blocked=false;
+   if(VHOOK.gate&&!this.off&&VHOOK.gate(this,dt))target=0;
    if(target>0&&!this.off){
     const pr=this.probe();
     for(const w of E.vehicles)if(w!==this&&!w.parked&&!w.dead&&!w.off&&(w.kind!=='bike'||this.kind==='bike')&&Math.cos(w.heading-this.heading)>.3&&collide(pr,w.shape)){blocked=true;break}

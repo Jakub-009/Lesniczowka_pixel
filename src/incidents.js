@@ -143,7 +143,8 @@ export function spawnIntruder(kind){
   if(young.length<2)return;const t0=young[Math.floor(rand()*young.length)];young=young.filter(t=>Math.hypot(t.x-t0.x,t.y-t0.y)<160).slice(0,3);
   const rp=nearestRoad(t0.x,t0.y,['forest'],{margin:60});goal={edge:rp.edge,s:rp.s};
  }else{const E2=forestEdges(),e=E2[Math.floor(rand()*E2.length)];goal={edge:e,s:50+rand()*(e.len-100)}}
- const w=rand()<.5,car=new Vehicle('car',{...ENTRY(w),color:kind==='thief'?'#5a4a3a':'#3a3d3a'});
+ // 1.1.7: przy zamkniętych szlabanach nocni intruzi wjeżdżają od strony duktów spoza mapy (omijają szlabany)
+ const w=rand()<.5,car=new Vehicle('car',{...(ECO.ord&&ECO.ord.bar?{...DUKT_IN[Math.floor(rand()*DUKT_IN.length)],allow:['main','forest','dukt']}:ENTRY(w)),color:kind==='thief'?'#5a4a3a':'#3a3d3a'});
  car.dark=kind!=='xmas';car.intruder=kind;car.label=I.car;
  car.goTo(goal,{park:true,onArrive:v=>{
   const h=v.heading,cx=v.pos[0]+Math.cos(h)*18,cy=v.pos[1]+Math.sin(h)*18;v.door=[cx,cy];
