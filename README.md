@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 1.1.4** („Czytelne okna” + trwały zapis i porządek HUD-u). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 1.1.5** („Czytelne okna” + trwały zapis i porządek HUD-u). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -229,6 +229,16 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
+
+## Zmiany w 1.1.5 „Przeliczona ekonomia”
+- **Ścinka zależna od wielkości drzewa:** 30 zł + 55 zł/m³ (zamiast 110 zł za każde drzewo). Trzebież kosztuje grosze, od ok. 40 lat każde drzewo jest na plus, brzoza też.
+- **Cięcia sanitarne** (wiatrołomy, kornik) — ścinkę opłaca nadleśnictwo; drewno nadal się sprzedaje.
+- **Forwarder:** zrywka własnym 12 zł/m³ (usługa 40 zł/m³), utrzymanie 60 zł za dzień pracy.
+- **Utrzymanie leśniczówki** (dawne 300 zł dziennie) pokrywa nadleśnictwo — dzień bez pracy nic nie kosztuje; płacisz tylko za to, co dokupisz (ekipa B, podleśniczy, fotopułapki, parking, odstraszacze).
+- **Hurtowy odbiór opału:** ponad ok. 10 m³ opału przy drogach nadwyżkę zabiera ciężarówka (taniej niż petenci). Stos „Zostaw dla ludności” zostaje.
+- **Etat cięć:** 60 m³ z rębni (drzewa dojrzałe) na porę roku; ponad etat ekipa czeka do nowej pory roku. Trzebież i cięcia sanitarne bez limitu. Etat widać w planie sezonu, w Leśniczówce (Las i porządek) i na karcie drzewa.
+- **Odnowienie małych luk:** sadzenie ręczne na placówkach (+1,50 zł za sadzonkę, przyjmuje się ok. 85%; bez placówek ok. 55%, po orce ok. 90%) — przełącznik w Leśniczówce. Pniak z drzewem nasiennym obok można **zostawić do odnowienia naturalnego** (karta pniaka, karta oddziału): za darmo, nie obniża Stanu lasu, po 1–2 porach roku wyrastają samosiewy albo gra informuje, że trzeba posadzić.
+- **Podsumowanie kosztów:** ścinka rozbita na rębnię, trzebież i sanitarną; raport sezonu pokazuje wykorzystanie etatu i wynik odnowienia naturalnego.
 
 ## Zmiany w 1.1.4
 - Leśniczówka → zakładka **Podsumowanie kosztów**: przychody i koszty według kategorii za tę porę roku, poprzednią, bieżący rok albo od początku; wynik z gospodarki (bez pożyczki), osobno pożyczka; „Wycinka w liczbach” (drzewa, koszt ścinki i zrywki na drzewo, sprzedane m³ i cena za m³, opał). Praca ekip liczy się w dniu wykonania, kary za zwłokę w dniu zapłaty. Zapisy sprzed 1.1.4: odtwarzane są tylko faktury zachowane w zapisie, reszta liczy się od wczytania.

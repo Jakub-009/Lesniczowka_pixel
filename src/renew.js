@@ -151,14 +151,14 @@ export function orderPlant(p){
  if(!spots.length){toast('Brak wolnych miejsc na sadzonki w tej powierzchni.');return}
  if(!canAfford(Math.min(spots.length,40)*COST.plant))return;
  const tasks=[];
- for(const [x,y] of spots){const q={x,y,sp:mixSp(p,x,y),assigned:true,plot:p.id,prep:p.prepared,onDone:plantDone(p)};J.plants.push(q);tasks.push({type:'plant',p:q})}
+ for(const [x,y] of spots){const q={x,y,sp:mixSp(p,x,y),assigned:true,plot:p.id,prep:p.prepared,plac:!p.prepared&&J.plac,onDone:plantDone(p)};J.plants.push(q);tasks.push({type:'plant',p:q})}
  p.state='planting';p.toPlant=p.planted+spots.length;
  addCrewTasks(tasks,'Sadzenie na P'+p.id+': '+spots.length+' sadzonek ('+MIXES[p.mix||mixFor(p.sp)].name+(p.prepared?', w bruzdach':', bez przygotowania gleby')+').');
 }
 // Szybkie sadzenie obszarem (narzędzie 3): rzędy zaplanowanych sadzonek bez przygotowania gleby.
 export function planAreaPlants(x0,y0,x1,y1){
  const x=Math.min(x0,x1),y=Math.min(y0,y1),spots=spotsIn(x,y,Math.abs(x1-x0),Math.abs(y1-y0)).slice(0,400);
- for(const [px,py] of spots)J.plants.push({x:px,y:py,sp:speciesFor(px,py),assigned:false});
+ for(const [px,py] of spots)J.plants.push({x:px,y:py,sp:speciesFor(px,py),assigned:false,plac:J.plac});
  return spots.length;
 }
 // Grodzenie powierzchni siatką (chroni sadzonki przed zgryzaniem przez sarny i jelenie).

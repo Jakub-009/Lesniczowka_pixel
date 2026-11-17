@@ -128,6 +128,7 @@ export function loadTrees(arr,migrate){
   const t=addTree(x,y,sp,age,{st,marked:!!marked,stumpR,stumpAge,burnt:!!burnt,uprawa:!!uprawa,planted:!!(flags&1),prep:!!(flags&2),gb:gb||0});if(seed)t.seed=seed;
   if(flags&32){t.q=(flags>>3)&3;t.qk=!!(flags&4);t.kb=(flags>>6)&7}
   if(flags&512)t.wasQ=true;if(flags&1024)t.san=true;   // 1.1.1: drzewo było zlecone ekipie / do cięcia sanitarnego
+  if(flags&2048)t.plac=true;if(flags&4096)t.nat=flags&8192?2:1;   // 1.1.5: sadzonka na placówce; pniak czeka na odnowienie naturalne (1 lub 2 pora roku)
   if(slash)t.slash={x:slash[0],y:slash[1],a:slash[2]};
  }
  if(dropped)refillArea(960,680,400,250);
@@ -137,7 +138,7 @@ export function loadTrees(arr,migrate){
 // 1.1.1: drzewo zlecone ekipie zapisuje się z bitem 512 (wraca do kolejki po wczytaniu); powalone, ale jeszcze nieprzerobione zlecone drzewo
 // zapisuje się jako stojące — po wczytaniu ekipa zetnie je ponownie (ścinka jest fakturowana dopiero po wyrzynce, więc nie ma podwójnej opłaty)
 const queued=t=>t.assigned&&t.st===STAND;
-export function serializeTrees(){return trees.map(t=>[+t.x.toFixed(1),+t.y.toFixed(1),t.sp,+t.age.toFixed(2),t.st===STUMP||(t.lying&&!queued(t))?1:0,t.marked||t.assigned?1:0,t.stumpR||(t.lying?clamp(t.lying.r*.2,3,8):0),+(t.stumpAge||0).toFixed(1),t.slash?[Math.round(t.slash.x),Math.round(t.slash.y),+t.slash.a.toFixed(2)]:0,t.burnt?1:0,t.uprawa?1:0,t.seed,(t.planted?1:0)|(t.prep?2:0)|(t.qk?4:0)|((t.q||0)<<3)|((t.kb||0)<<6)|32|(queued(t)?512:0)|(t.san?1024:0),+(t.gb||0).toFixed(2)])}
+export function serializeTrees(){return trees.map(t=>[+t.x.toFixed(1),+t.y.toFixed(1),t.sp,+t.age.toFixed(2),t.st===STUMP||(t.lying&&!queued(t))?1:0,t.marked||t.assigned?1:0,t.stumpR||(t.lying?clamp(t.lying.r*.2,3,8):0),+(t.stumpAge||0).toFixed(1),t.slash?[Math.round(t.slash.x),Math.round(t.slash.y),+t.slash.a.toFixed(2)]:0,t.burnt?1:0,t.uprawa?1:0,t.seed,(t.planted?1:0)|(t.prep?2:0)|(t.qk?4:0)|((t.q||0)<<3)|((t.kb||0)<<6)|32|(queued(t)?512:0)|(t.san?1024:0)|(t.plac?2048:0)|(t.nat?4096:0)|(t.nat===2?8192:0),+(t.gb||0).toFixed(2)])}
 // ── indeks przestrzenny (kubełki 128 px) ──
 const BK=128,BW=Math.ceil(WORLD.w/BK)+1,BH=Math.ceil(WORLD.h/BK)+1,buckets=Array.from({length:BW*BH},()=>[]);
 function bucketAdd(t){buckets[clamp(Math.floor(t.y/BK),0,BH-1)*BW+clamp(Math.floor(t.x/BK),0,BW-1)].push(t)}
@@ -343,7 +344,8 @@ export function seasonGrow(years){
    // 0.7.4: pniak próchnieje i znika po 6–10 latach, ale tylko tam, gdzie obszar jest już odnowiony; nieodnowione pniaki zostają jako sygnał „tu trzeba sadzić”
    if(t.stumpAge>=6+hash(t.seed,5,93)*4&&hash(t.seed,Math.floor(t.stumpAge),94)<.6&&treesIn(t.x-30,t.y-30,t.x+30,t.y+30).some(q=>q.st===STAND&&q.age<SAPLING_AGE*3)){removeTree(t);rotted++}
    continue}
-  if(t.planted&&t.age<4){young++;if(hash(t.seed,Math.floor(t.age*10),91)<(t.prep?.05:.25)){removeTree(t);died++;continue}}
+  // 1.1.5: udatność — po orce ok. 90%, na placówkach ok. 85%, bez przygotowania ok. 55% (dwa losowania w pierwszych latach)
+  if(t.planted&&t.age<4){young++;if(hash(t.seed,Math.floor(t.age*10),91)<(t.prep?.05:t.plac?.08:.25)){removeTree(t);died++;continue}}
   const was=t.age<SAPLING_AGE;t.age+=years;if(was&&t.age>=SAPLING_AGE)grown++;
   // 0.6.2: w luźniejszym drzewostanie (po trzebieży) drzewa przyrastają szybciej; dorodne lepiej, wadliwe słabiej
   if(t.age>=THIN_AGE&&t.age<120){const r=crownR(t)*1.7;let n=0;for(const q of treesIn(t.x-r,t.y-r,t.x+r,t.y+r))if(q!==t&&q.st===STAND&&q.age>=SAPLING_AGE&&Math.hypot(q.x-t.x,q.y-t.y)<r)n++;
@@ -361,7 +363,9 @@ export function finishTree(t){
  const L=t.lying;t.slash={x:t.x+Math.cos(L.dir)*L.L*.85,y:t.y+Math.sin(L.dir)*L.L*.85,a:L.dir};
  t.stumpR=clamp(L.r*.2,3,8);t.st=STUMP;t.stumpAge=0;t.lying=null;dirtyTree(t);
 }
-export function plantTree(x,y,sp,prep=false){const t=addTree(x,y,sp,1,{planted:true,prep});dirtyTree(t);return t}
+export function plantTree(x,y,sp,prep=false,plac=false){const t=addTree(x,y,sp,1,{planted:true,prep,plac});dirtyTree(t);return t}
+// 1.1.5: samosiew (odnowienie naturalne) — młode drzewko bez sadzenia, nie podlega losowaniu udatności sadzonek
+export function seedTree(x,y,sp){const t=addTree(x,y,sp,1,{planted:false});dirtyTree(t);return t}
 export function removeTree(t){const i=trees.indexOf(t);if(i>=0)trees.splice(i,1);for(const b of buckets){const k=b.indexOf(t);if(k>=0){b.splice(k,1);break}}dirtyTree(t)}
 export function speciesFor(x,y){const st=STANDS[oddzial(x,y)];let best=null,b=0;for(const k in st.mix)if(st.mix[k]>b){b=st.mix[k];best=k}return best}
 // Pokrycie (suma powierzchni koron) do wskaźnika „Stan lasu”.

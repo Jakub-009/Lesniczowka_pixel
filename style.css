@@ -252,3 +252,4 @@ body.modal #msg{bottom:auto;top:14px;z-index:20}
 .lrow i{position:absolute;left:0;top:0;bottom:0;z-index:-1;opacity:.28}.lrow.inc i{background:#6a9a4a}.lrow.cst i{background:#b56a4a}
 .lrow span{color:#4a5a40}.lrow b{white-space:nowrap}
 @media (max-width:900px){.lcols{grid-template-columns:1fr}}
+.pbar{position:relative;display:flex}.pbar i.plan2{background:#8a7a4a;opacity:.7}.esub{font-size:10px;color:#9aa587;margin-top:3px}.pgoal.etat{margin-top:10px;padding-top:6px;border-top:1px dashed #3e523f}
