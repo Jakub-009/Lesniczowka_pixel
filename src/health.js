@@ -29,7 +29,9 @@ const open_=q=>q.status!=='done'&&q.status!=='gone';
 // ── stany drzew ──
 // 0.9: pas za szosą nie należy do leśnictwa — nie ma tam kornika, wiatrołomów ani zgłoszeń, na które gracz nie ma wpływu
 function infect(t){if(t.kb||t.nest||t.mon||offLimits(t.x,t.y))return;t.kb=1;t.kbT=state.days;HL.list.push(t)}
-export const rebuildHealth=()=>{HL.list=trees.filter(t=>t.kb&&t.kb<4&&t.st===STAND);for(const t of HL.list)t.kbT=t.kbT??state.days;
+// 1.1.6: pas za szosą to tło — drzewa uszkodzone tam przed 0.9 (także wiatrołomy kb 4) wracają do zdrowia, bez oznaczeń
+export function healOffLimits(){let n=0;for(const t of trees)if(t.st===STAND&&(t.kb||t.san||t.marked)&&offLimits(t.x,t.y)&&!t.assigned){t.kb=0;t.san=false;t.marked=false;dirtyTree(t);n++}return n}
+export const rebuildHealth=()=>{healOffLimits();HL.list=trees.filter(t=>t.kb&&t.kb<4&&t.st===STAND);for(const t of HL.list)t.kbT=t.kbT??state.days;
  for(const b of HL.blocks){const e=EDGES.find(q=>q.id===b.e);if(e){e.blocked=true;const p=ptAt(e,b.s);b.edge=e;b.x=p[0];b.y=p[1];b.ang=Math.atan2(p[3],p[2])+Math.PI/2}}}
 const stump=t=>{t.stumpR=clamp(crownR(t)*.2,3,8);t.st=STUMP;t.stumpAge=20;t.kb=0;t.marked=false;dirtyTree(t)};
 export const sick=()=>trees.filter(t=>t.kb>=2&&t.st===STAND).length;
