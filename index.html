@@ -27,9 +27,6 @@
   <div class="srow2" data-unit="skid" title="Kliknij: pokaż maszynę zrywkową"><i class="dot" id="dotS"></i><span id="skidname">Zrywka</span><em id="skidstate">czeka</em></div>
   <div class="srow2" data-unit="plow" id="plowrow" style="display:none" title="Kliknij: pokaż pług"><i class="dot" id="dotP"></i><span>Pług</span><em id="plowstate">—</em></div>
   <div class="srow2" data-unit="stacks" title="Kliknij: pokaż największy stos przy drodze"><i class="dot" id="dotT"></i><span>Przy drogach</span><em id="stackinfo">0 m³</em></div>
-  <div class="sgrp">Patrol</div>
-  <div class="srow2" data-unit="pat0" title="Kliknij: pokaż leśniczego"><i class="dot" id="dotL"></i><span>Leśniczy</span><em id="patrolstate">w leśniczówce</em></div>
-  <div class="srow2" data-unit="pat1" id="podrow" style="display:none" title="Kliknij: pokaż podleśniczego"><i class="dot" id="dotD"></i><span>Podleśniczy</span><em id="podstate">—</em></div>
  </div>
  <div class="plate hud toolbar" id="toolbar">
   <div class="toolhint" id="toolhint"></div>
@@ -44,7 +41,8 @@
   <div class="plate topright"><div class="clock" id="time">07:00</div><div class="dline" id="date">Rok 1 · lato · dzień 2 · piątek</div><div class="dline wxl" id="wx"></div><div class="ff" id="ff">&nbsp;</div>
    <div class="tempo"><button id="pausebtn" class="seg" title="Pauza (P)">❚❚</button><button class="seg" data-rate="1" title="Tempo ×1 (T zmienia)">×1</button><button class="seg" data-rate="2" title="Tempo ×2">×2</button><button class="seg" data-rate="3" title="Tempo ×3. Shift + klik: tryb szybki ×10">×3</button></div>
    <div class="tempo"><button id="skipbtn" class="seg wide" title="Przewiń czas do 6:00. Przerywa się przy zgłoszeniu lub interwencji.">Do jutra</button><button id="menubtn" class="seg" title="Ustawienia, pomoc i samouczek">Menu</button></div></div>
-  <div class="plate incidents"><div class="khead"><span class="kick">ZGŁOSZENIA <i id="incn"></i></span><button id="qbtn" class="topbtn" title="Q: wysyła patrol do najstarszego nowego zgłoszenia">Q Patrol</button></div><div id="incidents"><div class="muted">Spokojnie w lesie.</div></div></div>
+  <div class="plate incidents"><div class="khead"><span class="kick">ZGŁOSZENIA <i id="incn"></i></span><button id="qbtn" class="topbtn" title="Q: wysyła patrol do najstarszego nowego zgłoszenia" style="display:none">Q Patrol</button></div>
+   <div class="patrols"><div class="srow2" data-unit="pat0" title="Kliknij: pokaż leśniczego"><i class="dot" id="dotL"></i><span>Leśniczy</span><em id="patrolstate">w leśniczówce</em></div><div class="srow2" data-unit="pat1" id="podrow" style="display:none" title="Kliknij: pokaż podleśniczego"><i class="dot" id="dotD"></i><span>Podleśniczy</span><em id="podstate">—</em></div></div><div id="incidents"><div class="muted">Spokojnie w lesie.</div></div></div>
   <div class="plate focusbar" id="focusbar" style="display:none"></div>
  </div>
  <div class="ocard info" id="info" style="display:none"></div>
@@ -55,7 +53,7 @@
 <div id="overlay"><div class="card"><div class="kicker">Leśnictwo Zielony Gaj</div><h1>Leśniczówka</h1>
  <p>Prowadzisz małe leśnictwo: wyznaczasz drzewa do wycinki, wysyłasz ekipę, sadzisz nowy las i pilnujesz porządku. Wycinka daje pieniądze, ale ekipy, pensje i utrzymanie kosztują. Bez odnowienia stan lasu spada, a zgłoszenia, którymi nikt się nie zajmie, obniżają ochronę terenu.</p>
  <div class="keys"><span><b>Mysz</b> przeciągnij mapę</span><span><b>Kółko</b> przybliżenie</span><span><b>1 2 3 4</b> narzędzia</span><span><b>E</b> wyślij ekipę</span><span><b>K</b> wywóz drewna</span><span><b>Q</b> patrol</span><span><b>C</b> poczta</span><span><b>L</b> leśniczówka</span><span><b>P T</b> pauza, tempo</span><span><b>H</b> pomoc</span></div>
- <button id="continue" style="display:none">WCZYTAJ ZAPIS</button><button id="start">ZACZNIJ</button><div class="hint">wersja 1.1.2</div></div></div>
+ <button id="continue" style="display:none">WCZYTAJ ZAPIS</button><button id="start">ZACZNIJ</button><div class="hint">wersja 1.1.3</div></div></div>
 <div id="report" class="hidden panel"><div class="card" id="reportcard"></div></div>
 <div id="base" class="hidden panel"><div class="card wide" id="basecard"></div></div>
 <div id="win" class="hidden panel"><div class="card wide" id="wincard"></div></div>

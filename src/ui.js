@@ -57,7 +57,7 @@ export function hud(){
  planPanel();
  // zgłoszenia (1.1.2): wiersze z kropką typu, oddziałem i stanem; najwyżej 4, reszta w oknie Ochrony terenu
  const open=openIncidents(),sig=open.map(q=>q.id+q.status+(q.unit?q.unit.name:'')).join('|');
- if(sig!==incSig){incSig=sig;$('#incn').textContent=open.length?'('+open.length+')':'';
+ if(sig!==incSig){incSig=sig;{const nn=open.filter(q=>q.status==='new').length,nw=open.length-nn;$('#incn').textContent=open.length?'('+open.length+')':'';const qb=$('#qbtn');qb.style.display=nn?'':'none';qb.textContent='Q Wyślij · '+nn;qb.title='Q: wysyła patrol do najstarszego z '+nn+' nowych zgłoszeń'+(nw?' ('+nw+' już w toku)':'')}   // 1.1.3: Q tylko, gdy jest kogo wysłać
   const ord=open.slice().sort((a,b)=>(b.status==='new')-(a.status==='new')||prio(b)-prio(a)||a.id-b.id),shown=ord.slice(0,4);
   $('#incidents').innerHTML=open.length?shown.map(q=>`<div class="irow" data-go="${q.id}" title="${q.text.replace(/"/g,'&quot;')}"><i class="dot" style="background:${incCol(q)}"></i><div class="ib"><b>${incName(q)}</b><span>oddz. ${oddzial(q.x,q.y)}</span></div>${q.status==='new'?`<button data-inc="${q.id}">${incLabel(q)}</button>`:`<em class="chip2 ${q.status==='assigned'?'go':''}">${incWait(q)}</em>`}</div>`).join('')+(open.length>4?`<div class="imore" data-win="protect">+ jeszcze ${open.length-4} — pokaż wszystkie ›</div>`:''):'<div class="muted">Spokojnie w lesie.</div>';
  }
@@ -88,7 +88,8 @@ function statusPanel(){
   if(on)setRow('dotP','plowstate',PL.phase==='idle'?'czeka · '+cal.nextStart(7,16)+' ('+PL.queue.length+')':PL.phase==='plowing'?'orze P'+PL.cur.id:PL.phase==='leaving'?'odjeżdża':'w drodze do P'+(PL.cur?PL.cur.id:''),PL.phase==='idle'?'wait':'work')}
  {const T=J.truck,tot=stackTotal(),op=stackTotal(q=>q.sort==='opal');
   setRow('dotT','stackinfo',displayNumber(tot,1)+' m³'+(T.v?' · TIR':T.pending?' · zamówiony':op>.05?' · opał '+displayNumber(op,1):''),T.v?'work':T.pending?'wait':'idle');$('#stackinfo').parentNode.title=J.stacks.filter(q=>q.vol>.05).length+' stosów przy drogach, w tym opał '+displayNumber(op,1)+' m³'+(T.v?'; ciężarówka odbiera drewno':T.pending?'; wywóz zamówiony':'')+'. Kliknij: pokaż największy stos.'}
- const pat=u=>u.phase==='home'?[u.person.sleeping?'śpi':u.person.busyOffice?'w kancelarii':'w leśniczówce','idle']:[{boarding:'wyjeżdża',driving:'w drodze',onsite:'na miejscu',return:'wraca'}[u.phase]+(u.queue.length?' · kolejka '+u.queue.length:''),'work'];
+ // 1.1.3: stan patrolu w panelu Zgłoszeń — dokąd jedzie i do czego
+ const pat=u=>{if(u.phase==='home')return[u.person.sleeping?'śpi':u.person.busyOffice?'w kancelarii':'w leśniczówce','idle'];const q=u.cur,o=q?oddzial(q.x,q.y):'';return[(u.phase==='return'?'wraca do bazy':u.phase==='onsite'?'na miejscu · oddz. '+o:'jedzie do oddz. '+o)+(u.queue.length?' (+'+u.queue.length+')':''),'work']};
  {const [t,k]=pat(U[0]);setRow('dotL','patrolstate',t,k)}
  $('#podrow').style.display=U[1]?'flex':'none';if(U[1]){const [t,k]=pat(U[1]);setRow('dotD','podstate',t,k)}
 }
@@ -115,7 +116,7 @@ function planPanel(){
  $('#tasks').innerHTML=goals.map(([ok,txt,a,b,u,d])=>`<div class="pgoal ${ok?'ok':''}"><div class="trow"><span>${ok?'✔':'·'} ${txt}</span><b>${displayNumber(a,d)} / ${b}${u}</b></div><div class="pbar"><i style="width:${Math.round(clamp(a/b,0,1)*100)}%"></i></div></div>`).join('')
   +`<div class="pfoot"><span>${Pl.rewarded?'Plan wykonany — premia wypłacona.':'Premia za cały plan: <b>'+zl(Pl.reward)+'</b>'}</span><span>Do końca pory roku: <b>${dl?dl+' d ':''}${hl} h</b></span></div>`;
 }
-function placePlan(){const p=$('#plan'),r=$('#planbtn').getBoundingClientRect();p.style.top=Math.round(r.bottom+14)+'px';p.style.left=Math.round(clamp(r.left+r.width/2-150,12,innerWidth-312))+'px'}
+function placePlan(){const p=$('#plan'),r=$('#planbtn').getBoundingClientRect(),col=document.querySelector('.right').getBoundingClientRect().left;p.style.top=Math.round(r.bottom+14)+'px';const x=Math.round(clamp(r.left+r.width/2-150,12,col-322));p.style.left=x+'px';p.style.setProperty('--arrow',Math.round(clamp(r.left+r.width/2-x,20,280))+'px')}   // 1.1.3: lista nie wchodzi na kolumnę zegara; strzałka celuje w przycisk
 export function togglePlan(open){const p=$('#plan');open=open??p.style.display==='none';if(open){taskSig='';planPanel();placePlan()}p.style.display=open?'block':'none';$('#planbtn').setAttribute('aria-expanded',open?'true':'false')}
 
 export const incWait=q=>q.type==='dump'?(q.status==='queued'?'czeka na firmę':'śmieciarka'):q.status==='queued'?'w kolejce':(q.unit&&U.length>1?(q.unit===U[0]?'leśniczy':'podleśniczy')+' działa':'patrol działa');
@@ -390,7 +391,7 @@ export function bindUI(){
  $('#planbtn').addEventListener('click',e=>{e.stopPropagation();togglePlan()});
  document.addEventListener('click',e=>{if(!e.target.closest('#plan')&&$('#plan').style.display!=='none')togglePlan(false)});
  addEventListener('resize',()=>{if($('#plan').style.display!=='none')placePlan()});
- $('#status').addEventListener('click',e=>{const r=e.target.closest('[data-unit]');if(r&&state.playing&&!state.modal)showUnit(r.dataset.unit)});
+ for(const el of [$('#status'),document.querySelector('.patrols')])el.addEventListener('click',e=>{const r=e.target.closest('[data-unit]');if(r&&state.playing&&!state.modal)showUnit(r.dataset.unit)});
  $('#oddcard').addEventListener('click',e=>{const b=e.target.closest('[data-oa]');if(b)oddAct(b.dataset.oa)});
  $('#moneybtn').addEventListener('click',()=>{if(state.playing)openBaseTab('fin')});
  $('#qbtn').addEventListener('click',()=>{const q=E.incidents.find(x=>x.status==='new');if(q)dispatch(q);else toast('Brak nowych zgłoszeń.')});

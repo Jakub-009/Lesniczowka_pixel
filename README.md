@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 1.1.2** („Czytelne okna” + trwały zapis i porządek HUD-u). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 1.1.3** („Czytelne okna” + trwały zapis i porządek HUD-u). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -229,6 +229,10 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
+
+## Zmiany w 1.1.3
+- Wskaźniki (budżet, stan lasu, ochrona, plan) stoją na środku wolnego miejsca, a nie przy zegarze; lista planu sezonu nie wchodzi na panel zegara.
+- Panel Zgłoszeń pokazuje stan patrolu (leśniczy, podleśniczy: gdzie jest, do którego oddziału jedzie; klik pokazuje go na mapie) — grupa Patrol zniknęła z lewego dolnego panelu. Przycisk „Q Wyślij · N” pojawia się tylko, gdy są nowe zgłoszenia.
 
 ## Zmiany w 1.1.2 (razem z 1.1.1) „Trwały zapis i porządek HUD-u”
 - **Zapis zobowiązań:** po wczytaniu opłacona orka wraca do kolejki pługa bez dopłaty; zlecona wycinka i sadzenie (także przerwane sadzenie na powierzchni) wracają do ekip, które ruszają same o 7:00; zgłoszenia w kolejce i w toku wracają do patrolu bez ponownej opłaty za wyjazd; opłacony wywóz wysypiska czeka na śmieciarkę; śmieci, wnyki, wysypiska i zarzewia zostają w lesie (odświeżenie strony nie sprząta lasu). Quad lub nocny intruz znika podczas przerwy — kara tylko, jeśli zgłoszenie wisiało bez reakcji.

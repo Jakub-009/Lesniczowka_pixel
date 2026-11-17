@@ -223,7 +223,7 @@ body.noui .ui>*:not(#msg){display:none}
 /* plan na porę roku: lista rozwijana pod przyciskiem */
 .planbtn{font-size:11px}
 .plan{position:fixed;width:300px;z-index:4}
-.plan::after{content:'';position:absolute;top:-14px;left:50%;margin-left:-7px;border:7px solid transparent;border-bottom-color:#8fae5f}
+.plan::after{content:'';position:absolute;top:-14px;left:var(--arrow,50%);margin-left:-7px;border:7px solid transparent;border-bottom-color:#8fae5f}
 .pgoal{margin:7px 0}.pgoal .trow{font-size:12px;margin:0 0 4px}.pgoal.ok .trow{color:#9fd27a}
 .pbar{height:7px;background:#14201a;padding:1px}.pbar i{display:block;height:100%;background:#d8b665}.pgoal.ok .pbar i{background:#8ec86a}
 .pfoot{display:flex;flex-direction:column;gap:3px;margin-top:9px;padding-top:7px;border-top:1px solid #3e523f;font-size:11px;color:#b9c49a}.pfoot b{color:#f4d58a}
@@ -238,3 +238,7 @@ body.modal #msg{bottom:auto;top:14px;z-index:20}
 .tile small{font-size:10px;color:#6a7a52;font-weight:700}.tile em{font-style:normal;font-size:9px;color:#6a7a52}
 #msg{max-width:min(60vw,calc(100vw - 640px))}
 .status{width:272px}.srow2{gap:6px}
+/* 1.1.3: wskaźniki na środku wolnego miejsca między nazwą a prawą kolumną (wcześniej dosuwały się do zegara) */
+.top{justify-content:flex-start}.top>.gauges{margin:0 auto}
+.patrols{margin:2px 0 4px;padding-bottom:5px}.patrols .srow2{padding:3px 4px}.patrols em{color:#d9d2b4}
+.kick i{font-size:11px;color:#f1e6c2;letter-spacing:0}
