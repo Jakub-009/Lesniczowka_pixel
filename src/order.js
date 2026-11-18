@@ -221,10 +221,7 @@ function drawParking(c,winter){
 export function drawOrder(c,winter){
  drawParking(c,winter);   // żwir i wyposażenie parkingu leżą pod szlabanami
  for(const b of BARRIERS)if(vis_(b.x,b.y))drawBarrier(c,b);
-if(ECO.ord.cams)for(const b of CAM_SPOTS){
-  const x=Math.round(b.x),y=Math.round(b.y)-4;rect(c,x-1,y-10,3,12,'#2c3a32');rect(c,x-5,y-18,11,8,'#14201a');rect(c,x-4,y-17,9,6,'#7d8a82');rect(c,x-4,y-17,9,1,'#a9b5ad');rect(c,x-1,y-15,4,3,'#14201a');rect(c,x,y-14,2,1,'#5d8790');
-  if(Math.floor(performance.now()/700)%2)rect(c,x+3,y-17,2,2,'#ff4a3a');
- }
+   // 1.3.3: fotopułapki są ukryte (jak w rzeczywistości) — nie rysujemy ich
 }
 export const CAM_COUNT=CAM_SPOTS.length;
 

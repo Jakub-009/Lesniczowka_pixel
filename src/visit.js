@@ -1,7 +1,7 @@
 // Ruch i edukacja (0.9): znaki zakazu wjazdu przy wjazdach w las, odstraszacze zwierzyny przy szosie (znaki A-18b + słupki odblaskowe),
 // ścieżka przyrodnicza w zarezerwowanym miejscu (2840,1280) i szkolne wycieczki. Wszystko opcjonalne — kupowane w Leśniczówce.
 import {state,cal,toast,zl,rect,SEASON_DAYS} from './core.js';
-import {hy,RESERVED} from './map.js';
+import {hy,RESERVED,EDGES,ptAt} from './map.js';
 import {trees,removeTree,treesIn,STAND} from './forest.js';
 import {ECO,pay,earn,canAfford,bumpProtect} from './economy.js';
 import {mail} from './mail.js';
@@ -14,6 +14,8 @@ import {sfx} from './sound.js';
 export const VC={signs:900,repel:1600,trail:2200,tourFee:180,repelDay:10};
 export const vs=()=>ECO.ord.vs||(ECO.ord.vs={tours:0,kids:0});   // statystyka wycieczek (zapisuje się razem z eco.ord)
 export const signsOn=()=>!!ECO.ord.signs,repelOn=()=>!!ECO.ord.repel,trailOn=()=>!!ECO.ord.trail;
+// 1.3.3: znaki zakazu wjazdu na poboczu drogi leśnej, ok. 70 px od szosy (za poszerzeniem wylotu), po stronie bez parkingu
+const SIGN_AT=[['j1-a3',1],['j2-b1',-1]].map(([id,side])=>{const e=EDGES.find(q=>q.id===id),[x,y,tx,ty]=ptAt(e,70),o=e.w/2+14;return[x-ty*side*o,y+tx*side*o]});
 // ścieżka: pętla w obrębie zarezerwowanego prostokąta, wejście od południowego zachodu
 const R0=RESERVED.find(r=>r.id==='sciezka');
 export const TRAIL=[[2852,1368],[2858,1344],[2874,1322],[2898,1306],[2924,1300],[2946,1312],[2950,1336],[2934,1356],[2910,1362],[2886,1352],[2870,1336],[2858,1344]];
@@ -101,7 +103,7 @@ export function drawVisit(g,camera,VIEW){
    g.fillStyle='#d8403a';g.beginPath();g.moveTo(x,y-14);g.lineTo(x+9,y+2);g.lineTo(x-9,y+2);g.closePath();g.fill();
    g.fillStyle='#f2efe4';g.beginPath();g.moveTo(x,y-10);g.lineTo(x+6,y);g.lineTo(x-6,y);g.closePath();g.fill();rect(g,x-3,y-4,5,2,'#2a2a26');rect(g,x-4,y-2,2,2,'#2a2a26');rect(g,x+1,y-6,2,2,'#2a2a26')}}
  if(signsOn()){
-  for(const x of [850,1730]){const y=hy(x)-42;if(!inView(x,y,camera,VIEW,30))continue;post(x,y+6);
+  for(const [x,y] of SIGN_AT){if(!inView(x,y,camera,VIEW,30))continue;post(x,y+6);
    g.fillStyle='#d8403a';g.beginPath();g.arc(x,y-4,8,0,6.283);g.fill();g.fillStyle='#f2efe4';g.beginPath();g.arc(x,y-4,5.6,0,6.283);g.fill();
    g.fillStyle='#2a2a26';g.fillRect(x-3,y-6,6,4);g.fillRect(x-4,y-3,2,2);g.fillRect(x+2,y-3,2,2);g.fillStyle='#d8403a';g.fillRect(x-6,y-5,12,2)}}
  if(trailOn()){const x=2905,y=hy(x)-40;if(inView(x,y,camera,VIEW,30)){post(x,y+6);rect(g,x-9,y-12,18,11,'#3a2a1a');rect(g,x-8,y-11,16,9,'#7a5c36');rect(g,x-6,y-9,12,2,'#e8e0c0');rect(g,x-6,y-5,8,1,'#e8e0c0');rect(g,x+3,y-6,4,3,'#4a7a3a')}}

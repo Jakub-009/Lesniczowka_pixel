@@ -11,6 +11,7 @@ import {EDGES,WETLANDS,STREAM,ptAt,oddzial,YARD,inRect,offLimits} from './map.js
 import {noCut,inReserve} from './nest.js';
 import {nearestRoad} from './roads.js';
 import {rand} from './life/agents.js';
+import {dryMask} from './paint.js';
 
 export const HL={dry:.15,wx:'clear',wxNext:0,stormAt:-1,stormEnd:0,tickNext:0,dayRoll:-1,traps:-1,tower:false,ban:false,blocks:[],list:[],stats:{cutSan:0,storms:0,outbreaks:0}};
 export const TOWER={x:2300,y:1560};
@@ -154,12 +155,11 @@ function traps(){if(trapSpots)return trapSpots;trapSpots=[];
  const es=EDGES.filter(e=>e.kind==='forest'&&e.a!=='l1'&&e.b!=='l1'&&e.len>500);
  es.forEach((e,i)=>{const p=ptAt(e,e.len*(.3+.4*hash(i,3,5))),sg=i%2?1:-1;trapSpots.push([p[0]-p[3]*sg*34,p[1]+p[2]*sg*34])});return trapSpots}
 export function drawHealth(g){
- // mokradła wysychają w suszy, strumień zamienia się w koryto
- const s=clamp((HL.dry-.3)/.6,0,1);
- if(s>.02){
-  for(const w of WETLANDS){if(!vis(w.x,w.y,200))continue;
-   g.fillStyle=`rgba(128,108,72,${.75*s})`;g.beginPath();g.ellipse(w.x,w.y,w.rx*1.04,w.ry*1.04,0,0,6.283);g.ellipse(w.x,w.y,w.rx*(1-.55*s),w.ry*(1-.55*s),0,0,6.283);g.fill('evenodd')}
-  if(s>.45)for(let i=0;i<STREAM.length;i+=3){const p=STREAM[i];if(!vis(p[0],p[1]))continue;R_(g,p[0]-6,p[1]-2,12,4,`rgba(150,128,92,${.8*(s-.4)})`)}
+ // mokradła wysychają w suszy (1.3.3: woda cofa się w obrębie lustra wody, brzegi i dopływy zostają widoczne; zimą lód — bez suszy), strumień płycieje
+ const s=cal.season()===3?0:clamp((HL.dry-.3)/.6,0,1),lvl=Math.round(s*4);
+ if(lvl>0){
+  WETLANDS.forEach((w,i)=>{if(!vis(w.x,w.y,200))return;const M=dryMask(i,lvl);g.drawImage(M.cv,M.x,M.y)});
+  if(s>.45)for(let i=0;i<STREAM.length;i+=3){const p=STREAM[i];if(!vis(p[0],p[1]))continue;R_(g,p[0]-3,p[1]-1,6,2,`rgba(150,128,92,${.6*(s-.4)})`)}
  }
  if(trapsOn())for(const [x,y] of traps()){if(!vis(x,y))continue;R_(g,x-1,y-8,2,9,'#5a4630');R_(g,x-3,y-12,6,5,'#d8c23a');R_(g,x-2,y-11,4,1,'#f4e68a');R_(g,x-3,y-7,6,2,'#3e7048')}
  if(HL.tower&&vis(TOWER.x,TOWER.y,80)){const {x,y}=TOWER;

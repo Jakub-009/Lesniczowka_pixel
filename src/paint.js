@@ -8,6 +8,18 @@ const vn=(u,v,z=5)=>{const x=Math.floor(u),y=Math.floor(v),fx=u-x,fy=v-y,sx=fx*f
  const a=hash(x,y,z),b=hash(x+1,y,z),c=hash(x,y+1,z),d=hash(x+1,y+1,z);return a+(b-a)*sx+(c-a)*sy+(a-b-c+d)*sx*sy};
 const rgb=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
 const mixc=(a,b,t)=>{const A=rgb(a),B=rgb(b);return`rgb(${Math.round(A[0]+(B[0]-A[0])*t)},${Math.round(A[1]+(B[1]-A[1])*t)},${Math.round(A[2]+(B[2]-A[2])*t)})`};
+// 1.3.3: susza na mokradle — lustro wody cofa się do środka w obrębie namalowanego kształtu wody (ta sama maska z szumem co przy malowaniu),
+// zamiast brązowej elipsy zasłaniającej brzegi i dopływy. Poziomy 1–4 liczone raz i trzymane w pamięci.
+const DRY={};
+export function dryMask(wi,lvl){
+ const k=wi+'_'+lvl;if(DRY[k])return DRY[k];
+ const W=WETLANDS[wi],nz=(x,y)=>1+.26*(vn(x/26,y/26,21)-.5)*2+.08*(vn(x/9,y/9,25)-.5),d=(x,y)=>Math.hypot((x-W.x)/W.rx,(y-W.y)/W.ry)/nz(x,y);
+ const x0=Math.floor(W.x-W.rx*.75),y0=Math.floor(W.y-W.ry*.75),[cv,g]=mk(Math.ceil(W.rx*1.5),Math.ceil(W.ry*1.5)),edge=.6*(1-.13*lvl);
+ for(let y=y0;y<y0+W.ry*1.5;y+=3)for(let x=x0;x<x0+W.rx*1.5;x+=3){const q=d(x,y);if(q>.6||q<=edge)continue;
+  const t=(q-edge)/(.6-edge);g.fillStyle=t>.55?mixc('#6e6a48','#7d7652',vn(x/8,y/8,31)):mixc('#5d6a52','#6a7458',vn(x/9,y/9,32));g.fillRect(x-x0,y-y0,3,3);
+  if(t>.4&&hash(x,y,33)<.06){g.fillStyle='#4e4a34';g.fillRect(x-x0,y-y0,3,1)}}   // spękany muł
+ return DRY[k]={x:x0,y:y0,cv};
+}
 // Ściółka: sosna — mech i borówki, świerk — ciemne igliwie, dąb/buk — opadłe liście.
 const FLOOR={'101':['#647a45','#7a8a50','#4d6c40'],'102':['#4b6040','#5d6b45','#3c523a'],'103':['#7d6c48','#8e7c52','#68744a'],'104':['#6b7f48','#7d8c52','#59703f'],'105':['#617846','#768650','#4f6a40'],
  '106':['#485c3e','#58673f','#3a4f38'],'107':['#68804a','#7a8c52','#566e40'],'108':['#6a7c46','#7e8c52','#55703f'],'109':['#7a6a46','#8c7a50','#66724a'],'110':['#72864c','#86955a','#5f7642']};
