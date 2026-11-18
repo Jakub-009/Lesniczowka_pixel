@@ -52,9 +52,10 @@ const MAXSTEER=.72;
 const SMALLV=new Set(['car','patrol','van','quad','cross','bike','police']);
 // 1.1.7: haczyk szlabanów (order.js) — zwraca true, gdy pojazd ma stać przed szlabanem albo za nim (otwieranie / zamykanie)
 export const VHOOK={gate:null};
+let VID=0;
 export class Vehicle{
  constructor(kind,o={}){
-  this.kind=kind;this.spec=VSPEC[kind];this.allow=o.allow||this.spec.allow||['main','forest'];
+  this.kind=kind;this.spec=VSPEC[kind];this.allow=o.allow||this.spec.allow||['main','forest'];this.vid=++VID;this.avoidT=0;this.avoidX=0;
   Object.assign(this,{color:o.color||'#8c9b95',v:0,laneX:0,travel:0,dwell:0,steer:0,route:null,final:false,stopS:null,park:false,parked:false,arrived:false,
    leave:false,dead:false,roam:o.roam||null,despawn:o.despawn??true,blockT:0,ghost:false,load:0,cap:o.cap||8,label:o.label||null,speedMul:1,stopped:false,off:null});
   this.setEdge(o.from,o.to);this.s=o.s||0;
@@ -103,6 +104,7 @@ export class Vehicle{
   // zawracanie w miejscu: tylko stojące małe auta i tylko gdy objazd byłby dużo dłuższy; ciężki sprzęt jedzie do skrzyżowania albo placu nawrotowego
   const small=SMALLV.has(this.kind)&&Math.abs(this.v)<3;
   const plan=planRoute(this.from,this.to,this.s,goal,this.allow,o.pen??(small?2500:6000));
+  this.lastGoal=[goal,o];   // 1.2.0: cel zapamiętany (np. powrót na trasę po objeździe szlabanu)
   this.parked=false;this.arrived=false;this.stopped=false;this.park=!!o.park;this.leave=!!o.leave;this.onArrive=o.onArrive||null;this.roam=null;
   if(!plan){this.stopS=this.s;this.final=true;return}
   if(plan.reverse){const s=this.len-this.s;this.setEdge(this.to,this.from);this.s=s}
@@ -141,7 +143,7 @@ export class Vehicle{
   return a[2]*b[2]+a[3]*b[3]<.9;
  }
  offRemaining(){const O=this.off,P=O.pts;let r=0;for(let k=O.i;k<P.length-1;k++){const L=Math.hypot(P[k+1][0]-P[k][0],P[k+1][1]-P[k][1]);r+=k===O.i?Math.max(0,L-O.t):L}return r}
- probe(){const h=this.heading,sp=this.spec,reach=14+this.v*.55,d=sp.hh+reach/2;return obb(this.pos[0]+Math.sin(h)*d,this.pos[1]-Math.cos(h)*d,Math.max(3,sp.hw*.7),reach/2,h)}
+ probe(extra=0){const h=this.heading,sp=this.spec,reach=14+this.v*.55+extra,d=sp.hh+reach/2;return obb(this.pos[0]+Math.sin(h)*d,this.pos[1]-Math.cos(h)*d,Math.max(3,sp.hw*.7),reach/2,h)}
  // Rzut pojazdu na trasę: postęp s na odcinku (albo na ścieżce w terenie); przejście na kolejny odcinek przy ścinaniu zakrętu.
  progress(){
   const [x,y]=this.pos;
@@ -171,11 +173,28 @@ export class Vehicle{
    if(VHOOK.gate&&!this.off&&VHOOK.gate(this,dt))target=0;
    if(target>0&&!this.off){
     const pr=this.probe();
-    for(const w of E.vehicles)if(w!==this&&!w.parked&&!w.dead&&!w.off&&(w.kind!=='bike'||this.kind==='bike')&&Math.cos(w.heading-this.heading)>.3&&collide(pr,w.shape)){blocked=true;break}
+    // 1.2.0 (etap A): stojące pojazdy (zaparkowane, pracujące w terenie, stojące u celu) objeżdżamy drugą połową drogi;
+    // pojazdy z boku (skrzyżowanie) też zatrzymują — przy wzajemnym blokowaniu pierwszeństwo ma szosa, potem kto pierwszy wjechał.
+    const still=w=>w.parked||w.off&&w.v<2||w.arrived&&w.v<1;
+    for(const w of E.vehicles){if(w===this||w.dead||!w.shape||(w.kind==='bike')!==(this.kind==='bike')&&w.kind==='bike')continue;
+     const c=Math.cos(w.heading-this.heading);
+     if(still(w)){
+      if(collide(this.probe(30),w.shape)){
+       // boczne położenie przeszkody względem nas; mijamy ją z lewej z odstępem, najdalej do lewego pobocza
+       const h=this.heading,dl=(w.pos[0]-this.pos[0])*Math.cos(h)+(w.pos[1]-this.pos[1])*Math.sin(h),L0=this.edge.lane+this.laneX,
+        L=Math.max(-(this.edge.w/2+8),L0+dl-(w.spec.hw+this.spec.hw+3));
+       const ax=L-this.edge.lane;if(this.avoidT<=0||ax<this.avoidX)this.avoidX=ax;this.avoidT=1.6}
+      if(!collide(pr,w.shape))continue;
+      if(this.avoidT>0&&this.laneX-this.avoidX>2)continue;   // jeszcze zmieniamy pas — nie hamujemy
+      if(this.avoidT>0&&this.avoidX<=-(this.edge.w/2+8)-this.edge.lane+.5)continue}   // ciasno: przeciskamy się obok stojącego
+     else{if(c<-.5)continue;   // nadjeżdżający z naprzeciwka — etap B
+      if(!collide(pr,w.shape))continue;
+      if(c<.3&&collide(w.probe(),this.shape)){const meMain=this.edge.kind==='main',wMain=w.edge&&w.edge.kind==='main';if(meMain&&!wMain||meMain===wMain&&this.vid<w.vid)continue}}
+     blocked=true;break}
     if(!blocked)for(const a of E.animals)if(a.big&&collide(pr,{shape:'circle',x:a.x,y:a.y,r:6})){blocked=true;break}
     if(!blocked)for(const p of E.people)if(!p.hidden&&collide(pr,{shape:'circle',x:p.x,y:p.y,r:4})){blocked=true;break}
     this.blockT=blocked?this.blockT+dt:0;
-    if(!this.ghost&&this.blockT>6){this.ghost=true;this.ghostT=0}
+    if(!this.ghost&&this.blockT>12){this.ghost=true;this.ghostT=0}   // 1.2.0: przenikanie tylko przy prawdziwym zakorkowaniu (12 s bez ruchu)
     if(this.ghost){this.ghostT+=dt;if(this.ghostT>3){this.ghost=false;this.blockT=0}}
     if(blocked&&!this.ghost)target=0;
    }
@@ -183,7 +202,8 @@ export class Vehicle{
   this.v+=clamp(target-this.v,-110*dt,this.spec.acc*dt);if(this.v<0)this.v=0;
   // zjazd na pobocze przy parkowaniu: przesunięcie pasa narasta przed miejscem postoju
   if(!this.off){const parkSoon=this.parked||(this.park&&this.final&&this.stopS!=null&&this.stopS-this.s<90);
-   const lx=parkSoon?this.edge.w/2+10-this.edge.lane:0;this.laneX+=clamp(lx-this.laneX,-22*dt,22*dt)}
+   if(this.avoidT>0)this.avoidT-=dt;
+   const lx=parkSoon?this.edge.w/2+10-this.edge.lane:this.avoidT>0?this.avoidX:0;this.laneX+=clamp(lx-this.laneX,-22*dt,22*dt)}
   // skręt (model rowerowy) i ruch do przodu
   if(this.v>.05){
    const [cx,cy]=this.carrot(),dd=Math.hypot(cx-this.pos[0],cy-this.pos[1]);
@@ -230,7 +250,7 @@ export class Vehicle{
   const k=this.kind,h=this.heading,t=this.travel;
   if(k==='car')S.carTop(ctx,x,y,h,this.color,t);
   else if(k==='patrol')S.patrolTop(ctx,x,y,h,t,this.beacon);
-  else if(k==='van')S.vanTop(ctx,x,y,h,t);
+  else if(k==='van')S.vanTop(ctx,x,y,h,t,this.bus?['#e8c23a','#2a2a26']:null);
   else if(k==='police')S.policeTop(ctx,x,y,h,t,this.beacon);
   else if(k==='waste')S.wasteTop(ctx,x,y,h,t);
   else if(k==='firetruck')S.fireTop(ctx,x,y,h,t,this.beacon);

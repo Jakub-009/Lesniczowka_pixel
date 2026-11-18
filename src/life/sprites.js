@@ -30,13 +30,15 @@ export function patrolTop(g,x,y,h,travel=0,beacon=false){
  });
 }
 // Bus ekipy leśnej: biały z pomarańczowym pasem.
-export function vanTop(g,x,y,h,travel=0){
+// 1.2.0: ten sam bus jako autobus szkolny — żółty z czarnym pasem i tabliczką „Dzieci” (pal: [kolor, pas])
+export function vanTop(g,x,y,h,travel=0,pal=null){
  orientedShadow(g,x,y,h,[[11,27,0]],12);
  drawRotated(g,x,y,h,s=>{
   wheels(s,[-10,10],[-17,17],5,10,travel);
-  rect(s,-11,-27,22,54,'#3b403d');rect(s,-10,-28,20,53,'#e9e7de');rect(s,-10,-28,20,2,'#ffffff');
+  rect(s,-11,-27,22,54,'#3b403d');rect(s,-10,-28,20,53,pal?pal[0]:'#e9e7de');rect(s,-10,-28,20,2,pal?'#f6e08a':'#ffffff');
   rect(s,-8,-25,16,8,'#5d8790');rect(s,-7,-24,14,3,'#a8c2c6');
-  rect(s,-10,-14,20,4,'#e07a1e');for(let k=-6;k<22;k+=7)rect(s,-8,k,16,1,'#d3d1c7');
+  rect(s,-10,-14,20,4,pal?pal[1]:'#e07a1e');for(let k=-6;k<22;k+=7)rect(s,-8,k,16,1,pal?'#c9a52a':'#d3d1c7');
+  if(pal){rect(s,-5,18,10,4,'#2a2a26');rect(s,-4,19,8,2,'#f2e14a')}
   rect(s,-6,-30,4,2,'#ecddb6');rect(s,2,-30,4,2,'#ecddb6');rect(s,-8,24,4,2,'#c2362b');rect(s,4,24,4,2,'#c2362b');
  });
 }

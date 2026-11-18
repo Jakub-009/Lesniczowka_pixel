@@ -5,7 +5,9 @@ import {hy,RESERVED} from './map.js';
 import {trees,removeTree,treesIn,STAND} from './forest.js';
 import {ECO,pay,earn,canAfford,bumpProtect} from './economy.js';
 import {mail} from './mail.js';
-import {Ped,rand} from './life/agents.js';
+import {Ped,Vehicle,rand} from './life/agents.js';
+import {ENTRY,goalNode,exitNode,nearestRoad} from './roads.js';
+import {HK2} from './life/populate.js';
 import {NAT} from './nest.js';
 import {sfx} from './sound.js';
 
@@ -39,20 +41,32 @@ export const visitDaily=()=>(repelOn()?VC.repelDay:0);
 // ───────── wycieczki ─────────
 const T={day:-1,at:null};
 const COATS=['#d8483a','#3a7ad8','#e0b83a','#4aa86a','#d87aa8','#8a5ad8','#e8803a'];
+// 1.2.0: wycieczka przyjeżdża żółtym autobusem szkolnym. Przy otwartych szlabanach autobus wjeżdża duktem najbliżej ścieżki
+// (ok. 220 px), przy zamkniętych staje w zatoczce przy szosie pod znakiem ścieżki (ok. 340 px lasem). Parking przy j2 jest
+// za daleko (ponad 1 km lasu), więc go nie używa. Dzieci z leśniczym idą od autobusu do ścieżki, przechodzą ją i wracają; autobus odjeżdża.
+const BUS_DUKT={x:2892,y:1152},BUS_ROAD={x:2890,y:1707};
 function spawnTour(){
- const x0=2880+rand()*30,y0=1660,n=8+((rand()*4)|0);
+ const n=8+((rand()*4)|0),inForest=!ECO.ord.bar,dst=inForest?BUS_DUKT:BUS_ROAD;
+ const rp=nearestRoad(dst.x,dst.y,inForest?['dukt']:['main']);if(!rp)return;
+ const bus=new Vehicle('van',{...ENTRY(false)});bus.bus=true;bus.label='autobus szkolny jedzie na ścieżkę przyrodniczą';
+ bus.goTo({edge:rp.edge,s:rp.s},{park:true,onArrive:v=>{v.label='autobus szkolny czeka na wycieczkę';tourFrom(v,n)}});
+ mail('nature','Autobus szkolny jedzie na ścieżkę przyrodniczą ('+n+' uczniów).',{x:dst.x,y:dst.y,quiet:true});
+}
+function tourFrom(bus,n){
+ const h=bus.heading,door=[bus.pos[0]-Math.cos(h)*16,bus.pos[1]-Math.sin(h)*16];
+ const [x0,y0]=door;let back=0;
+ const home=()=>{if(++back>=n+1&&!bus.dead){bus.label='autobus szkolny odjeżdża';bus.stopped=false;HK2.leave?HK2.leave(bus,bus.pos[0]):bus.goTo(goalNode(exitNode(bus.pos[0])),{leave:true})}};
  const guide=new Ped({kind:'lesniczy',x:x0,y:y0,speed:11.5});guide.label='leśniczy z wycieczką';
  const steps=(off,guideRole)=>{const s=[{go:[TRAIL[0][0]+off[0],TRAIL[0][1]+off[1]+8]}];
   BOARDS.forEach((b,i)=>{s.push({go:[b[0]+off[0]*.5,b[1]+off[1]*.5+(guideRole?10:6)]},{wait:guideRole?11:9+rand()*2,pose:'stand',face:[b[0],b[1]]})});
-  s.push({go:[TRAIL[0][0],TRAIL[0][1]+10]},{go:[x0+off[0],y0+off[1]]});return s};
+  s.push({go:[TRAIL[0][0],TRAIL[0][1]+10]},{go:[x0+off[0]*.4,y0+off[1]*.4]});return s};
  guide.run([...steps([0,0],true),{call:q=>{q.dead=true;vs().tours++;vs().kids+=n;
    earn(VC.tourFee,'wycieczka szkolna po ścieżce przyrodniczej');bumpProtect(1.2,'wycieczka szkolna');
    mail('nature','Wycieczka szkolna zakończona: '+n+' uczniów. Szkoła wpłaciła '+zl(VC.tourFee)+'.',{x:2900,y:1330,quiet:true});
-   NAT.log.unshift({day:state.days,text:'Szkolna wycieczka na ścieżce przyrodniczej ('+n+' uczniów).',x:2900,y:1330});if(NAT.log.length>40)NAT.log.length=40}}]);
+   NAT.log.unshift({day:state.days,text:'Szkolna wycieczka na ścieżce przyrodniczej ('+n+' uczniów).',x:2900,y:1330});if(NAT.log.length>40)NAT.log.length=40;home()}}]);
  for(let i=0;i<n;i++){
-  const off=[(rand()-.5)*26,(rand()-.5)*20+14],p=new Ped({kind:'walker',x:x0+off[0],y:y0+8+rand()*10,speed:10.5+rand()*1.6,coat:COATS[i%COATS.length],cap:COATS[(i+3)%COATS.length]});
-  p.label='uczeń na wycieczce';p.run([...steps(off,false),{call:q=>{q.dead=true}}])}
- mail('nature','Wycieczka szkolna na ścieżce ('+n+' uczniów).',{x:x0,y:y0-20,quiet:true});
+  const off=[(rand()-.5)*26,(rand()-.5)*20+14],p=new Ped({kind:'walker',x:x0+(rand()-.5)*6,y:y0+(rand()-.5)*6,speed:10.5+rand()*1.6,coat:COATS[i%COATS.length],cap:COATS[(i+3)%COATS.length]});
+  p.label='uczeń na wycieczce';p.run([{wait:i*.35},...steps(off,false),{call:q=>{q.dead=true;home()}}])}
 }
 export function updateVisit(dt){
  if(!trailOn())return;

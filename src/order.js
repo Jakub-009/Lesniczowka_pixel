@@ -245,6 +245,7 @@ function gateMan(G,v,close){
  p.run([{go:[G.b.x,G.b.y]},{wait:1.4,pose:'stand',face:[G.rx,G.ry]},{call:()=>{G.held=!close}},{go:[dx,dy]},{call:q=>{q.dead=true;if(G.man===q)G.man=null;if(close&&v.gClose===G)v.gClose=null}}]);
 }
 function gateHook(v,dt){
+ if((v.kind==='quad'||v.kind==='cross')&&!v.off&&ECO.ord.bar)return bypass(v);
  if(FREE.has(v.kind)||v.dead||v.intruder||v.roam)return false;   // intruz omija szlaban duktem; ruch tranzytowy jeździ tylko szosą
  const closedSet=ECO.ord.bar;let stop=false;
  for(const G of GATES){
@@ -308,3 +309,21 @@ export function leaveOut(v,x){
 const TURNQ=[];
 function turnQueue(){for(let i=TURNQ.length-1;i>=0;i--){const [v,x]=TURNQ[i];if(v.dead){TURNQ.splice(i,1);continue}if(!E.vehicles.some(w=>w!==v&&!w.dead&&w.uturn&&w.edge===v.edge)){TURNQ.splice(i,1);leaveOut(v,x)}}}
 HK2.leave=leaveOut;
+
+// ───────── 1.2.0: quady i crossy objeżdżają zamknięty szlaban lasem (obok wolnego końca rury) ─────────
+function bypass(v){
+ for(const G of GATES){
+  const d=Math.hypot(v.pos[0]-G.rx,v.pos[1]-G.ry);
+  if(v.byp===G){if(d>150)v.byp=null;continue}
+  if(d>70||G.k<.5)continue;
+  const ahead=gateAhead(v,G);if(ahead==null||ahead>55)continue;
+  const g=barGeo(G.b),[bx,by]=g.B,[ax,ay]=g.A;let ux=bx-ax,uy=by-ay;const ul=Math.hypot(ux,uy)||1;ux/=ul;uy/=ul;
+  const h=v.heading,f=[Math.sin(h),-Math.cos(h)],P=(o,a)=>[bx+ux*o+f[0]*a,by+uy*o+f[1]*a];
+  v.byp=G;const roam=v.roam,goal=v.lastGoal;
+  v.driveOff([P(10,-26),P(16,-6),P(16,8),P(8,26)],{onArrive:q=>{
+   if(!roam&&goal)q.goTo(goal[0],goal[1]);else{q.rejoin();q.arrived=false;q.final=false;q.stopS=null;q.route=null;q.roam=roam||['forest','dukt']}}});
+  v.label=(v.kind==='quad'?'quad':'motocykl crossowy')+' objeżdża szlaban lasem';
+  return false;
+ }
+ return false;
+}
