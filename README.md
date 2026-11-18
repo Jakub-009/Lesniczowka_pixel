@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 1.4.0** („Czytelne okna” + trwały zapis i porządek HUD-u). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 1.4.1** („Czytelne okna” + trwały zapis i porządek HUD-u). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -228,6 +228,9 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
+
+## Zmiany w 1.4.1
+- Reflektory nocą: zamiast jednego trójkątnego snopa ze środka — dwa owalne snopy z obu reflektorów, lekko rozchodzące się na boki. Ciężarówki i maszyny świecą dalej niż osobówki.
 
 ## Zmiany w 1.4.0 „Wywóz i intruzi”
 - **Dwie ciężarówki z żurawiem HDS.** *BDF* (bordowa kabina, kłonice wzdłuż ramy, żuraw z tyłu) przyjeżdża już od 5 m³, jest szybsza, częściej odbiera i jako jedyna wjeżdża na dukty. *Dłużyca* (granatowa kabina, czerwony żuraw za kabiną) przyjeżdża, gdy przy drogach leśnych leży ponad 20 m³; pusta wozi wózek do dłużycy złożony na ramie, przy pierwszym stosie zdejmuje go żurawiem i podpina z tyłu. Ręczne „Zamów wywóz” na karcie stosu wysyła wolną BDF, a gdy jest w drodze — dłużycę.

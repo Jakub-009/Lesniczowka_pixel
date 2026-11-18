@@ -99,9 +99,11 @@ function nightLayer(){
  // światła: okna leśniczówki, reflektory pojazdów
  ctx.save();ctx.globalCompositeOperation='lighter';ctx.translate(-Math.floor(camera.x),-Math.floor(camera.y));
  ctx.fillStyle=`rgba(255,200,110,${dark*.35})`;ctx.beginPath();ctx.arc(HOUSE.x+40,HOUSE.y+HOUSE.h+8,22,0,6.28);ctx.arc(HOUSE.x+120,HOUSE.y+HOUSE.h+6,18,0,6.28);ctx.fill();
- for(const v of E.vehicles){if(v.kind==='bike'||v.dark||(v.parked&&!v.beacon)||!vis(v.pos[0],v.pos[1],140))continue;const [x,y]=v.pos,hd=v.heading,fx=Math.sin(hd),fy=-Math.cos(hd),L=v.spec.hh,R=95;
-  const g=ctx.createRadialGradient(x+fx*L,y+fy*L,4,x+fx*(L+R*.5),y+fy*(L+R*.5),R*.7);g.addColorStop(0,`rgba(255,240,190,${dark*.38})`);g.addColorStop(1,'rgba(255,240,190,0)');
-  ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(x+fx*L,y+fy*L);ctx.lineTo(x+fx*(L+R)-fy*30,y+fy*(L+R)+fx*30);ctx.lineTo(x+fx*(L+R)+fy*30,y+fy*(L+R)-fx*30);ctx.closePath();ctx.fill();
+ // 1.4.1: dwa reflektory — dwa owalne snopy z przednich narożników, lekko rozchodzące się na boki; większy pojazd świeci dalej
+ for(const v of E.vehicles){if(v.kind==='bike'||v.dark||(v.parked&&!v.beacon)||!vis(v.pos[0],v.pos[1],160))continue;const [x,y]=v.pos,hd=v.heading,L=v.spec.hh,hw=v.spec.hw,R=58+L*1.25,Rl=R*.5,Rw=R*.15+3;
+  for(const sd of [-1,1]){ctx.save();ctx.translate(x,y);ctx.rotate(hd);ctx.translate(sd*Math.max(2,hw-3),-L+1);ctx.rotate(sd*.2);ctx.translate(0,-Rl*.92);ctx.scale(Rw/Rl,1);
+   const g=ctx.createRadialGradient(0,Rl*.62,2,0,Rl*.1,Rl);g.addColorStop(0,`rgba(255,240,190,${dark*.3})`);g.addColorStop(.55,`rgba(255,236,180,${dark*.14})`);g.addColorStop(1,'rgba(255,236,180,0)');
+   ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,Rl,0,6.283);ctx.fill();ctx.restore()}
   if(v.beacon){ctx.fillStyle=`rgba(255,170,40,${dark*.4})`;ctx.beginPath();ctx.arc(x,y,16,0,6.28);ctx.fill()}}
  for(const t of E.trash)if(t.fire&&!t.dead&&vis(t.x,t.y)){ctx.fillStyle=`rgba(255,120,40,${dark*.5})`;ctx.beginPath();ctx.arc(t.x,t.y,14+t.grow*18,0,6.28);ctx.fill()}
  ctx.restore();return dark;
