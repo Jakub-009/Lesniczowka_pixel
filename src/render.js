@@ -9,7 +9,7 @@ import {E} from './ents.js';
 import {drawGroundItems,drawRopes,J} from './jobs.js';
 import {drawBase} from './base.js';
 import {drawHealth,drawWeather} from './health.js';
-import {drawFeeders,drawCarcasses} from './life/fauna.js';
+import {drawFeeders} from './life/fauna.js';
 import {AMB} from './life/ambony.js';
 import {birds} from './life/sprites.js';
 import {drawNature} from './nature.js';
@@ -134,15 +134,13 @@ export function drawWorld(){
  drawMailbox(ctx,unreadMail()>0,cal.season()===3);
  drawOrder(ctx,cal.season()===3);drawVisitGround(ctx,camera,VIEW);
  drawForest(ctx,camera,VIEW.w,VIEW.h,'low');
- drawBase(ctx);drawHealth(ctx);drawTrash();drawCarcasses(ctx);drawFences(ctx);drawGroundItems(ctx);drawLying();
+ drawBase(ctx);drawHealth(ctx);drawTrash();drawFeeders(ctx);drawFences(ctx);drawGroundItems(ctx);drawLying();
  for(const a of E.animals)if(!a.dead)a.draw();
  for(const p of E.people)if(!p.onStand)p.draw();
  for(const v of E.vehicles)if(!v.dead)v.draw();
  drawRopes(ctx);
- drawForest(ctx,camera,VIEW.w,VIEW.h,'high');
- // 1.2.1: ambony i paśniki nad koronami — stoją w stałych miejscach w lesie i wcześniej część z nich była całkiem zakryta
- drawFeeders(ctx);
- for(const a of AMB.list)if(a.x>camera.x-60&&a.x<camera.x+VIEW.w+60&&a.y>camera.y-60&&a.y<camera.y+VIEW.h+60)drawAmbona(ctx,a.x,a.y);for(const p of E.people)if(p.onStand)p.draw();prefetchForest(camera,VIEW.w,VIEW.h,3);if(!prefDone)prefDone=prefetchAll(4);
+ for(const a of AMB.list)if(a.x>camera.x-60&&a.x<camera.x+VIEW.w+60&&a.y>camera.y-60&&a.y<camera.y+VIEW.h+60)drawAmbona(ctx,a.x,a.y);for(const p of E.people)if(p.onStand)p.draw();
+ drawForest(ctx,camera,VIEW.w,VIEW.h,'high');prefetchForest(camera,VIEW.w,VIEW.h,3);if(!prefDone)prefDone=prefetchAll(4);
  // prześwit: zwierzęta i ludzie pod koronami widoczni jako półprzezroczyste sylwetki
  if(SETTINGS.ghosts){ctx.globalAlpha=.5;for(const a of E.animals)if(!a.dead)a.draw();for(const p of E.people)if(!p.onStand)p.draw();for(const v of E.vehicles)if(v.off&&!v.dead)v.draw();ctx.globalAlpha=1}
  drawFire();drawFalling();drawParticles();drawPlots(ctx,state.selected);drawMarkers();

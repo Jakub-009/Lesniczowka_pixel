@@ -149,7 +149,6 @@ function seasonEnd(){
 }
 
 // ── rysowanie: paśniki (z poziomem siana) i upolowana zwierzyna ──
-// 1.2.1: paśniki rysuje render.js nad koronami drzew (wcześniej ginęły pod nimi); zwierzyna zostaje pod koronami
 const rect=(g,x,y,w,h,c)=>{g.fillStyle=c;g.fillRect(Math.round(x),Math.round(y),w,h)};
 export function drawFeeders(g){
  const snow=winter();
@@ -161,9 +160,6 @@ export function drawFeeders(g){
   rect(g,px+20,py+5,5,5,'#ded8cc');rect(g,px+21,py+6,3,3,'#f4efe6');   // lizawka
   if(snow&&f.level<.22){rect(g,px-2,py-18,4,6,'#e0704f');rect(g,px-2,py-10,4,2,'#e0704f')}
  }
-}
-// 1.2.1: upolowana zwierzyna osobno — leży pod koronami; paśniki rysowane nad koronami, żeby nie ginęły w lesie
-export function drawCarcasses(g){
  for(const c of FA.carcasses){if(c.dead)continue;const s=c.kind==='deer'?1.4:c.kind==='boar'?1.1:1;
   g.save();g.translate(Math.round(c.x),Math.round(c.y));g.rotate(c.a);
   rect(g,-8*s,-3*s,16*s,6*s,'#2a2420');rect(g,-7*s,-2*s,14*s,4*s,c.kind==='boar'?'#4a3e34':c.kind==='deer'?'#6b4630':'#8d5f3e');rect(g,6*s,-1,3*s,2,'#3a2e24');
