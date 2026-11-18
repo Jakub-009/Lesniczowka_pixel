@@ -135,7 +135,9 @@ function scheduleHunters(h,se,we,dayN){
 // Polowanie zbiorowe (0.6): jesienią i zimą w sobotę. Linia myśliwych przy drodze, naganka przechodzi oddział i wypędza
 // zwierzynę na linię. Na koniec pokot — podsumowanie pozyskania.
 const DRIVES=[
- {odd:'106',road:'j2-b1',line:[[1740,1200],[1740,1650]],beat:[[2110,1200],[2110,1650]]},
+ // 1.3.2: po przebudowie mapy (0.9) linia w 106 leżała na samej drodze j2-b1, przy autach — teraz stanowiska stoją ok. 50 px w lesie
+ // na wschód od drogi, a naganka rusza spod polany (x 2080) i podchodzi na ok. 50 px przed linię
+ {odd:'106',road:'j2-b1',line:[[1792,1240],[1792,1610]],beat:[[2080,1240],[2080,1610]]},
  {odd:'102',road:'a1-b1',line:[[1300,930],[1700,930]],beat:[[1300,650],[1700,650]]}
 ];
 const lerp=(A,B,t)=>[A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t];
