@@ -1,7 +1,7 @@
 // Porządek w lesie (0.8.2, przerobiony w 0.8.3): dzikie wysypiska i firma wywozowa, Policja wzywana na miejscu zdarzenia, fotopułapki, szlabany z rury i zatoka parkingowa.
 import {state,toast,cal,clamp,rect,line,DAY_S,zl,hash,camera,VIEW,WORLD} from './core.js';
 import {EDGES,BARRIERS,oddzial,roadClearance,ptAt,hy} from './map.js';
-import {ENTRY,exitNode,goalNode,nearestRoad,pointOn,edgeOf} from './roads.js';
+import {ENTRY,exitNode,goalNode,nearestRoad,pointOn,edgeOf,ROUTE} from './roads.js';
 import {E,NAV} from './ents.js';
 import {Vehicle,Ped,rand,VHOOK} from './life/agents.js';
 import {ECO,pay,earn,canAfford,bumpProtect,planProgress} from './economy.js';
@@ -42,7 +42,7 @@ const forestEdges=()=>EDGES.filter(e=>e.kind==='forest'&&e.a!=='l1'&&e.b!=='l1'&
 export function spawnDump(){
  // 1.1.7: przy zamkniętych szlabanach wysypisko powstaje przed szlabanem, na poboczu dojazdu
  const vg=ECO.ord.bar?vergeSpot():null,E2=forestEdges(),e=vg?vg.e:E2[Math.floor(rand()*E2.length)],s=vg?vg.s:60+rand()*(e.len-120);
- const car=new Vehicle('car',{...ENTRY(rand()<.5),color:'#6a6a64'});car.dark=true;car.label='samochód z przyczepą';
+ const car=new Vehicle('car',{...ENTRY(rand()<.5),color:'#6a6a64'});car.dark=true;car.pub=true;car.label='samochód z przyczepą';
  car.goTo({edge:e,s},{park:true,onArrive:v=>{
   const h=v.heading,cx=v.pos[0]+Math.cos(h)*18,cy=v.pos[1]+Math.sin(h)*18;
   const side=rand()<.5?1:-1;let sx=cx+Math.cos(h+1.57*side)*30,sy=cy+Math.sin(h+1.57*side)*30;
@@ -51,7 +51,7 @@ export function spawnDump(){
   p.run([{go:[sx,sy]},{wait:9,pose:'kneel'},{call:()=>{
     const d={x:sx,y:sy,kind:'dump',dead:false,seed:Math.floor(rand()*1e4),t:0,report:camsOn()?2:25+rand()*30};E.trash.push(d);
     if(camsOn()){earn(450,'mandat — nagranie z fotopułapki');bumpProtect(2,'mandat z fotopułapki');mail('dump','Fotopułapka przy wjeździe nagrała sprawcę wysypiska w '+odd(sx,sy)+': mandat 450 zł.',{x:sx,y:sy,quiet:true})}}},
-   {go:[cx,cy]},{call:q=>{q.dead=true;v.label='odjeżdża';v.goTo(goalNode(exitNode(v.pos[0])),{leave:true})}}]);
+   {go:[cx,cy]},{call:q=>{q.dead=true;v.label='odjeżdża';leaveOut(v,v.pos[0])}}]);
   v.label='samochód z przyczepą (rozładunek)';
  }});
 }
@@ -258,6 +258,7 @@ function gateHook(v,dt){
    continue}
   if(!closedSet||v.gDone===G)continue;
   const a=gateAhead(v,G);if(a==null||a>60)continue;
+  if(v.pub&&outside(v)){if(!v.turning){v.turning=true;leaveOut(v,v.pos[0])}stop=true;continue}   // 1.1.8: odwiedzający nie otwierają szlabanu — zawracają
   if(G.held&&G.k<.06&&!G.man){G.wait.delete(v);G.users.add(v);continue}
   G.wait.add(v);if(!G.held&&!G.man)gateMan(G,v,false);stop=true;
  }
@@ -273,8 +274,37 @@ function updateGates(dt){
   const tg=ECO.ord.bar&&!G.held&&G.emerg<=0?1:0;G.k+=clamp(tg-G.k,-dt*.6,dt*.6);
  }
  for(const v of E.vehicles)if(v.gClose&&(v.dead||!GATES.some(G=>G.man&&v.gClose===G)))v.gClose=null;
+ if(TURNQ.length)turnQueue();
 }
 VHOOK.gate=gateHook;
 // miejsca przed szlabanami dla aut odwiedzających (pobocze), gdy szlaban zamknięty, a na parkingu nie ma miejsca
 export const VERGE=[{e:'j1-a3',s:[262,226]},{e:'j2-b1',s:[150,104]}].flatMap(o=>{const e=EDGES.find(q=>q.id===o.e);return o.s.map(s=>({e,s,car:null}))});
 export function vergeSpot(){const f=VERGE.filter(q=>!q.car||q.car.dead||q.car.leave);return f.length?f[Math.floor(rand()*f.length)]:null}
+
+// ───────── 1.1.8: odjazd odwiedzających przy zamkniętych szlabanach ─────────
+// Auto stojące przed szlabanem (parking, pobocze, podjazd do kancelarii) wraca do szosy tą samą drogą: z zatoki zawraca łukiem
+// przez parking, z pobocza — na drodze. Trasa omija odcinki ze szlabanami. Kto był w lesie przed zamknięciem, wyjeżdża przez szlaban (otwiera).
+const GATE_EDGES=new Set(GATES.map(G=>G.edge));
+function outside(v){
+ for(const G of GATES){if(v.edge!==G.edge)continue;const pos=v.from===G.edge.a?v.s:v.len-v.s;return pos<G.s}
+ const e=v.edge;return e.kind==='main'||['j1-a3','a3-l1','j2-b1'].includes(e.id)||e.a==='l1'||e.b==='l1';
+}
+function uturnPts(v){
+ if(!['j1-a3','j2-b1'].includes(v.edge.id))return null;   // zawracanie łukiem tylko na dojazdach z zatoką / poboczem
+ if(v.to==='j1'||v.to==='j2')return null;   // już przodem do szosy
+ const rp=nearestRoad(v.pos[0],v.pos[1],['forest']),dx=rp.x-v.pos[0],dy=rp.y-v.pos[1],dd=Math.hypot(dx,dy),h=v.heading,f=[Math.sin(h),-Math.cos(h)];
+ let l=dd>3?[dx/dd,dy/dd]:[-Math.cos(h),-Math.sin(h)];l=[l[0]-f[0]*(l[0]*f[0]+l[1]*f[1]),l[1]-f[1]*(l[0]*f[0]+l[1]*f[1])];const ln=Math.hypot(l[0],l[1])||1;l=[l[0]/ln,l[1]/ln];   // w stronę środka drogi
+ const d=Math.min(60,dd)+7,P=(a,b)=>[v.pos[0]+f[0]*a+l[0]*b,v.pos[1]+f[1]*a+l[1]*b];
+ return [P(10,d*.25),P(14,d*.6),P(10,d+2),P(2,d+5),P(-8,d+6)];
+}
+export function leaveOut(v,x){
+ const goal=goalNode(exitNode(x??v.pos[0]));
+ if(!ECO.ord.bar||!outside(v)){v.goTo(goal,{leave:true});return}
+ const go=q=>{ROUTE.ban=GATE_EDGES;try{q.goTo(goal,{leave:true,pen:300})}finally{ROUTE.ban=null}q.turning=false};
+ const pts=uturnPts(v);
+ if(pts){if(E.vehicles.some(w=>w!==v&&!w.dead&&w.uturn&&w.edge===v.edge)){TURNQ.push([v,x]);return}   // jedno auto naraz zawraca na danym dojeździe
+  v.stopped=false;v.uturn=true;v.driveOff(pts,{onArrive:()=>{v.uturn=false;go(v)}})}else go(v);
+}
+const TURNQ=[];
+function turnQueue(){for(let i=TURNQ.length-1;i>=0;i--){const [v,x]=TURNQ[i];if(v.dead){TURNQ.splice(i,1);continue}if(!E.vehicles.some(w=>w!==v&&!w.dead&&w.uturn&&w.edge===v.edge)){TURNQ.splice(i,1);leaveOut(v,x)}}}
+HK2.leave=leaveOut;

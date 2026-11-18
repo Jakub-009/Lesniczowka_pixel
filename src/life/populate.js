@@ -44,21 +44,21 @@ FH.wolves=()=>{
  addPack(g,(kind,x,y,G,o={})=>new Wild({kind,x:x+(rand()-.5)*40,y:y+(rand()-.5)*40,seed:seed++,group:G,...o}));
 };
 // ───────── goście w lesie ─────────
-export const HK2={free:()=>-1,edge:null,approach:()=>0,park:null,reserve:null,verge:()=>null};   // ustawiane przez order.js (bez cyklu importów)
+export const HK2={free:()=>-1,edge:null,approach:()=>0,park:null,reserve:null,verge:()=>null,leave:null};   // ustawiane przez order.js (bez cyklu importów)
 const T={car:3,pick:6,walk:14,bike:20,hunt:0,huntDay:-1};
 const forestEdges=()=>EDGES.filter(e=>e.kind==='forest'&&e.b!=='l1'&&e.a!=='l1');
 function sideSpot(v,dist){const h=v.heading,sgn=rand()<.5?1:1;return[v.pos[0]+Math.cos(h)*dist*sgn,v.pos[1]+Math.sin(h)*dist*sgn]}
 function spawnFrom(kind,o={}){const w=rand()<.5;return new Vehicle(kind,{...ENTRY(w),...o})}
-function leaveMap(v){v.goTo(goalNode(exitNode(v.pos[0]+(rand()-.5)*1200)),{leave:true})}
+function leaveMap(v){if(v.pub&&HK2.leave){HK2.leave(v,v.pos[0]+(rand()-.5)*1200);return}v.goTo(goalNode(exitNode(v.pos[0]+(rand()-.5)*1200)),{leave:true})}
 // Grzybiarze: przyjeżdżają autem, parkują na poboczu, chodzą z koszykiem po lesie i wracają (czasem zostawiają śmieci).
 export function spawnPickers(berry){
  // jagody: bory sosnowe (101, 104, 107, 108); grzyby: wszędzie
  const E2=berry?EDGES.filter(e=>['a3-a1','a1-b1','j2-b1'].includes(e.id)):forestEdges(),who=berry?'zbieracze jagód':'grzybiarze';
  // 1.1.7: przy zamkniętych szlabanach nikt z odwiedzających nie wjeżdża za szlaban: parking, a gdy pełny — pobocze przed szlabanem; bez miejsca rezygnują
- const shut=!!ECO.ord.bar,bay=shut||rand()<.6?HK2.free():-1,vg=shut&&bay<0?HK2.verge():null;   // 0.8.3: część odwiedzających parkuje w zatoce przy drodze (gdy jest zbudowana)
+ const shut=!!ECO.ord.bar,bay=shut||rand()<.6?HK2.free():-1,vg=shut&&bay<0&&!ECO.ord.parking?HK2.verge():null;   // 1.1.8: z parkingiem tylko parking (pełny — rezygnują); bez parkingu pobocze przed szlabanem   // 0.8.3: część odwiedzających parkuje w zatoce przy drodze (gdy jest zbudowana)
  if(shut&&bay<0&&!vg)return;
  const e=bay>=0?HK2.edge(bay):vg?vg.e:pick(E2),s=bay>=0?HK2.approach(bay):vg?vg.s:60+rand()*(e.len-120);
- const car=spawnFrom('car',{color:pick(CAR_COLS)});car.label=who;if(bay>=0)HK2.reserve(bay,car);if(vg)vg.car=car;
+ const car=spawnFrom('car',{color:pick(CAR_COLS)});car.label=who;car.pub=true;if(bay>=0)HK2.reserve(bay,car);if(vg)vg.car=car;
  const walk=(v,cx,cy)=>{
   const n=1+(rand()<.55?1:0);let back=0;
   for(let i=0;i<n;i++){

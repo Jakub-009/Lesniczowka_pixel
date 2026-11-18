@@ -12,6 +12,7 @@ import {trees,treesIn,removeTree} from './forest.js';
 import {ECO,pay,earn,canAfford,bumpProtect,ledCount} from './economy.js';
 import {J,COST,PRICE,opalStack,takeFromStack,hireCrewB,fireCrewB,buyForwarder,MACH} from './jobs.js';
 import {U,hirePod,firePod,report} from './incidents.js';
+import {HK2} from './life/populate.js';
 import {sfx} from './sound.js';
 
 export const BASE={nursery:false,garage:false,queue:[],next:0,opalPiles:[],stats:{visits:0,opal:0,opalVol:0,permits:0,seedlings:0,missed:0},log:[]};
@@ -61,7 +62,7 @@ function spawnVisitor(){
  const busy=BASE.queue.length+E.people.filter(p=>p.petent&&!p.dead).length;if(busy>=2)return;
  const se=cal.season(),r=rand(),nur=BASE.nursery&&ECO.nursery.stock>=120;
  const kind=r<[.3,.15,.5,.55][se]?'opal':r<.62?'permit':nur&&r<.82?'seed':'report';
- const w=rand()<.5,v=new Vehicle('car',{...ENTRY(w),color:pickA(CAR_COLS)});v.label='petent jedzie do kancelarii';
+ const w=rand()<.5,v=new Vehicle('car',{...ENTRY(w),color:pickA(CAR_COLS)});v.label='petent jedzie do kancelarii';v.pub=true;
  const s=VIS_EDGE.len-36-(E.vehicles.filter(q=>q.petentCar&&!q.dead).length%2)*52;v.petentCar=true;
  v.goTo({edge:VIS_EDGE,s},{park:true,onArrive:car=>{
   const h=car.heading,cx=car.pos[0]+Math.sin(h)*16,cy=car.pos[1]-Math.cos(h)*16;
@@ -73,7 +74,7 @@ function spawnVisitor(){
 }
 function leave(p,msg){
  p.done=true;BASE.queue=BASE.queue.filter(q=>q!==p);if(msg)note(msg);
- p.run([{go:[YARD.x+YARD.w+6,(YARD.gate[0]+YARD.gate[1])/2]},{go:p.car.dead?[YARD.x+YARD.w+40,(YARD.gate[0]+YARD.gate[1])/2]:[p.car.pos[0]+Math.sin(p.car.heading)*16,p.car.pos[1]-Math.cos(p.car.heading)*16]},{call:q=>{q.dead=true;if(!p.car.dead){p.car.label='petent odjeżdża';p.car.goTo(goalNode(exitNode(rand()*3600)),{leave:true})}}}]);
+ p.run([{go:[YARD.x+YARD.w+6,(YARD.gate[0]+YARD.gate[1])/2]},{go:p.car.dead?[YARD.x+YARD.w+40,(YARD.gate[0]+YARD.gate[1])/2]:[p.car.pos[0]+Math.sin(p.car.heading)*16,p.car.pos[1]-Math.cos(p.car.heading)*16]},{call:q=>{q.dead=true;if(!p.car.dead){p.car.label='petent odjeżdża';HK2.leave?HK2.leave(p.car,rand()*3600):p.car.goTo(goalNode(exitNode(rand()*3600)),{leave:true})}}}]);
 }
 function serve(u,p){
  const r=u.person;p.serving=u;r.busyOffice=true;r.hidden=false;

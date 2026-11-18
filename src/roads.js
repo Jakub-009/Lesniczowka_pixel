@@ -16,11 +16,13 @@ const live=(k,allow)=>ADJ[k].filter(q=>allow.includes(q.edge.kind)).length;
 const turnCost=(k,allow,tc)=>{const n=live(k,allow);return n<=1?0:n>=3?tc:null};
 
 // Dijkstra po stanach (węzeł, skąd przyjechał): nie wolno wrócić tym samym odcinkiem, chyba że to ślepy koniec drogi.
+// 1.1.8: odcinki, którymi trasa nie może prowadzić (np. przez zamknięty szlaban — odwiedzający zawracają); ustawiane na czas jednego planowania
+export const ROUTE={ban:null};
 function dijkstra(src,prevNode,allow,tc){
  const dist=new Map(),prev=new Map(),done=new Set(),K=(n,p)=>n+'|'+p;dist.set(K(src,prevNode),0);
  for(let guard=0;guard<20000;guard++){let u=null,b=1e9;for(const [k,d] of dist)if(!done.has(k)&&d<b){b=d;u=k}
   if(!u)break;done.add(u);const [n,p]=u.split('|');
-  for(const q of ADJ[n]){if(!allow.includes(q.edge.kind))continue;let extra=0;if(q.to===p){const t=turnCost(n,allow,tc);if(t==null)continue;extra=t}
+  for(const q of ADJ[n]){if(!allow.includes(q.edge.kind)||ROUTE.ban&&ROUTE.ban.has(q.edge))continue;let extra=0;if(q.to===p){const t=turnCost(n,allow,tc);if(t==null)continue;extra=t}
    const k=K(q.to,n),d=b+q.edge.len+extra+(q.edge.blocked?4000:0);if(d<(dist.get(k)??1e9)){dist.set(k,d);prev.set(k,u)}}}
  return{dist,prev};
 }
@@ -54,6 +56,7 @@ export function planRoute(from,to,s,goal,allow=ALL,pen=6000){
   best={c:s-sAlong+pen,reverse:true,nodes:[],stopS:L-sAlong};
  }
  for(const [n0,p0,c0,rev] of [[to,from,L-s,false],[from,to,s+pen,true]]){
+  if(!rev&&ROUTE.ban&&ROUTE.ban.has(cur))continue;   // jazda dalej przez zakazany odcinek — tylko zawrócenie
   const D=dijkstra(n0,p0,allow,tc);
   for(const [gx,gy,last] of [[G.a,G.b,sg],[G.b,G.a,G.len-sg]]){
    if(!allow.includes(G.kind))continue;
