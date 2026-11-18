@@ -10,9 +10,9 @@ import {pileTop} from './life/sprites.js';
 import {outlinedDraw,text3} from './sprite.js';
 import {trees,treesIn,removeTree} from './forest.js';
 import {ECO,pay,earn,canAfford,bumpProtect,ledCount} from './economy.js';
-import {J,COST,PRICE,opalStack,takeFromStack,buyForwarder,MACH} from './jobs.js';
+import {J,COST,PRICE,opalStack,takeFromStack,buyForwarder,MACH,truckBusy} from './jobs.js';
 import {U,hirePod,firePod,report} from './incidents.js';
-import {HK2} from './life/populate.js';
+import {HK2,chrustNear} from './life/populate.js';
 import {sfx} from './sound.js';
 
 export const BASE={nursery:false,garage:false,queue:[],next:0,opalPiles:[],stats:{visits:0,opal:0,opalVol:0,permits:0,seedlings:0,missed:0},log:[]};
@@ -59,7 +59,9 @@ function spawnVisitor(){
  const busy=BASE.queue.length+E.people.filter(p=>p.petent&&!p.dead).length;if(busy>=2)return;
  const se=cal.season(),r=rand(),nur=BASE.nursery&&ECO.nursery.stock>=120;
  const kind=r<[.3,.15,.5,.55][se]?'opal':r<.62?'permit':nur&&r<.82?'seed':'report';
- const w=rand()<.5,v=new Vehicle('car',{...ENTRY(w),color:pickA(CAR_COLS)});v.label='petent jedzie do kancelarii';v.pub=true;
+ // 1.4.0: po zezwolenie na chrust przyjeżdża się osobówką z przyczepką, gdy przy drogach leży chrust (zbierze go od razu)
+ const chr=kind==='permit'&&!ECO.ord.bar&&chrustNear().length>0;
+ const w=rand()<.5,v=new Vehicle(chr?'carT':'car',{...ENTRY(w),color:pickA(CAR_COLS)});v.label='petent jedzie do kancelarii';v.pub=true;
  const s=VIS_EDGE.len-36-(E.vehicles.filter(q=>q.petentCar&&!q.dead).length%2)*52;v.petentCar=true;
  v.goTo({edge:VIS_EDGE,s},{park:true,onArrive:car=>{
   const h=car.heading,cx=car.pos[0]+Math.sin(h)*16,cy=car.pos[1]-Math.cos(h)*16;
@@ -71,7 +73,7 @@ function spawnVisitor(){
 }
 function leave(p,msg){
  p.done=true;BASE.queue=BASE.queue.filter(q=>q!==p);if(msg)note(msg);
- p.run([{go:[YARD.x+YARD.w+6,(YARD.gate[0]+YARD.gate[1])/2]},{go:p.car.dead?[YARD.x+YARD.w+40,(YARD.gate[0]+YARD.gate[1])/2]:[p.car.pos[0]+Math.sin(p.car.heading)*16,p.car.pos[1]-Math.cos(p.car.heading)*16]},{call:q=>{q.dead=true;if(!p.car.dead){p.car.label='petent odjeżdża';HK2.leave?HK2.leave(p.car,rand()*3600):p.car.goTo(goalNode(exitNode(rand()*3600)),{leave:true})}}}]);
+ p.run([{go:[YARD.x+YARD.w+6,(YARD.gate[0]+YARD.gate[1])/2]},{go:p.car.dead?[YARD.x+YARD.w+40,(YARD.gate[0]+YARD.gate[1])/2]:[p.car.pos[0]+Math.sin(p.car.heading)*16,p.car.pos[1]-Math.cos(p.car.heading)*16]},{call:q=>{q.dead=true;if(!p.car.dead&&p.permit&&p.car.kind==='carT'&&HK2.chrust&&HK2.chrust(p.car))return;if(!p.car.dead){p.car.label='petent odjeżdża';HK2.leave?HK2.leave(p.car,rand()*3600):p.car.goTo(goalNode(exitNode(rand()*3600)),{leave:true})}}}]);
 }
 function serve(u,p){
  const r=u.person;p.serving=u;r.busyOffice=true;r.hidden=false;
@@ -82,14 +84,14 @@ function deal(u,p){
  const k=p.petent;
  if(k==='opal'){
   // chce 2–5 m³; jeśli przy drogach jest mniej, bierze co jest (min. 1 m³)
-  const want=2+Math.floor(rand()*4),best=J.stacks.filter(q=>q.sort==='opal'&&q!==J.truck.cur&&!J.truck.route.includes(q)).sort((a,b)=>b.vol-a.vol)[0],st=opalStack(want)||(best&&best.vol>=1.2?best:null),vol=st?Math.min(want,st.vol-.2):want;
+  const want=2+Math.floor(rand()*4),best=J.stacks.filter(q=>q.sort==='opal'&&!truckBusy(q)).sort((a,b)=>b.vol-a.vol)[0],st=opalStack(want)||(best&&best.vol>=1.2?best:null),vol=st?Math.min(want,st.vol-.2):want;
   if(!st){note('Brak drewna opałowego przy drogach — petent odszedł z niczym.');toast('Petent chciał '+want+' m³ opału, ale przy drogach nie ma stosów opału.');leave(p);return}
   const {q,val}=takeFromStack(st,vol),price=Math.round(q*PRICE.opal);earn(price,'sprzedaż drewna opałowego');ledCount('opal',q);
   BASE.stats.opal++;BASE.stats.opalVol+=q;if(ECO.st)ECO.st.opal=(ECO.st.opal||0)+q;   // 1.1.2 (U04): osobno w raporcie sezonu
   BASE.opalPiles.push({x:st.x+st.ax*26,y:st.y+st.ay*26,a:Math.atan2(st.ay,st.ax),vol:q,logs:clamp(Math.round(q*1.5),2,6),bark:'#7a5a3e',sp:'sosna',edge:st.edge,s:clamp(st.s+26,30,st.edge.len-30),day:state.days,odd:st.odd});
   toast('Kancelaria: sprzedano '+displayNumber(q,1)+' m³ opału za '+zl(price)+'. Odbiór: oddz. '+st.odd+'.');
   note('Sprzedaż opału: '+displayNumber(q,1)+' m³ ('+zl(price)+')');
- }else if(k==='permit'){earn(40,'zezwolenie (wjazd / zbiór chrustu)');BASE.stats.permits++;note('Wydano zezwolenie (40 zł)');toast('Kancelaria: zezwolenie na zbiór chrustu, 40 zł.')}
+ }else if(k==='permit'){p.permit=true;earn(40,'zezwolenie (wjazd / zbiór chrustu)');BASE.stats.permits++;note('Wydano zezwolenie (40 zł)');toast('Kancelaria: zezwolenie na zbiór chrustu, 40 zł.'+(chrustNear().length&&!ECO.ord.bar?' Petent pojedzie po chrust przy drodze.':''))}
  else if(k==='seed'){nurseryFix();const n=Math.min(100,ECO.nursery.stock-20);ECO.nursery.stock-=n;earn(Math.round(n*1.8),'sprzedaż sadzonek ze szkółki');BASE.stats.seedlings+=n;note('Sprzedano '+n+' sadzonek');toast('Kancelaria: sprzedano '+n+' sadzonek ze szkółki ('+zl(Math.round(n*1.8))+').')}
  else{
   const t=E.trash.find(q=>!q.dead&&!q.fire&&!q.inc);

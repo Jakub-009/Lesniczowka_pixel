@@ -341,6 +341,7 @@ export function seasonGrow(years){
  let grown=0,died=0,young=0,rotted=0;
  for(const t of trees.slice()){
   if(t.st===STUMP){t.stumpAge=(t.stumpAge||0)+years;
+   if(t.slash&&t.stumpAge>10){t.slash=null;dirtyTree(t)}   // 1.4.0: chrust, którego nikt nie zebrał, butwieje po ok. 10 latach
    // 0.7.4: pniak próchnieje i znika po 6–10 latach, ale tylko tam, gdzie obszar jest już odnowiony; nieodnowione pniaki zostają jako sygnał „tu trzeba sadzić”
    if(t.stumpAge>=6+hash(t.seed,5,93)*4&&hash(t.seed,Math.floor(t.stumpAge),94)<.6&&treesIn(t.x-30,t.y-30,t.x+30,t.y+30).some(q=>q.st===STAND&&q.age<SAPLING_AGE*3)){removeTree(t);rotted++}
    continue}

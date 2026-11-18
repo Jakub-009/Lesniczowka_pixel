@@ -14,7 +14,7 @@ export const rand=rnd;
 
 // ───────── holowanie (model przyczepy jednoosiowej z tow.js farmy) ─────────
 // forest = przyczepa ciągnika, log = naczepa ciężarówki, plow = pług leśny LPz, bunk = tylna rama forwardera (przegub)
-const CARTS={forest:{hw:13,hh:30,tongue:14,axle:.4},log:{hw:13,hh:40,tongue:14,axle:.5},plow:{hw:13,hh:11,tongue:12,axle:.1},bunk:{hw:15,hh:26,tongue:5,axle:.25}};
+const CARTS={small:{hw:8,hh:10,tongue:8,axle:.2},forest:{hw:13,hh:30,tongue:14,axle:.4},log:{hw:13,hh:40,tongue:14,axle:.5},plow:{hw:13,hh:11,tongue:12,axle:.1},bunk:{hw:15,hh:26,tongue:5,axle:.25}};
 const fwd=a=>[Math.sin(a),-Math.cos(a)];
 function advanceCart(c,hx,hy,vehAngle){
  const d=CARTS[c.kind];if(c.hx==null){c.hx=hx;c.hy=hy;return}
@@ -33,12 +33,14 @@ export const cartFront=c=>{const d=CARTS[c.kind],f=fwd(c.angle);return[c.x+f[0]*
 const DUKT=['main','forest','dukt'];
 export const VSPEC={
  car:{speed:100,forest:.55,acc:38,hw:10,hh:23,wb:30,name:'samochód osobowy'},
+ carT:{speed:84,forest:.5,acc:30,hw:10,hh:23,wb:30,hitch:24,cart:'small',name:'samochód z przyczepką (chrust)'},   // 1.4.0
  patrol:{speed:104,forest:.62,acc:42,hw:11,hh:25,wb:32,name:'terenówka leśniczego',allow:['main','forest','drive','dukt']},
  van:{speed:88,forest:.6,acc:32,hw:11,hh:27,wb:34,name:'bus ekipy leśnej',allow:DUKT},
  tractor:{speed:42,forest:.9,off:20,acc:14,hw:16,hh:30,wb:30,hitch:31,cart:'forest',name:'ciągnik z wyciągarką',allow:DUKT},
  forwarder:{speed:48,forest:.9,off:30,acc:16,hw:15,hh:19,wb:22,hitch:21,cart:'bunk',name:'forwarder (zrywka)',allow:DUKT},
  plower:{speed:40,forest:.9,off:16,acc:14,hw:16,hh:30,wb:30,hitch:31,cart:'plow',name:'ciągnik z pługiem LPz',allow:DUKT},
- truck:{speed:82,forest:.55,acc:20,hw:14,hh:37,wb:44,hitch:34,cart:'log',name:'ciągnik siodłowy z wózkiem do dłużycy'},
+ truck:{speed:82,forest:.55,acc:20,hw:14,hh:37,wb:44,hitch:34,cart:'log',name:'dłużyca z żurawiem HDS (wózek do dłużycy)'},
+ bdf:{speed:96,forest:.68,acc:26,hw:13,hh:34,wb:40,name:'ciężarówka BDF z żurawiem HDS'},   // 1.4.0: krótka, szybsza, obsługuje też dukty
  quad:{speed:70,forest:1,acc:40,hw:7,hh:11,wb:16,wild:true,name:'quad',allow:DUKT},
  cross:{speed:80,forest:1,acc:45,hw:3,hh:11,wb:16,wild:true,name:'motocykl crossowy',allow:DUKT},
  firetruck:{speed:92,forest:.6,acc:34,hw:13,hh:34,wb:40,name:'wóz strażacki',allow:DUKT},
@@ -66,6 +68,7 @@ export class Vehicle{
  get x(){return this.pos[0]}get y(){return this.pos[1]}
  setEdge(from,to){const e=edgeOf(from,to);this.from=from;this.to=to;this.edge=e;this.len=e.len;const t=dirPt(e,from,0);this.dirH=Math.atan2(t[2],-t[3])}
  hitch(){const k=this.spec.hitch;return[this.pos[0]-Math.sin(this.heading)*k,this.pos[1]+Math.cos(this.heading)*k]}
+ realignCart(){if(this.cart){const H=this.hitch();alignCart(this.cart,H[0],H[1],this.heading)}}   // 1.4.0: wózek dłużycy podpięty od nowa za ciężarówką
  // Punkt na pasie ruchu odcinka from→to w odległości s od from (prawy pas + zjazd na pobocze dla bieżącego odcinka).
  lanePos(from,to,s,cur){
   const e=edgeOf(from,to),[px,py,tx,ty]=dirPt(e,from,s);
@@ -178,13 +181,16 @@ export class Vehicle{
     const still=w=>w.parked||w.off&&w.v<2||w.arrived&&w.v<1;
     for(const w of E.vehicles){if(w===this||w.dead||!w.shape||(w.kind==='bike')!==(this.kind==='bike')&&w.kind==='bike')continue;
      const c=Math.cos(w.heading-this.heading);
+     const hitW=A=>collide(A,w.shape)||!!(w.cartShape&&collide(A,w.cartShape));
      if(still(w)){
-      if(collide(this.probe(30),w.shape)){
-       // boczne położenie przeszkody względem nas; mijamy ją z lewej z odstępem, najdalej do lewego pobocza
-       const h=this.heading,dl=(w.pos[0]-this.pos[0])*Math.cos(h)+(w.pos[1]-this.pos[1])*Math.sin(h),L0=this.edge.lane+this.laneX,
-        L=Math.max(-(this.edge.w/2+8),L0+dl-(w.spec.hw+this.spec.hw+3));
+      const p30=this.probe(30);
+      if(hitW(p30)){
+       // boczne położenie przeszkody względem nas; mijamy ją z lewej z odstępem, najdalej do lewego pobocza (1.4.0: także stojącą przyczepę)
+       const onCart=!collide(p30,w.shape),ox=onCart?w.cart.x:w.pos[0],oy=onCart?w.cart.y:w.pos[1],ow=onCart?CARTS[w.cart.kind].hw:w.spec.hw;
+       const h=this.heading,dl=(ox-this.pos[0])*Math.cos(h)+(oy-this.pos[1])*Math.sin(h),L0=this.edge.lane+this.laneX,
+        L=Math.max(-(this.edge.w/2+8),L0+dl-(ow+this.spec.hw+3));
        const ax=L-this.edge.lane;if(this.avoidT<=0||ax<this.avoidX)this.avoidX=ax;this.avoidT=1.6}
-      if(!collide(pr,w.shape))continue;
+      if(!hitW(pr))continue;
       if(this.avoidT>0&&this.laneX-this.avoidX>2)continue;   // jeszcze zmieniamy pas — nie hamujemy
       if(this.avoidT>0&&this.avoidX<=-(this.edge.w/2+8)-this.edge.lane+.5)continue}   // ciasno: przeciskamy się obok stojącego
      else{if(c<-.5){
@@ -192,7 +198,7 @@ export class Vehicle{
        if(this.edge.kind==='dukt'&&w.edge===this.edge){const h=this.heading,dx=w.pos[0]-this.pos[0],dy=w.pos[1]-this.pos[1],ah=dx*Math.sin(h)-dy*Math.cos(h);
         if(ah>0&&ah<150&&Math.abs(dx*Math.cos(h)+dy*Math.sin(h))<40){this.passT=1.2;target=Math.min(target,28)}}
        continue}   // nadjeżdżający z naprzeciwka — etap B
-      if(!collide(pr,w.shape))continue;
+      if(!hitW(pr))continue;
       if(c<.3&&collide(w.probe(),this.shape)){const meMain=this.edge.kind==='main',wMain=w.edge&&w.edge.kind==='main';if(meMain&&!wMain||meMain===wMain&&this.vid<w.vid)continue}}
      blocked=true;break}
     if(!blocked)for(const a of E.animals)if(a.big&&collide(pr,{shape:'circle',x:a.x,y:a.y,r:6})){blocked=true;break}
@@ -232,6 +238,8 @@ export class Vehicle{
    }
   }
   this.shape=obb(this.pos[0],this.pos[1],this.spec.hw,this.spec.hh,this.heading);
+  // 1.4.0: przyczepa / naczepa / wózek też jest przeszkodą dla innych pojazdów
+  if(this.cart&&!this.folded){const d=CARTS[this.cart.kind];this.cartShape=obb(this.cart.x,this.cart.y,d.hw,d.hh,this.cart.angle)}else this.cartShape=null;
   if(this.cart){const H=this.hitch(),c=this.cart;advanceCart(c,H[0],H[1],this.heading)}
  }
  chooseNext(){
@@ -250,9 +258,9 @@ export class Vehicle{
  }
  draw(){
   const [x,y]=this.pos;if(!near(x,y,120))return;
-  if(this.cart){const c=this.cart;if(c.kind==='forest')S.forestTrailer(ctx,c,this.load,this.cap);else if(c.kind==='log')S.logTrailer(ctx,c,this.load,this.cap);else if(c.kind==='plow')S.plowTop(ctx,c,this.plowing);else S.bunkTop(ctx,c,this.load,this.cap)}
+  if(this.cart&&!this.folded){const c=this.cart;if(c.kind==='small')S.smallTrailer(ctx,c,this.load||0);else if(c.kind==='forest')S.forestTrailer(ctx,c,this.load,this.cap);else if(c.kind==='log')S.logTrailer(ctx,c,this.load,this.cap);else if(c.kind==='plow')S.plowTop(ctx,c,this.plowing);else S.bunkTop(ctx,c,this.load,this.cap)}
   const k=this.kind,h=this.heading,t=this.travel;
-  if(k==='car')S.carTop(ctx,x,y,h,this.color,t);
+  if(k==='car'||k==='carT')S.carTop(ctx,x,y,h,this.color,t);
   else if(k==='patrol')S.patrolTop(ctx,x,y,h,t,this.beacon);
   else if(k==='van')S.vanTop(ctx,x,y,h,t,this.bus?['#e8c23a','#2a2a26']:this.pal||null);   // 1.3.0: bus ekipy sadzenia jest zielony
   else if(k==='police')S.policeTop(ctx,x,y,h,t,this.beacon);
@@ -260,7 +268,8 @@ export class Vehicle{
   else if(k==='firetruck')S.fireTop(ctx,x,y,h,t,this.beacon);
   else if(k==='tractor'||k==='plower')S.tractorTop(ctx,x,y,h,t,this.steer);
   else if(k==='forwarder')S.forwarderTop(ctx,x,y,h,t,this.steer);
-  else if(k==='truck')S.truckTop(ctx,x,y,h,t,this.cap?this.load/this.cap:0);
+  else if(k==='truck')S.truckTop(ctx,x,y,h,t,this.cap?this.load/this.cap:0,this.folded);
+  else if(k==='bdf')S.bdfTop(ctx,x,y,h,t,this.cap?this.load/this.cap:0);
   else if(k==='quad')S.quadTop(ctx,x,y,h,t,this.color);
   else if(k==='cross')S.crossTop(ctx,x,y,h,t);
   else if(k==='bike')S.bikeTop(ctx,x,y,h,t*.12,this.color);

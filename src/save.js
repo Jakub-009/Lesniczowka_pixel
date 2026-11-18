@@ -30,14 +30,14 @@ export function clearSave(){try{localStorage.removeItem(KEY)}catch(e){}}
 function cargo(){
  const out=[],at=(v,ks,vol,val)=>{const rp=nearestRoad(v.pos[0],v.pos[1],['forest','dukt'],{margin:60});/* 1.3.0: stos przy drodze leśnej albo dukcie (ciężarówka dojeżdża do obu) */for(const k of ks)if(vol[k]>.01)out.push([rp.edge.id,Math.round(rp.s),+vol[k].toFixed(2),Math.round(val[k]||0),k,k!=='opal'])};
  const S=J.skid;if(S.trac&&!S.trac.dead&&S.trac.load>.01&&S.ls)at(S.trac,['tart','pap','opal'],S.ls,S.lv||{});
- const T=J.truck;if(T.v&&!T.v.dead&&T.v.load>.01)at(T.v,['tart'],{tart:T.v.load},{tart:T.val||0});
+ for(const T of [J.truck,J.bdf])if(T.v&&!T.v.dead&&T.v.load>.01)at(T.v,['tart'],{tart:T.v.load},{tart:T.val||0});
  return out;
 }
 export function saveGame(){
  if(!state.playing)return;
  try{
   const o={v:3,ver:'1.1.5',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
-   stacks:[...J.stacks.filter(s=>s.vol>.05).map(s=>[s.edge.id,Math.round(s.s),+s.vol.toFixed(2),Math.round(s.value),s.sort||'tart',s.truck!==false]),...cargo()],sold:J.sold,truckPending:!!J.truck.pending,
+   stacks:[...J.stacks.filter(s=>s.vol>.05).map(s=>[s.edge.id,Math.round(s.s),+s.vol.toFixed(2),Math.round(s.value),s.sort||'tart',s.truck!==false]),...cargo()],sold:J.sold,truckPending:!!J.truck.pending,bdfPending:!!J.bdf.pending,
    plants:J.plants.map(p=>[Math.round(p.x),Math.round(p.y),p.sp,p.assigned?1:0,p.plot||0,p.prep?1:0,p.plac?1:0]),etat:J.etat,plantSp:J.plantSp,
    piles:E.piles.filter(p=>!p.dead).map(p=>[Math.round(p.x),Math.round(p.y),+p.a.toFixed(2),+p.vol.toFixed(3),p.sp,p.logs,p.bark,p.sorts||null,p.vals||null]),
    eco:{ord:ECO.ord,goneRen:ECO.goneRen||0,cover0:ECO.cover0,damage:ECO.damage,plog:ECO.plog.slice(0,14).map(q=>[+q.t.toFixed(3),+q.d.toFixed(2),q.why]),plan:ECO.plan,market:ECO.market,fin:saveFin(),pod:ECO.staff.pod,nursery:ECO.nursery,feedCost:ECO.feedCost,st:ECO.st,act:ECO.act,led:saveLed()},burns:E.burns||[],inc:saveInc(f=>f.slot),
@@ -62,7 +62,7 @@ export function loadGame(){
   for(const [id,s,vol,val,sort,truck] of o.stacks||[]){
    if(restoreStack(id,s,vol,val,sort||'tart',truck))continue;const G=GONE[id];if(!G)continue;
    const L=Math.hypot(G[2]-G[0],G[3]-G[1]),k=Math.min(1,s/L),st=stackFor(G[0]+(G[2]-G[0])*k,G[1]+(G[3]-G[1])*k,sort||'tart');st.vol+=vol;st.value+=val;if(truck===false)st.truck=false}
-  J.plants=(o.plants||[]).map(([x,y,sp,as,plot,prep,plac],i)=>({x,y,sp,assigned:!!as,plot:plot||undefined,prep:!!prep,plac:!prep,t:i*.001}));   // 1.3.0: placówki zawsze (poza orką)J.etat=o.etat||{k:-1,used:0};J.plac=true;J.plantSp=o.plantSp||'sosna';J.truck.pending=!!o.truckPending;
+  J.plants=(o.plants||[]).map(([x,y,sp,as,plot,prep,plac],i)=>({x,y,sp,assigned:!!as,plot:plot||undefined,prep:!!prep,plac:!prep,t:i*.001}));J.etat=o.etat||{k:-1,used:0};J.plac=true;J.plantSp=o.plantSp||'sosna';J.truck.pending=!!o.truckPending;J.bdf.pending=!!o.bdfPending;   // 1.3.0: placówki zawsze (poza orką); 1.4.0: naprawione — komentarz z 1.3.0 wyłączał wczytanie etatu i gatunku
   // powierzchnie odnowieniowe i szlaki: dane + ponowne malowanie bruzd i kolein (z wyblaknięciem według wieku)
   const st0={};for(const p of o.plots||[])st0[p.id]=p.state;
   R.plots=(o.plots||[]).map(p=>({...p,state:p.state==='planting'||p.state==='queued'||p.state==='prepping'?(p.prepared?'prepared':'new'):p.state}));R.nextId=o.nextPlot||R.plots.length+1;

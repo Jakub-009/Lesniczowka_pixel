@@ -15,7 +15,8 @@ export const VC={signs:900,repel:1600,trail:2200,tourFee:180,repelDay:10};
 export const vs=()=>ECO.ord.vs||(ECO.ord.vs={tours:0,kids:0});   // statystyka wycieczek (zapisuje się razem z eco.ord)
 export const signsOn=()=>!!ECO.ord.signs,repelOn=()=>!!ECO.ord.repel,trailOn=()=>!!ECO.ord.trail;
 // 1.3.3: znaki zakazu wjazdu na poboczu drogi leśnej, ok. 70 px od szosy (za poszerzeniem wylotu), po stronie bez parkingu
-const SIGN_AT=[['j1-a3',1],['j2-b1',-1]].map(([id,side])=>{const e=EDGES.find(q=>q.id===id),[x,y,tx,ty]=ptAt(e,70),o=e.w/2+14;return[x-ty*side*o,y+tx*side*o]});
+// 1.4.0: tuż przy krawędzi jezdni (pas trawy, gdzie nie rosną drzewa), żeby znak nie stał w koronie drzewa
+const SIGN_AT=[['j1-a3',1],['j2-b1',-1]].map(([id,side])=>{const e=EDGES.find(q=>q.id===id),[x,y,tx,ty]=ptAt(e,70),o=e.w/2+5;return[x-ty*side*o,y+tx*side*o]});
 // ścieżka: pętla w obrębie zarezerwowanego prostokąta, wejście od południowego zachodu
 const R0=RESERVED.find(r=>r.id==='sciezka');
 export const TRAIL=[[2852,1368],[2858,1344],[2874,1322],[2898,1306],[2924,1300],[2946,1312],[2950,1336],[2934,1356],[2910,1362],[2886,1352],[2870,1336],[2858,1344]];

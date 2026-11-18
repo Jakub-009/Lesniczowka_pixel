@@ -94,20 +94,44 @@ export function tractorTop(g,x,y,h,travel=0,steer=0){
 }
 // Ciężarówka do drewna (kabina z dźwigiem).
 // Ciągnik siodłowy do dłużycy: kabina, żuraw HDS za kabiną, własna kłonica — kłody leżą na ciągniku i na wózku.
-export function truckTop(g,x,y,h,travel=0,f=0){
+// 1.4.0: dłużyca — trzyosiowa ciężarówka (granatowa kabina), czerwony żuraw HDS tuż za kabiną, para kłonic z tyłu ramy.
+// Pusta jedzie ze złożonym wózkiem do dłużycy na ramie (folded); przy pierwszym stosie żuraw zdejmuje wózek i podpina go z tyłu.
+export function truckTop(g,x,y,h,travel=0,f=0,folded=false){
  orientedShadow(g,x,y,h,[[14,37,0]],16);
  drawRotated(g,x,y,h,s=>{
   wheels(s,[-12,12],[-25,14,25],6,10,travel);
   rect(s,-9,-18,18,56,'#262b28');rect(s,-7,-18,4,56,'#3a403c');rect(s,3,-18,4,56,'#3a403c');   // rama
-  rect(s,-14,-38,28,21,'#3b2b26');rect(s,-13,-39,26,20,'#2f5a8a');rect(s,-13,-39,26,2,'#6a9ac8');   // kabina
-  rect(s,-10,-36,20,6,'#5d8790');rect(s,-9,-35,18,2,'#a8c2c6');rect(s,-12,-23,24,3,'#24486e');
+  rect(s,-14,-38,28,21,'#3b2b26');rect(s,-13,-39,26,20,'#2f4a7a');rect(s,-13,-39,26,2,'#6a8ac0');   // kabina
+  rect(s,-10,-36,20,6,'#5d8790');rect(s,-9,-35,18,2,'#a8c2c6');rect(s,-12,-23,24,3,'#22385e');
   rect(s,-11,-41,4,2,'#ecddb6');rect(s,7,-41,4,2,'#ecddb6');
-  // żuraw HDS: kolumna i złożone ramię wzdłuż ramy
-  rect(s,-7,-17,14,8,'#3a3a36');rect(s,-5,-16,10,6,'#d8b23a');rect(s,-2,-14,4,4,'#3a3a36');
-  rect(s,-3,-9,6,22,'#3a3a36');rect(s,-2,-9,4,21,'#d8b23a');rect(s,-4,12,8,4,'#3a3a36');
-  // kłonica na ciągniku
-  for(const sd of [-1,1])rect(s,sd*14-2,23,4,8,'#c8342b');rect(s,-14,26,28,3,'#4a4f4a');
+  // żuraw HDS za kabiną: kolumna i złożone ramię wzdłuż ramy
+  rect(s,-7,-17,14,8,'#3a3a36');rect(s,-5,-16,10,6,'#c8342b');rect(s,-2,-14,4,4,'#3a3a36');
+  rect(s,-3,-9,6,22,'#3a3a36');rect(s,-2,-9,4,21,'#c8342b');rect(s,-4,12,8,4,'#3a3a36');
+  // kłonice na ramie
+  for(const sd of [-1,1])rect(s,sd*14-2,23,4,8,'#5a6068');rect(s,-14,26,28,3,'#4a4f4a');
+  if(folded){   // złożony wózek do dłużycy na grzbiecie: dwie osie (koła na boki), belka i kłonica
+   for(const yy of [16,28])for(const sd of [-1,1])rect(s,sd*9-3,yy-4,6,8,'#262f2c');
+   rect(s,-8,14,16,18,'#2f3431');rect(s,-10,20,20,3,'#4a4f4a');rect(s,-1,4,2,12,'#4a4f4a');
+   for(const sd of [-1,1])rect(s,sd*10-2,17,3,6,'#5a6068')}
   if(f>0)longLogs(s,f,22,4,40);
+ });
+}
+// 1.4.0: BDF leśny — krótka trzyosiowa ciężarówka bez przyczepy (bordowa kabina), kłonice wzdłuż ramy, żuraw HDS na końcu ramy.
+export function bdfTop(g,x,y,h,travel=0,f=0){
+ orientedShadow(g,x,y,h,[[13,34,0]],14);
+ drawRotated(g,x,y,h,s=>{
+  wheels(s,[-11,11],[-22,16,27],6,10,travel);
+  rect(s,-9,-14,18,46,'#262b28');rect(s,-7,-14,4,46,'#3a403c');rect(s,3,-14,4,46,'#3a403c');   // rama
+  rect(s,-13,-34,26,20,'#3b2b26');rect(s,-12,-35,24,19,'#7a2a2e');rect(s,-12,-35,24,2,'#b0565a');   // kabina
+  rect(s,-9,-32,18,6,'#5d8790');rect(s,-8,-31,16,2,'#a8c2c6');rect(s,-11,-20,22,3,'#5a1e22');
+  rect(s,-10,-37,4,2,'#ecddb6');rect(s,6,-37,4,2,'#ecddb6');
+  // kłonice (4 pary) wzdłuż ramy
+  for(const yy of [-10,2,14,24])for(const sd of [-1,1])rect(s,sd*12-2,yy,4,4,'#9aa0a6');
+  for(const yy of [-10,2,14,24])rect(s,-12,yy+1,24,2,'#4a4f4a');
+  if(f>0)longLogs(s,f,20,-12,26);
+  // żuraw HDS na końcu ramy: kolumna i złożone ramię
+  rect(s,-7,26,14,7,'#3a3a36');rect(s,-5,27,10,5,'#e0a020');rect(s,-2,28,4,3,'#3a3a36');
+  rect(s,-2,8,4,20,'#3a3a36');rect(s,-1,8,2,19,'#e0a020');
  });
 }
 // Kłody dłużycy: długie pnie z jaśniejszymi czołami.
@@ -139,6 +163,16 @@ export function bikeTop(g,x,y,h,phase=0,col='#4f6a8a'){
   rect(s,-1,-9,2,18,'#2a2f2d');rect(s,-1,-2,2,6,'#8a3b2e');rect(s,-4,-5,8,2,'#2f3431');
   rect(s,-3,-3,7,7,col);rect(s,-2,-8,4,4,'#d6a77f');rect(s,-2,-9,4,2,'#3a3a3a');
   rect(s,-4+Math.round(Math.sin(phase*8)),2,2,2,'#26211d');rect(s,3-Math.round(Math.sin(phase*8)),3,2,2,'#26211d');
+ });
+}
+// 1.4.0: mała przyczepka samochodowa (zbieracze chrustu): skrzynia z burtami, ładunek gałęzi
+export function smallTrailer(g,c,load){
+ orientedShadow(g,c.x,c.y,c.angle,[[8,10,0]],6);
+ drawRotated(g,c.x,c.y,c.angle,s=>{
+  rect(s,-1,-18,2,9,'#3a3a36');for(const sd of [-1,1])rect(s,sd*9-2,-3,4,7,'#262f2c');
+  rect(s,-8,-10,16,20,'#3a403c');rect(s,-7,-9,14,18,'#8a8f88');rect(s,-6,-8,12,16,'#5e625c');
+  if(load>0)for(let k=0;k<Math.min(10,load*4);k++)rect(s,-6+(k*5)%11,-7+((k*7)%14),3+(k%2),1,k%2?'#6a5440':'#5e7a4a');
+  rect(s,-7,9,3,1,'#c2362b');rect(s,4,9,3,1,'#c2362b');
  });
 }
 // Przyczepy: leśna (kłonice + drewno) i naczepa ciężarówki.

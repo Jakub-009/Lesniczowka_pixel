@@ -1,7 +1,7 @@
 // Kto mieszka w lesie i kto do niego przyjeżdża: zwierzyna w grupach, ruch na drodze, grzybiarze, spacerowicze, rowerzyści, myśliwy.
 import {cal,hash,state,clamp,SEASON_DAYS,toast} from '../core.js';
 import {banned} from '../health.js';
-import {EDGES,NODES,POLANA,roadClearance,oddzial} from '../map.js';
+import {EDGES,NODES,POLANA,roadClearance,oddzial,offLimits} from '../map.js';
 import {AMB,AMB_R} from './ambony.js';
 import {goalNode,pointOn,nearestRoad,ENTRY,exitNode} from '../roads.js';
 import {E,NAV} from '../ents.js';
@@ -10,6 +10,7 @@ import {addTrash,U} from '../incidents.js';
 import {bumpProtect,ECO} from '../economy.js';
 import {sfx} from '../sound.js';
 import {FA,FH,cull,cullBatch,planLeft,likesNow,pressure} from './fauna.js';
+import * as forest from '../forest.js';
 
 const CAR_COLS=['#8c9b95','#a4684f','#6f86a0','#b9a56a','#7a8f6f','#a8a6a0','#5a5f6a','#9a4a3a'];
 const pick=a=>a[Math.floor(rand()*a.length)];
@@ -44,7 +45,21 @@ FH.wolves=()=>{
  addPack(g,(kind,x,y,G,o={})=>new Wild({kind,x:x+(rand()-.5)*40,y:y+(rand()-.5)*40,seed:seed++,group:G,...o}));
 };
 // ───────── goście w lesie ─────────
-export const HK2={free:()=>-1,edge:null,approach:()=>0,park:null,reserve:null,verge:()=>null,leave:null};   // ustawiane przez order.js (bez cyklu importów)
+export const HK2={free:()=>-1,edge:null,approach:()=>0,park:null,reserve:null,verge:()=>null,leave:null,chrust:null};
+// 1.4.0: chrust (gałęzie po ścince) przy drogach leśnych i duktach zbierają petenci z zezwoleniem — przyjeżdżają osobówką z przyczepką
+export const chrustNear=()=>forest.trees.filter(t=>t.st===forest.STUMP&&t.slash&&!offLimits(t.slash.x,t.slash.y)&&roadClearance(t.slash.x,t.slash.y,['forest','dukt'])<120);
+HK2.chrust=car=>{
+ const all=chrustNear();if(!all.length||ECO.ord.bar)return false;
+ const t0=all[Math.floor(rand()*all.length)],grp=all.filter(t=>Math.hypot(t.slash.x-t0.slash.x,t.slash.y-t0.slash.y)<150).slice(0,4);
+ const rp=nearestRoad(t0.slash.x,t0.slash.y,['forest','dukt'],{margin:40});if(!rp)return false;
+ car.allow=['main','forest','dukt'];car.label='zbieracz chrustu jedzie do oddz. '+oddzial(t0.x,t0.y);car.cap=4;car.load=0;
+ car.goTo({edge:rp.edge,s:rp.s},{park:true,onArrive:v=>{
+  const [cx,cy]=sideSpot(v,16),p=new Ped({kind:'walker',x:cx,y:cy,speed:12,coat:'#6a5a4a',cap:'#c8a24a'});p.label='zbiera chrust (zezwolenie)';v.label='zbieracz chrustu (zaparkowany)';
+  const steps=[];for(const t of grp)steps.push({go:[t.slash.x-8,t.slash.y]},{wait:4,pose:'kneel',face:[t.slash.x,t.slash.y]},{call:q=>{if(t.slash){t.slash=null;forest.dirtyTree(t);v.load=Math.min(4,(v.load||0)+1);q.prop='bag'}}},{go:[cx,cy]},{call:q=>{q.prop=null}});
+  p.run([...steps,{call:q=>{q.dead=true;v.label='zbieracz chrustu odjeżdża';leaveMap(v)}}]);
+ }});
+ return true;
+};   // ustawiane przez order.js (bez cyklu importów)
 const T={car:3,pick:6,walk:14,bike:20,hunt:0,huntDay:-1};
 const forestEdges=()=>EDGES.filter(e=>e.kind==='forest'&&e.b!=='l1'&&e.a!=='l1');
 function sideSpot(v,dist){const h=v.heading,sgn=rand()<.5?1:1;return[v.pos[0]+Math.cos(h)*dist*sgn,v.pos[1]+Math.sin(h)*dist*sgn]}

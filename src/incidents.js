@@ -123,8 +123,16 @@ function updateFire(dt){
 const escaped=inc=>inc.t<60||(inc.wasSent&&(inc.patrolD||0)>260);
 // zgłoszenie dopiero, gdy pojazd jest w lesie (droga leśna, dukt, teren) — szosa jest publiczna
 const inForest=v=>!!v.off||(v.edge&&v.edge.kind!=='main');
+// 1.4.0: kto może zauważyć intruza bez fotopułapek — leśniczy / podleśniczy (pieszo albo w terenówce), pilarze i sadzący, myśliwy (na ambonie widzi dalej)
+const LATE=[];
+function witness(v){
+ const pts=[v.pos];if(v.man&&!v.man.dead)pts.push([v.man.x,v.man.y]);const near=(x,y,r)=>pts.some(p=>Math.hypot(p[0]-x,p[1]-y)<r);
+ for(const u of U){if(u.phase!=='home'&&u.car&&near(u.car.pos[0],u.car.pos[1],300))return u.name;const r=u.person;if(r&&!r.hidden&&!r.sleeping&&u.phase!=='home'&&near(r.x,r.y,260))return u.name}
+ for(const p of E.people){if(p.dead||p.hidden)continue;if(p.kind==='worker'&&near(p.x,p.y,240))return 'ekipa w lesie';if(p.kind==='hunter'&&near(p.x,p.y,p.onStand?420:260))return 'myśliwy'+(p.onStand?' z ambony':'')}
+ return null;
+}
 // ───────── nocni intruzi ─────────
-const leave=v=>v.goTo(goalNode(exitNode(v.pos[0])),{leave:true});
+const leave=v=>{v.leaving=true;v.goTo(goalNode(exitNode(v.pos[0])),{leave:true})};
 // 0.8.3: decyzja na miejscu zdarzenia — pouczenie albo wezwanie Policji. Po 30 s bez wyboru: pouczenie (a gdzie wolno tylko Policja — Policja).
 export const DEC={inc:null,t:0,warn:false,cb:null};
 function askDec(inc,canWarn,cb){DEC.inc=inc;DEC.t=30;DEC.warn=canWarn;DEC.cb=cb;slowDown()}
@@ -152,14 +160,16 @@ export function spawnIntruder(kind){
   const steps=[];
   if(kind==='poacher'){
    const spot=()=>{for(let k=0;k<12;k++){const a=rand()*6.283,d=80+rand()*160,x=cx+Math.cos(a)*d,y=cy+Math.sin(a)*d;if(roadClearance(x,y)>40&&NAV.foot.walkable(x,y))return[x,y]}return[cx+60,cy]};
-   for(const S of [spot(),spot()])steps.push({go:S},{wait:16,pose:'kneel'},{call:q=>q.snares.push(addTrash(q.x+5,q.y,'snare'))});
+   for(const S of [spot(),spot()])steps.push({go:S},{wait:16,pose:'kneel'},{call:q=>{const t=addTrash(q.x+5,q.y,'snare');q.snares.push(t);(v.snares=v.snares||[]).push(t)}});
   }else if(kind==='thief'){
    for(let k=0;k<4;k++)steps.push({go:[stack.x+(rand()-.5)*12,stack.y+(rand()-.5)*8]},{wait:5,pose:'kneel',face:[stack.x,stack.y]},{call:()=>{const r=takeFromStack(stack,.45);v.stolen=(v.stolen||0)+r.q;v.stolenVal=(v.stolenVal||0)+r.val}},{go:[cx,cy]});
   }else{
    for(const t of young)steps.push({go:[t.x-6,t.y]},{wait:6,pose:'saw',face:[t.x,t.y]},{call:()=>{if(t.st===STAND){removeTree(t);v.stolen=(v.stolen||0)+1}}},{go:[cx,cy]});
   }
   steps.push({go:[cx,cy]},{call:q=>{q.dead=true;v.man=null;v.label='odjeżdża';leave(v)}});
-  p.run(steps);v.report=ECO.ord&&ECO.ord.cams?2:kind==='xmas'?4+rand()*8:10+rand()*25;
+  // 1.4.0: zgłoszenie od razu tylko z kontrolą wjazdów (fotopułapki); bez niej intruza widać, gdy ktoś jest blisko (spotWitness),
+  // a jeśli nikt go nie zauważy — o szkodzie dowiadujesz się rano z poczty
+  p.run(steps);v.report=ECO.ord&&ECO.ord.cams?2:null;
  }});
 }
 // ───────── jednostki patrolowe ─────────
@@ -200,7 +210,7 @@ class Unit{
  }
  drive(inc){
   const c=this.car;this.phase='driving';c.beacon=inc.type!=='feed'&&inc.type!=='assess';c.label=this.name+' jedzie: '+inc.text;
-  if(inc.type==='quad'){this.chase(inc);return}
+  if(inc.type==='quad'||inc.type==='intruder'&&inc.ref.leaving){this.chase(inc);return}
   const rp=nearestRoad(inc.x,inc.y,['main','forest','dukt']);
   c.goTo({edge:rp.edge,s:rp.s},{park:true,pen:400,onArrive:()=>this.onSite(inc)});
  }
@@ -240,14 +250,19 @@ class Unit{
   else if(inc.type==='fence')r.run([{go:[tx-14,ty+8]},{wait:7,pose:'saw',face:[tx,ty]},{call:()=>{dismantleFence(inc.ref)}},back,done(true)]);
   else if(inc.type==='block')r.run([{go:[tx-14,ty+8]},{wait:7,pose:'saw',face:[tx,ty]},{call:()=>{clearBlock(inc.ref)}},back,done(true)]);
   else if(inc.type==='intruder'){
-   const v=inc.ref,m=v.man,door=v.door||v.pos;
+   const v=inc.ref;
+   // 1.4.0: auto odjechało, a patrol go nie dogonił (np. dojechał na miejsce, którego już nikt nie zajmuje) — nie ma kogo zatrzymać
+   if(v.leaving&&!v.stopped){const sn=(v.snares||[]).filter(t=>!t.dead),st=[];for(const t of sn)st.push({go:[t.x-6,t.y]},{wait:2,pose:'kneel',face:[t.x,t.y]},{call:()=>{t.dead=true;if(t.inc&&t.inc.status!=='done')t.inc.status='done'}});
+    r.run([...st,back,{call:q=>{q.hidden=true;q.prop=null;inc.status='gone';mail('intruder',(INTR[v.intruder].label[0].toUpperCase()+INTR[v.intruder].label.slice(1))+' odjechał, zanim dojechał patrol'+(sn.length?' — wnyki zebrane.':'.'),{x:inc.x,y:inc.y,quiet:true});toast('Na miejscu nikogo już nie ma.');self.finish(inc,false)}}]);return}
+   if(v.leaving&&v.stopped&&!v.man){const dr=new Ped({kind:'driver',x:v.pos[0]+Math.cos(v.heading)*18,y:v.pos[1]+Math.sin(v.heading)*18,speed:13});dr.label=INTR[v.intruder].label;dr.snares=(v.snares||[]).filter(t=>!t.dead);v.man=dr;v.door=[dr.x,dr.y]}
+   const m=v.man,door=v.door||v.pos;
    if(m&&!m.dead){m.run([{go:door},{wait:999,pose:'stand',until:()=>false}]);m.label=m.label+' — zatrzymany'}
    const steps=[{go:[door[0]-8,door[1]]},{wait:40,pose:'stand',face:door,until:()=>!m||m.dead||Math.hypot(m.x-door[0],m.y-door[1])<14},{wait:4,pose:'talk',face:door},
     {call:()=>askDec(inc,false,()=>callPol(inc))},{wait:600,pose:'talk',face:door,until:()=>inc.polDone||inc.status==='gone'}];
    for(const sn of (m&&m.snares)||[])if(!sn.dead)steps.push({go:[sn.x-6,sn.y]},{wait:2,pose:'kneel',face:[sn.x,sn.y]},{call:()=>{sn.dead=true}});
    steps.push({call:()=>{inc.status='done';if(m){m.dead=true;v.man=null}
     if(v.intruder==='thief'&&v.stolen){const st=J.stacks.find(s=>Math.hypot(s.x-door[0],s.y-door[1])<120);if(st){st.vol+=v.stolen;st.value+=v.stolenVal||0}}
-    v.label='odjeżdża po interwencji Policji';leave(v)}},back,done(true));
+    v.label='odjeżdża po interwencji Policji';v.stopped=false;leave(v)}},back,done(true));
    r.run(steps);
   }else{
    const q=inc.ref;
@@ -335,7 +350,17 @@ export function updateIncidents(dt){
  for(const u of U){const r=u.person;if(r.sleeping&&!cal.night()&&u.phase==='home'){r.sleeping=false;r.hidden=false;r.x=DOOR[0];r.y=DOOR[1]+8;r.onIdle=()=>u.idle()}}
  for(const v of E.vehicles){if(!v.intruder)continue;
   if(v.report!=null&&inForest(v)){v.report-=dt;if(v.report<=0){v.report=null;if(!v.dead)v.inc=report('intruder',v.pos[0],v.pos[1],INTR[v.intruder].text(odd(v.pos[0],v.pos[1])),v)}}
+  else if(!v.inc&&v.report==null&&inForest(v)&&!v.dead){v.seenT=(v.seenT||0)-dt;if(v.seenT<=0){v.seenT=1;const w=witness(v);if(w)v.inc=report('intruder',v.pos[0],v.pos[1],INTR[v.intruder].text(odd(v.pos[0],v.pos[1]))+' Zauważył: '+w+'.',v)}}
+  // 1.4.0: znacznik zgłoszenia jedzie za autem; patrol goni odjeżdżającego jak quada i zatrzymuje dopiero po dogonieniu
+  if(v.inc&&open_(v.inc)){const inc=v.inc;inc.seen+=dt;if(inc.seen>2){inc.seen=0;inc.x=v.pos[0];inc.y=v.pos[1]}
+   const u=inc.unit;if(u&&u.cur===inc&&u.phase==='driving'&&v.leaving&&!v.stopped){const c=u.car,d=Math.hypot(c.pos[0]-v.pos[0],c.pos[1]-v.pos[1]);
+    if(d<95){v.stopped=true;v.label='zatrzymany do kontroli';c.stopped=true;c.v=0;u.phase='onsite';c.final=true;c.stopS=c.s;c.arrived=true;u.onSite(inc)}
+    else{u.chaseT-=dt;if(u.chaseT<=0||c.arrived){u.chaseT=2.5;u.chase(inc)}}}}
+  if(v.dead&&!v.inc&&!v.reported){v.reported=true;const o=odd(v.door?v.door[0]:v.pos[0],v.door?v.door[1]:v.pos[1]),morn=(state.days%1<7.5/24?Math.floor(state.days):Math.floor(state.days)+1)+7.5/24;
+   if(v.intruder==='xmas'&&v.stolen)LATE.push({at:morn,kind:'intruder',text:'Rano w '+o+' znaleziono pniaki po '+v.stolen+' wyciętych choinkach. Nikt nie widział sprawcy.'});
+   else if(v.intruder==='thief'&&v.stolen)LATE.push({at:morn,kind:'intruder',text:'Ze stosu drewna w '+o+' ubyło ok. '+v.stolen.toFixed(1).replace('.',',')+' m³. Nikt nie widział sprawcy.'})}
  }
+ for(let i=LATE.length-1;i>=0;i--)if(state.days>=LATE[i].at){const m=LATE.splice(i,1)[0];mail(m.kind,m.text)}
  for(const v of E.vehicles){if(!v.illegal)continue;
   v.life-=dt;
   if(v.roam&&!v.off&&!v.stopped&&!v.leaving&&v.dwell<=0&&v.life>25&&state.elapsed>(v.exc||0)&&rand()<dt*.07)quadExcursion(v);
@@ -372,8 +397,9 @@ export function updateIncidents(dt){
   }
   if(inc.type==='trash'&&inc.ref.dead&&inc.status==='new')inc.status='done';
   if(inc.type==='intruder'&&inc.ref.dead&&open_(inc)){
-   inc.status='gone';const k=inc.ref.intruder;if(!escaped(inc)){stat('ignored');bumpProtect(k==='thief'?-4:-3,'sprawca uciekł')}
-   mail('intruder',k==='thief'?'Złodziej odjechał z drewnem ('+(inc.ref.stolen||0).toFixed(1).replace('.',',')+' m³).':k==='xmas'?'Złodziej choinek odjechał — wycięto '+(inc.ref.stolen||0)+' młodych drzewek.':'Samochód bez świateł odjechał. Mogły zostać wnyki.',{x:inc.x,y:inc.y});
+   inc.status='gone';const k=inc.ref.intruder,esc=escaped(inc);if(!esc){stat('ignored');bumpProtect(k==='thief'?-4:-3,'sprawca uciekł')}
+   const how=inc.wasSent?' przed patrolem':esc?'':' bezkarnie';
+   mail('intruder',k==='thief'?'Złodziej drewna uciekł'+how+' ('+(inc.ref.stolen||0).toFixed(1).replace('.',',')+' m³).':k==='xmas'?'Złodziej choinek uciekł'+how+' — wycięto '+(inc.ref.stolen||0)+' młodych drzewek.':'Samochód bez świateł odjechał'+how+'. Mogły zostać wnyki.',{x:inc.x,y:inc.y});
    if(u&&u.cur===inc&&u.phase==='driving'){u.cur=null;u.startNext()}}
  }
  if(DEC.inc){if(!open_(DEC.inc)){DEC.inc=null;DEC.cb=null}else{DEC.t-=dt;if(DEC.t<=0)decide(DEC.warn?'warn':'police')}}

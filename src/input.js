@@ -32,6 +32,8 @@ export function pick(x,y){
  const o=opalPileAt(x,y);if(o)return o;
  if(Math.hypot(x-MAILBOX.x,y-(MAILBOX.y-14))<14)return{isMailbox:true,x:MAILBOX.x,y:MAILBOX.y};
  if(inRect(x,y,HOUSE,2))return{isHouse:true,x:HOUSE.x+HOUSE.w/2,y:HOUSE.y+HOUSE.h/2};
+ // 1.4.0: kupka chrustu (gałęzie po ścince) da się kliknąć
+ for(const t of treesIn(x-40,y-40,x+40,y+40))if(t.st===STUMP&&t.slash&&Math.hypot(t.slash.x-x,t.slash.y-y)<14)return{isSlash:true,t,x:t.slash.x,y:t.slash.y};
  return treeAt(x,y)||plotAt(x,y);
 }
 let down=null;

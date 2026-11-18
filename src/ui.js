@@ -3,8 +3,8 @@ import {closeTutor,toggleSettings} from './guide.js';
 import {$,state,cal,SEASONS,DOW,displayNumber,zl,SETTINGS,camera,VIEW,clamp,toast,SEASON_DAYS,YEARS_PER_SEASON} from './core.js';
 import {HL,WX,LVLN,fireLvl,trapsOn,sick,buyTraps,buildTower,COSTS as HC} from './health.js';
 import {SP,STAND,STUMP,SAPLING_AGE,CUT_AGE,THIN_AGE,crownR,heightM,dbhCm,volume,counts,treesIn,QUAL,SORTS,sortSplit,treeValue} from './forest.js';
-import {STANDS,oddzial} from './map.js';
-import {J,COST,PRICE,MACH,pendingCount,ordersCount,clearOrders,toggleMark,dispatchCrew,orderTruck,plantNear,plantAtStumps,buyForwarder,stackTotal,stackValue,hireCrew,hiredCrew,crewName,HIRE_COST,truckTotal,pileSorts,spotOf,fellCost,sanitary,skidRate,OPAL_KEEP,cutKind,CUT_NAME,ETAT_M3,etatUsed,etatPlanned,seedTreeNear,leaveNatural} from './jobs.js';
+import {STANDS,oddzial,roadClearance} from './map.js';
+import {J,COST,PRICE,MACH,pendingCount,ordersCount,clearOrders,toggleMark,dispatchCrew,orderTruck,plantNear,plantAtStumps,buyForwarder,stackTotal,stackValue,anyTruck,hireCrew,hiredCrew,crewName,HIRE_COST,truckTotal,pileSorts,spotOf,fellCost,sanitary,skidRate,OPAL_KEEP,cutKind,CUT_NAME,ETAT_M3,etatUsed,etatPlanned,seedTreeNear,leaveNatural} from './jobs.js';
 import {R,inPlot,perimOf,plotStats,prepCost,areaHa,spotsIn,orderPrep,orderPlant,removePlot,rowsOf,fenceCost,orderFence,orderRepel,repelCost,seasonKey,MIXES,mixFor,cycleMix,mixSp} from './renew.js';
 import {repelOn,trailOn,buyRepel,buyTrail,vs,VC} from './visit.js';
 import {NAT,canMonument,makeMonument,makeReserve,journalRows,MON_COST,RES_COST,richness} from './nature.js';
@@ -92,8 +92,8 @@ function statusPanel(){
   else setRow('dotS','skidstate',ph[S.phase]||S.phase,S.phase==='idle'||S.phase==='home'?'wait':'work')}
  {const PL=R.plow,on=PL.phase!=='idle'||PL.queue.length;$('#plowrow').style.display=on?'flex':'none';
   if(on)setRow('dotP','plowstate',PL.phase==='idle'?'czeka · '+cal.nextStart(7,16)+' ('+PL.queue.length+')':PL.phase==='plowing'?'orze P'+PL.cur.id:PL.phase==='leaving'?'odjeżdża':'w drodze do P'+(PL.cur?PL.cur.id:''),PL.phase==='idle'?'wait':'work')}
- {const T=J.truck,tot=stackTotal(),op=stackTotal(q=>q.sort==='opal');
-  setRow('dotT','stackinfo',displayNumber(tot,1)+' m³'+(T.v?' · TIR':T.pending?' · zamówiony':op>.05?' · opał '+displayNumber(op,1):''),T.v?'work':T.pending?'wait':'idle');$('#stackinfo').parentNode.title=J.stacks.filter(q=>q.vol>.05).length+' stosów przy drogach, w tym opał '+displayNumber(op,1)+' m³'+(T.v?'; ciężarówka odbiera drewno':T.pending?'; wywóz zamówiony':'')+'. Kliknij: pokaż największy stos.'}
+ {const tot=stackTotal(),op=stackTotal(q=>q.sort==='opal'),tv=[J.truck.v?'dłużyca':'',J.bdf.v?'BDF':''].filter(Boolean).join(' + '),pend=J.truck.pending||J.bdf.pending;
+  setRow('dotT','stackinfo',displayNumber(tot,1)+' m³'+(tv?' · '+tv:pend?' · zamówiony':op>.05?' · opał '+displayNumber(op,1):''),tv?'work':pend?'wait':'idle');const T={v:anyTruck(),pending:pend};$('#stackinfo').parentNode.title=J.stacks.filter(q=>q.vol>.05).length+' stosów przy drogach, w tym opał '+displayNumber(op,1)+' m³'+(T.v?'; ciężarówka odbiera drewno':T.pending?'; wywóz zamówiony':'')+'. Kliknij: pokaż największy stos.'}
  // 1.1.3: stan patrolu w panelu Zgłoszeń — dokąd jedzie i do czego
  const pat=u=>{if(u.phase==='home')return[u.person.sleeping?'śpi':u.person.busyOffice?'w kancelarii':'w leśniczówce','idle'];const q=u.cur,o=q?oddzial(q.x,q.y):'';return[(u.phase==='return'?'wraca do bazy':u.phase==='onsite'?'na miejscu · oddz. '+o:'jedzie do oddz. '+o)+(u.queue.length?' (+'+u.queue.length+')':''),'work']};
  {const [t,k]=pat(U[0]);setRow('dotL','patrolstate',t,k)}
@@ -105,7 +105,7 @@ function showUnit(k){
  if(k==='crew0'||k==='crew1'){const role=k==='crew0'?'fell':'plant',cs=J.crews.filter(C=>C.role===role),C=cs.find(C=>C.van&&!C.van.dead)||cs[0];if(!C)return;const w=C.workers.find(q=>!q.dead&&!q.hidden);const nm=crewName(C);go(w||C.van,nm[0].toUpperCase()+nm.slice(1)+' jest w bazie'+(C.tasks.length?' — przyjedzie '+cal.nextStart(7,17)+'.':'.'))}
  else if(k==='skid')go(J.skid.trac,J.skid.owned?'Forwarder jest w drodze.':'Ciągnik przyjedzie, gdy w lesie leżą kłody.');
  else if(k==='plow')go(R.plow.v,'Pług przyjedzie '+cal.nextStart(7,16)+'.');
- else if(k==='stacks'){if(J.truck.v){go(J.truck.v,'');return}const st=J.stacks.filter(q=>q.vol>.05).sort((a,b)=>b.vol-a.vol)[0];if(st){centerOn(st.x,st.y);state.selected=st;state.follow=null}else toast('Przy drogach nie ma drewna.')}
+ else if(k==='stacks'){if(anyTruck()){go(anyTruck().v,'');return}const st=J.stacks.filter(q=>q.vol>.05).sort((a,b)=>b.vol-a.vol)[0];if(st){centerOn(st.x,st.y);state.selected=st;state.follow=null}else toast('Przy drogach nie ma drewna.')}
  else if(k==='pat0'||k==='pat1'){const u=U[+k.slice(3)];if(!u)return;if(u.phase==='home'){const p=u.person;centerOn(p.x,p.y);state.follow=null}else go(u.car,'')}
  hud();
 }
@@ -195,8 +195,8 @@ function info(){
  else if(s.text)I={title:{quad:'Nielegalny wjazd',fire:'Dym nad lasem',intruder:'Nocny intruz',feed:'Paśnik do uzupełnienia',trash:'Śmieci w lesie',dump:'Dzikie wysypisko',carcass:'Padlina przy szosie'}[s.type]||'Zgłoszenie',lines:[s.text,s.type==='feed'?'Karma: '+zl(ECO.feedCost||120)+' + paliwo.':'',{new:'Czeka na decyzję.',queued:'W kolejce patrolu.',assigned:'Patrol w drodze.'}[s.status]||''].filter(Boolean),btns:[...(s.status==='new'?[['patrol',incLabel(s)]]:[])]};
  else if(s.value!=null&&s.edge&&!s.pos){const sp=spotOf(s),op=sp.find(q=>q.sort==='opal'),so=op?'opal':(s.sort||'tart'),tv=sp.reduce((a,q)=>a+q.value,0);I={title:'Składnica drewna przy drodze, oddz. '+s.odd,lines:['Na składnicy: '+displayNumber(sp.reduce((a,q)=>a+q.vol,0),1)+' m³ · wartość ok. '+zl(Math.round(tv*ECO.market)),sp.map(q=>SORTS[q.sort||'tart'].name+' '+displayNumber(q.vol,1)+' m³').join(' · '),
   so==='opal'?((op||s).truck===false?'Opał dla ludności (petenci, '+zl(PRICE.opal)+'/m³). Nadwyżkę ponad '+OPAL_KEEP+' m³ zabiera ciężarówka.':'Ciężarówka zabierze ten opał (hurtem, taniej niż petentom).'):'Cena rynkowa ×'+displayNumber(ECO.market,2)+'',
-  'Do wywozu: '+displayNumber(truckTotal(),1)+' m³ (od 10 m³ transport przyjedzie sam). Opał: '+displayNumber(stackTotal(q=>q.sort==='opal'),1)+' m³.','Sprzedano łącznie: '+displayNumber(J.sold,1)+' m³.'],
-  btns:J.truck.v?[]:[['truck','Zamów wywóz teraz']]}}
+  'Do wywozu: '+displayNumber(truckTotal(),1)+' m³ (BDF przyjeżdża sama od 5 m³, dłużyca od 20 m³ przy drogach leśnych). Opał: '+displayNumber(stackTotal(q=>q.sort==='opal'),1)+' m³.','Sprzedano łącznie: '+displayNumber(J.sold,1)+' m³.'],
+  btns:J.truck.v&&J.bdf.v?[]:[['truck','Zamów wywóz teraz']]}}
  else if(s.shots!==undefined&&s.outings!==undefined)I={title:'Ambona '+(s.id+1),lines:['Wyjść myśliwych: '+s.outings+' · pozyskano: '+s.got+' szt.','Zasięg ok. '+AMB_R+' px. Myśliwy wychodzi wieczorem i o świcie, dopóki trwa plan łowiecki.'],btns:[]};
  else if(s.level!=null&&s.name)I={title:'Paśnik '+s.name,lines:['Karma: '+Math.round(s.level*100)+'%',cal.season()===3?'Zimą karma ubywa. Przy niskim poziomie pojawi się zadanie.':'Poza zimą stoi nieużywany.'],btns:[]};
  else if(s.day!=null&&s.vol!=null&&s.edge)I={title:'Drewno opałowe do odbioru',lines:['Sprzedane w kancelarii: '+displayNumber(s.vol,1)+' m³','Nabywca przyjedzie ciągnikiem z przyczepą.'],btns:[]};
@@ -206,6 +206,9 @@ function info(){
  else if(s.logs&&s.edge&&s.day!=null&&!s.state)I={title:'Opał do odbioru',lines:['Kupka drewna opałowego ('+displayNumber(s.vol,1)+' m³) sprzedanego petentowi; nabywca odbiera ją sam w godzinach pracy.','Jeśli zalega przy drodze, możesz ją usunąć.'],btns:[['rmpile','Usuń kupkę']]};
  else if(s.logs&&s.state)I={title:'Kłody — '+SP[s.sp].name,lines:['Miąższość '+displayNumber(s.vol,2)+' m³: '+Object.entries(pileSorts(s)).filter(([,v])=>v>.01).map(([k,v])=>SORTS[k].short+' '+displayNumber(v,2)).join(', '),s.state==='ground'?'Czeka na zrywkę.':'Ciągnik już po nie jedzie.'],btns:s.state==='ground'?[['rmpile','Usuń kłody (strata drewna)']]:[]};
  else if(s.toPlant!==undefined)I=plotInfo(s);
+ else if(s.isSlash){if(!s.t.slash){state.selected=null;el.style.display='none';return}
+  const road=roadClearance(s.x,s.y,['forest','dukt'])<120,yrs=Math.max(1,Math.round(10-(s.t.stumpAge||0)));
+  I={title:'Chrust — gałęzie po ścince',lines:['Oddział '+oddzial(s.x,s.y)+' · '+SP[s.t.sp].name.split(' ')[0],road?'Leży przy drodze: zbiorą go ludzie z zezwoleniem na chrust (kancelaria, 40 zł) — przyjeżdżają osobówką z przyczepką.':'Leży w głębi lasu: nikt po niego nie przyjdzie, zbutwieje sam.','Butwieje sam za ok. '+yrs+' '+(yrs===1?'rok':yrs<5?'lata':'lat')+'. Znika też przy orce powierzchni.'],btns:[]}}
  if(!I){el.style.display='none';return}
  const sig=JSON.stringify(I),fresh=sig!==infoSig;infoSig=sig;
  if(fresh)el.innerHTML=`<div class="wh"><b>${I.title}</b><button class="xbtn sm" data-x="info" aria-label="Zamknij">✕</button></div>`+I.lines.map(l=>`<div class="ln">${l}</div>`).join('')+(I.btns.length?`<div class="ibtns">${I.btns.map(([k,t])=>`<button data-ia="${k}">${t}</button>`).join('')}</div>`:'')+(s.pos||s.look||(s.kind&&ASPEC[s.kind]&&!s.edge)?`<div class="muted small">F: śledź kamerą</div>`:'');
