@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 1.2.0** („Czytelne okna” + trwały zapis i porządek HUD-u). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 1.2.1** („Czytelne okna” + trwały zapis i porządek HUD-u). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -229,6 +229,10 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
+
+## Zmiany w 1.2.1
+- **Ambony i paśniki nad koronami:** stoją w stałych miejscach w lesie, a rysowały się pod koronami drzew — z 8 kupionych ambon dwie były całkiem zakryte, a kilka wystawało tylko rogiem dachu (podobnie paśniki P3 i P4). Teraz rysują się nad koronami, razem z myśliwym na ambonie. Upolowana zwierzyna zostaje pod koronami.
+- **Mapa leśnictwa (Tab):** na każdej warstwie widać postawione ambony (brązowy domek, A1–A8) i paśniki (żółty żłób, P1–P4); pusty paśnik zimą ma czerwoną obwódkę. Najechanie kursorem pokazuje nazwę ambony z liczbą wyjść i pozyskaniem albo poziom karmy w paśniku.
 
 ## Zmiany w 1.2.0
 - **Autobus szkolny:** wycieczki na ścieżkę przyrodniczą przyjeżdżają żółtym autobusem. Przy otwartych szlabanach autobus wjeżdża duktem najbliżej ścieżki, przy zamkniętych staje w zatoczce przy szosie pod znakiem ścieżki. Dzieci z leśniczym wysiadają, idą lasem do ścieżki, przechodzą ją, wracają i autobus odjeżdża.

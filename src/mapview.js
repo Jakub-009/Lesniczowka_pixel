@@ -1,6 +1,7 @@
 // Mapa leśnictwa (Tab), 1.1: okno na wspólnej ramce. Płaskie kolory komórek 100×100 zamiast kropek drzew, cztery warstwy
 // (Gatunki, Wiek, Odnowienie, Prace), odczyt wartości pod kursorem i tabela oddziałów. Klik w mapę: kamera + karta oddziału.
-import {WORLD,camera,VIEW,state,$} from './core.js';
+// 1.2.1: na każdej warstwie widać postawione ambony (A1–A8) i paśniki (P1–P4); pusty paśnik zimą ma czerwoną obwódkę.
+import {WORLD,camera,VIEW,state,$,cal} from './core.js';
 import {trees,STAND,SAPLING_AGE,volume,SP} from './forest.js';
 import {EDGES,STANDS,oddzial,GX,GY,YARD,POLANY,polR,PLAC,WETLANDS,STREAM} from './map.js';
 import {E} from './ents.js';
@@ -10,6 +11,8 @@ import {U} from './incidents.js';
 import {ECO} from './economy.js';
 import {oddStats,oddBounds,SPCOL} from './oddcard.js';
 import {centerOn,toggleOdd} from './ui.js';
+import {AMB,AMBONY} from './life/ambony.js';
+import {FA} from './life/fauna.js';
 import {registerWin,closeWin} from './win.js';
 
 const K=4,CS=100,NX=Math.ceil(WORLD.w/CS),NY=Math.ceil(WORLD.h/CS),IDS=['101','102','103','104','105','106','107','108'];
@@ -75,6 +78,7 @@ function draw(){
   g.fillStyle='#3a80e0';for(const u of U)g.fillRect(u.car.pos[0]/K-2.5,u.car.pos[1]/K-2.5,5,5);
   for(const q of E.incidents){if(q.status==='done'||q.status==='gone')continue;g.fillStyle=q.type==='fire'?'#ff3a1a':'#ffd028';g.fillRect(q.x/K-3,q.y/K-3,6,6);g.strokeStyle='#14201a';g.lineWidth=1;g.strokeRect(q.x/K-3,q.y/K-3,6,6)}
  }
+ drawSites();
  g.font='bold 15px ui-monospace,monospace';g.textAlign='center';g.textBaseline='middle';
  for(const id of IDS){const B=oddBounds(id),x=(B.x0+B.x1)/2/K,y=(B.y0+B.y1)/2/K;g.lineWidth=4;g.strokeStyle='#ffffffe0';g.strokeText(id,x,y);g.fillStyle='#1d2b22';g.fillText(id,x,y)}
  if(hover){
@@ -83,12 +87,29 @@ function draw(){
  }
  g.strokeStyle='#ffffff';g.lineWidth=2;g.strokeRect(camera.x/K,camera.y/K,VIEW.w/K,VIEW.h/K);g.strokeStyle='#1d2b22';g.lineWidth=1;g.strokeRect(camera.x/K-1,camera.y/K-1,VIEW.w/K+2,VIEW.h/K+2);
 }
+// ambony (brązowy domek) i paśniki (żółty żłób) z krótką etykietą; widoczne na każdej warstwie
+const AMB_C='#7a5232',FEED_C='#d8b44a';
+const ambNo=a=>'A'+(a.slot+1),feedNo=f=>'P'+(f.slot+1);
+function siteLabel(t,x,y){g.font='bold 10px ui-monospace,monospace';g.textAlign='left';g.textBaseline='middle';g.lineWidth=3;g.strokeStyle='#ffffffd0';g.strokeText(t,x,y);g.fillStyle='#1d2b22';g.fillText(t,x,y)}
+function drawSites(){
+ g.lineWidth=1.5;
+ for(const a of AMB.list){const x=a.x/K,y=a.y/K;
+  g.beginPath();g.moveTo(x-6,y-1);g.lineTo(x,y-7);g.lineTo(x+6,y-1);g.lineTo(x+5,y-1);g.lineTo(x+5,y+5);g.lineTo(x-5,y+5);g.lineTo(x-5,y-1);g.closePath();
+  g.lineWidth=4;g.strokeStyle='#fffbe8';g.stroke();g.lineWidth=1.5;g.fillStyle=AMB_C;g.fill();g.strokeStyle='#1d2b22';g.stroke();
+  siteLabel(ambNo(a),x+8,y-1)}
+ const winter=cal.season()===3;
+ for(const f of FA.feeders){const x=f.x/K,y=f.y/K,empty=winter&&f.level<.22;
+  g.lineWidth=4;g.strokeStyle='#fffbe8';g.strokeRect(x-5.5,y-4,11,8);
+  g.fillStyle=FEED_C;g.strokeStyle=empty?'#d63a2c':'#1d2b22';g.lineWidth=empty?2.5:1.5;g.fillRect(x-5.5,y-4,11,8);g.strokeRect(x-5.5,y-4,11,8);
+  siteLabel(feedNo(f),x+8,y)}
+}
 const chip=(c,n)=>`<span><i style="background:${c}"></i>${n}</span>`;
+const sitesLegend=()=>chip(AMB_C,'ambona')+chip(FEED_C,'paśnik');
 function legend(){
- return layer==='sp'?Object.entries(SPCOL).map(([k,c])=>chip(c,SPN(k))).join('')+'<span class="muted">intensywność = zagęszczenie</span>'
+ return sitesLegend()+(layer==='sp'?Object.entries(SPCOL).map(([k,c])=>chip(c,SPN(k))).join('')+'<span class="muted">intensywność = zagęszczenie</span>'
  :layer==='age'?AGES.map(a=>chip(a[1],a[2])).join('')
  :layer==='ren'?chip('#e0602e','nieodnowione pniaki')+chip('#5fb04a','młode drzewka')+chip('rgba(168,184,128,.9)','drzewostan')+chip('#fff4c8','powierzchnia odnowieniowa')
- :chip('#d63a2c','oznaczone do cięcia')+chip('#2f9a3a','zaplanowane sadzonki')+chip('#ffd028','zgłoszenie')+chip('#f0a030','ekipa')+chip('#e0d030','ciągnik')+chip('#3a80e0','patrol')+chip('#8a4a1e','stos drewna');
+ :chip('#d63a2c','oznaczone do cięcia')+chip('#2f9a3a','zaplanowane sadzonki')+chip('#ffd028','zgłoszenie')+chip('#f0a030','ekipa')+chip('#e0d030','ciągnik')+chip('#3a80e0','patrol')+chip('#8a4a1e','stos drewna'));
 }
 const n0=v=>Math.round(v).toLocaleString('pl-PL');
 const ageTxt=a=>a?Math.round(a)+' l.':'—';
@@ -103,7 +124,10 @@ function readout(){
  const S=stats[hover.id],c=cells[hover.cy*NX+hover.cx],tot=Math.max(1,c.n);
  const sp=Object.entries(c.sp).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,n])=>SPN(k)+' '+Math.round(n/tot*100)+'%').join(', ')||'brak drzew';
  const r=(a,b)=>`<div class="srow"><span>${a}</span><i>${b}</i></div>`;
- return `<b>Oddział ${hover.id}</b> <span class="muted">${STANDS[hover.id].desc}</span>
+ const A=AMB.list.find(a=>Math.hypot(a.x-hover.x,a.y-hover.y)<60),F=FA.feeders.find(f=>Math.hypot(f.x-hover.x,f.y-hover.y)<60);
+ const site=A?`<div class="srow"><span>Ambona ${AMBONY[A.slot].name}</span><i>wyjść ${A.outings} · pozyskano ${A.got} szt.</i></div>`
+  :F?`<div class="srow"><span>Paśnik ${F.name}</span><i>karma ${Math.round(F.level*100)}%</i></div>`:'';
+ return `${site}<b>Oddział ${hover.id}</b> <span class="muted">${STANDS[hover.id].desc}</span>
  ${r('drzewa · wiek · zapas',S.stand+' · '+ageTxt(S.age)+' · '+n0(S.vol)+' m³')}${r('dojrzałe · oznaczone',S.mature+' · '+(S.marked||'—'))}${r('pniaki nieodnowione · zgłoszenia',(S.unren||'—')+' · '+(S.incidents||'—'))}
  <div class="mh2">Ta komórka</div>
  ${r('drzewa · gatunki',c.n+' · '+sp)}${r('wiek · zapas',ageTxt(c.aged?c.ageSum/c.aged:0)+' · '+n0(c.vol)+' m³')}${r('młode · pniaki nieodn. · oznaczone',c.young+' · '+(c.unren||'—')+' · '+(c.marked||'—'))}`;
@@ -125,7 +149,7 @@ registerWin('map',{cls:'xl',
  render:()=>SHELL,
  after(el){
   cv=$('#mapcv');cv.width=WORLD.w/K;cv.height=WORLD.h/K;g=cv.getContext('2d');dirty=true;
-  cv.addEventListener('mousemove',e=>{const [x,y]=pos(e);if(x<0||y<0||x>=WORLD.w||y>=WORLD.h)return;hover={id:String(oddzial(x,y)),cx:Math.floor(x/CS),cy:Math.floor(y/CS)};hov(el)});
+  cv.addEventListener('mousemove',e=>{const [x,y]=pos(e);if(x<0||y<0||x>=WORLD.w||y>=WORLD.h)return;hover={id:String(oddzial(x,y)),cx:Math.floor(x/CS),cy:Math.floor(y/CS),x,y};hov(el)});
   cv.addEventListener('mouseleave',()=>{hover=null;hov(el)});
   cv.addEventListener('click',e=>{const [x,y]=pos(e),id=String(oddzial(x,y));closeWin();centerOn(x,y);state.follow=null;toggleOdd(true,id)});
   for(const b of el.querySelectorAll('[data-ml]'))b.addEventListener('click',()=>{layer=b.dataset.ml;dirty=true;side(el)});
