@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 1.3.1** („Czytelne okna” + trwały zapis i porządek HUD-u). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 1.3.2** („Czytelne okna” + trwały zapis i porządek HUD-u). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -228,6 +228,9 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
+
+## Zmiany w 1.3.2
+- Polowanie zbiorowe w oddz. 106: od przebudowy mapy w 0.9 linia myśliwych leżała na samej drodze, przy zaparkowanych autach, a naganka ruszała spod polany za daleko. Stanowiska stoją teraz w lesie ok. 50 px na wschód od drogi, a naganka idzie równą linią od polany w ich stronę.
 
 ## Zmiany w 1.3.1
 - Ambony i paśniki znowu rysują się pod koronami drzew, tak jak przed 1.2.1 (rysowanie nad koronami wyglądało źle). Gdzie stoją, pokazuje Mapa leśnictwa (Tab).
