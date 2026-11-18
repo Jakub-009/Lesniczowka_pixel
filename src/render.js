@@ -98,14 +98,18 @@ function nightLayer(){
  ctx.fillStyle=`rgba(14,22,48,${dark*.55})`;ctx.fillRect(0,0,VIEW.w,VIEW.h);
  // światła: okna leśniczówki, reflektory pojazdów
  ctx.save();ctx.globalCompositeOperation='lighter';ctx.translate(-Math.floor(camera.x),-Math.floor(camera.y));
- ctx.fillStyle=`rgba(255,200,110,${dark*.35})`;ctx.beginPath();ctx.arc(HOUSE.x+40,HOUSE.y+HOUSE.h+8,22,0,6.28);ctx.arc(HOUSE.x+120,HOUSE.y+HOUSE.h+6,18,0,6.28);ctx.fill();
+ // 1.4.3: światło z okien leśniczówki — miękka, spłaszczona plama na ziemi przy ścianie (zamiast dwóch ostrych kół)
+ for(const [ox,rx] of [[40,18],[120,15]]){const cx=HOUSE.x+ox,cy=HOUSE.y+HOUSE.h+3;ctx.save();ctx.translate(cx,cy);ctx.scale(1,.45);
+  const g=ctx.createRadialGradient(0,0,1,0,0,rx);g.addColorStop(0,`rgba(255,205,120,${dark*.32})`);g.addColorStop(1,'rgba(255,205,120,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,rx,0,6.283);ctx.fill();ctx.restore()}
  // 1.4.2: dwa reflektory, każdy jako lejek: wąski przy aucie, dalej rozchodzi się prostymi krawędziami, koniec zaokrąglony i wygaszony
  for(const v of E.vehicles){if(v.kind==='bike'||v.dark||(v.parked&&!v.beacon)||!vis(v.pos[0],v.pos[1],160))continue;const [x,y]=v.pos,hd=v.heading,L=v.spec.hh,hw=v.spec.hw,R=58+L*1.25;
   for(const sd of [-1,1]){ctx.save();ctx.translate(x,y);ctx.rotate(hd);ctx.translate(sd*Math.max(2,hw-3),-L+1);ctx.rotate(sd*.12);
    const g=ctx.createLinearGradient(0,0,0,-R);g.addColorStop(0,`rgba(255,240,190,${dark*.17})`);g.addColorStop(.5,`rgba(255,236,180,${dark*.08})`);g.addColorStop(1,'rgba(255,236,180,0)');ctx.fillStyle=g;
    for(const [w,a] of [[R*.3,.55],[R*.22,.75],[R*.15,1]]){ctx.globalAlpha=a;ctx.beginPath();ctx.moveTo(-2,0);ctx.lineTo(-w,-R+w);ctx.arc(0,-R+w,w,Math.PI,0);ctx.lineTo(2,0);ctx.closePath();ctx.fill()}   // miękkie krawędzie: trzy warstwy
    ctx.restore()}
-  if(v.beacon){ctx.fillStyle=`rgba(255,170,40,${dark*.4})`;ctx.beginPath();ctx.arc(x,y,16,0,6.28);ctx.fill()}}
+  // 1.4.3: sygnał świetlny miga w kolorze pojazdu: Policja i straż — niebieski, leśniczy — pomarańczowy
+  if(v.beacon){const blue=v.kind==='police'||v.kind==='firetruck',on=Math.floor(state.elapsed*(blue?5:3)+v.vid)%2,c=blue?'70,120,255':'255,170,40';
+   if(on){const g=ctx.createRadialGradient(x,y,1,x,y,18);g.addColorStop(0,`rgba(${c},${dark*.5})`);g.addColorStop(1,`rgba(${c},0)`);ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,18,0,6.283);ctx.fill()}}}
  for(const t of E.trash)if(t.fire&&!t.dead&&vis(t.x,t.y)){ctx.fillStyle=`rgba(255,120,40,${dark*.5})`;ctx.beginPath();ctx.arc(t.x,t.y,14+t.grow*18,0,6.28);ctx.fill()}
  ctx.restore();return dark;
 }

@@ -51,7 +51,7 @@ export function policeTop(g,x,y,h,travel=0,beacon=false){
   rect(s,-8,-8,16,7,'#2f5ea8');rect(s,-8,2,16,6,'#2f5ea8');
   rect(s,-6,-15,12,8,'#5d8790');rect(s,-5,-14,10,3,'#a8c2c6');rect(s,-6,12,12,6,'#5d8790');
   rect(s,-6,-27,4,2,'#ecddb6');rect(s,2,-27,4,2,'#ecddb6');rect(s,-6,22,4,2,'#c2362b');rect(s,2,22,4,2,'#c2362b');
-  const on=beacon&&Math.floor(RT.frame/10)%2;rect(s,-5,-4,4,3,beacon?(on?'#4a8aff':'#1f3a7a'):'#1f3a7a');rect(s,1,-4,4,3,beacon?(on?'#1f3a7a':'#ff4a3a'):'#7a2a24');
+  const on=beacon&&Math.floor(RT.frame/10)%2;rect(s,-5,-4,4,3,beacon?(on?'#4a8aff':'#1f3a7a'):'#1f3a7a');rect(s,1,-4,4,3,beacon?(on?'#1f3a7a':'#4a8aff'):'#1f3a7a');   // 1.4.3: Policja — oba światła niebieskie
  });
 }
 // Wóz strażacki (0.8.3): czerwony z białym pasem, drabiną i kogutem.
@@ -210,22 +210,28 @@ export function plowTop(g,c,working){
  });
 }
 // Forwarder: przednia część (kabina, silnik, dwa wózki kół) i tylna rama z kłonicami i żurawiem.
-export function forwarderTop(g,x,y,h,travel=0,steer=0){
+// 1.4.3: forwarder to „łamaniec”: przedni człon (silnik, kabina, wózek dwuosiowy) i tylny człon z żurawiem i kłonicami
+// łączy przegub w połowie maszyny — tylny człon (bunkTop) zaczyna się dokładnie na przegubie, bez dyszla.
+const FWD_COL={green:['#7a8a3a','#a8b85a','#5f6c2c','#454f22'],red:['#a8342b','#d0655a','#7e2620','#5e1c18']};
+export function forwarderTop(g,x,y,h,travel=0,steer=0,col='green'){
+ const C=FWD_COL[col]||FWD_COL.green;
  orientedShadow(g,x,y,h,[[15,19,0]],15);
  drawRotated(g,x,y,h,s=>{
-  wheels(s,[-13,13],[-11,9],7,13,travel);
-  rect(s,-11,-20,22,36,'#2c3324');rect(s,-10,-19,20,34,'#7a8a3a');rect(s,-10,-19,20,2,'#a8b85a');
-  rect(s,-8,-17,16,12,'#e4dfc8');rect(s,-7,-16,14,8,'#5d8790');rect(s,-6,-15,12,3,'#a8c2c6');   // kabina
-  rect(s,-9,-2,18,14,'#5f6c2c');for(let k=0;k<4;k++)rect(s,-7,0+k*3,14,1,'#454f22');             // silnik
-  rect(s,-4,14,8,5,'#2a2a26');rect(s,-2,15,4,3,'#6a6a62');                                         // przegub
+  wheels(s,[-13,13],[-12,4],7,12,travel);   // przedni wózek: dwie osie (boogie)
+  rect(s,-11,-20,22,38,'#2c3324');rect(s,-10,-19,20,36,C[0]);rect(s,-10,-19,20,2,C[1]);
+  rect(s,-9,-19,18,10,C[2]);for(let k=0;k<3;k++)rect(s,-7,-17+k*3,14,1,C[3]);                     // silnik z przodu
+  rect(s,-8,-7,16,14,'#e4dfc8');rect(s,-7,-6,14,10,'#5d8790');rect(s,-6,-5,12,3,'#a8c2c6');      // kabina za silnikiem
+  rect(s,-5,15,10,6,'#2a2a26');rect(s,-3,16,6,4,'#6a6a62');rect(s,-1,17,2,2,'#2a2a26');           // przegub
   rect(s,-10,-21,3,2,'#ffd06a');rect(s,7,-21,3,2,'#ffd06a');
  });
 }
-export function bunkTop(g,c,load,cap){
+export function bunkTop(g,c,load,cap,col='green'){
+ const C=FWD_COL[col]||FWD_COL.green;
  orientedShadow(g,c.x,c.y,c.angle,[[15,26,0]],12);
  drawRotated(g,c.x,c.y,c.angle,s=>{
-  wheels(s,[-13,13],[-6,12],7,13,0);
-  rect(s,-11,-26,22,52,'#2c3324');rect(s,-10,-25,20,50,'#5f6c2c');
+  wheels(s,[-13,13],[2,16],7,12,0);   // tylny wózek: dwie osie
+  rect(s,-4,-29,8,5,'#2a2a26');rect(s,-2,-28,4,3,'#6a6a62');   // przegub (druga połowa)
+  rect(s,-11,-26,22,52,'#2c3324');rect(s,-10,-25,20,50,C[2]);
   rect(s,-5,-27,10,8,'#3a3a36');rect(s,-3,-26,6,6,'#d8b23a');rect(s,-1,-24,2,2,'#2a2a26');      // podstawa żurawia
   for(const yy of [-14,0,14,24]){rect(s,-13,yy-3,3,6,'#d8b23a');rect(s,10,yy-3,3,6,'#d8b23a')}
   const n=Math.round(Math.min(1,load/cap)*8);

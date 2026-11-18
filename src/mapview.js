@@ -74,7 +74,7 @@ function draw(){
   g.fillStyle='#2f9a3a';for(const p of J.plants)g.fillRect(p.x/K-1.5,p.y/K-1.5,3,3);
   g.fillStyle='#8a4a1e';for(const s of J.stacks)if(s.vol>.05)g.fillRect(s.x/K-2.5,s.y/K-2.5,5,5);
   g.fillStyle='#f0a030';for(const C of J.crews)if(C.van&&!C.van.dead)g.fillRect(C.van.pos[0]/K-2.5,C.van.pos[1]/K-2.5,5,5);
-  if(J.skid.trac&&!J.skid.trac.dead){const v=J.skid.trac;g.fillStyle='#e0d030';g.fillRect(v.pos[0]/K-2.5,v.pos[1]/K-2.5,5,5)}
+  for(const S of [J.skid,J.skid2])if(S.trac&&!S.trac.dead){const v=S.trac;g.fillStyle='#e0d030';g.fillRect(v.pos[0]/K-2.5,v.pos[1]/K-2.5,5,5)}
   g.fillStyle='#3a80e0';for(const u of U)g.fillRect(u.car.pos[0]/K-2.5,u.car.pos[1]/K-2.5,5,5);
   for(const q of E.incidents){if(q.status==='done'||q.status==='gone')continue;g.fillStyle=q.type==='fire'?'#ff3a1a':'#ffd028';g.fillRect(q.x/K-3,q.y/K-3,6,6);g.strokeStyle='#14201a';g.lineWidth=1;g.strokeRect(q.x/K-3,q.y/K-3,6,6)}
  }

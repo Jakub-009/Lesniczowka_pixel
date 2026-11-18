@@ -17,7 +17,7 @@ import {pileTop} from './life/sprites.js';
 export const COST={fell:30,fellM3:55,plant:4,plantNursery:1,plac:1.5,skid:40,skidOwn:12,crewB:260,pod:220,fwd:60};
 export const sanitary=t=>!!(t.san||t.kb);   // wiatrołom / kornik: ścinkę opłaca nadleśnictwo
 export const fellCost=t=>sanitary(t)?0:Math.round(COST.fell+COST.fellM3*Math.max(.08,volume(t)));
-export const skidRate=()=>J.skid.owned?COST.skidOwn:COST.skid;
+export const skidRate=(S=J.skid)=>S.owned||S.hired!=null?COST.skidOwn:COST.skid;   // 1.4.3: wynajęty forwarder — stawka jak za własny
 // 1.1.5: rodzaj cięcia — sanitarne (wiatrołom, kornik), trzebież (drzewostan przed dojrzałością, < 80% wieku rębności), rębnia (dojrzałe)
 export const cutKind=t=>sanitary(t)?'san':frac(t)<.8?'thin':'cut';
 export const CUT_NAME={san:'cięcie sanitarne',thin:'trzebież',cut:'rębnia'};
@@ -40,7 +40,7 @@ const workerName=C=>C.role==='plant'?'sadzący ('+crewName(C)+')':'pilarz ('+cre
 export const HIRE_COST=600;
 // 1.3.0: plantSp — gatunek wybrany w narzędziu Sadzenie (3); plac zawsze włączone (gra sama sadzi na placówkach, orka tylko na powierzchniach)
 export const J={plants:[],trails:[],crews:[newCrew('A','fell'),newCrew('S','plant')],etat:{k:-1,used:0},plac:true,plantSp:'sosna',
- skid:{trac:null,phase:'idle',mach:'tractor',list:[],cur:null,wait:0,watch:0,owned:false},
+ skid:{trac:null,phase:'idle',mach:'tractor',list:[],cur:null,wait:0,watch:0,owned:false},skid2:{trac:null,phase:'idle',mach:'forwarder',list:[],cur:null,wait:0,watch:0,owned:false,hired:null,slot:1},
  truck:{v:null,phase:'idle',pending:false,route:[],cur:null},bdf:{v:null,phase:'idle',pending:false,route:[],cur:null},stacks:[],nextStack:1,sold:0,auto:true};
 export const stackTotal=(f)=>J.stacks.reduce((a,s)=>a+(!f||f(s)?s.vol:0),0);
 export const stackValue=(f)=>J.stacks.reduce((a,s)=>a+(!f||f(s)?s.value:0),0);
@@ -339,29 +339,29 @@ export const MACH={
 // nocuje na placu przy leśniczówce, a po skończonej robocie zjeżdża z lasu. Kupiony forwarder stoi na placu na stałe.
 // 0.8.3: droga l1–yd jest typu 'drive' (poza dozwolonymi dla ciągnika/forwardera) — planer nie znajdował trasy i maszyna jechała
 // na plac prosto przez las. Teraz dojeżdża drogą leśną a3–l1 do węzła l1, a dalej jedzie po podwórzu (bez lasu i płotów).
-const homeLabel=()=>MACH[J.skid.mach].name+' (na placu przy leśniczówce)';
+const homeLabel=S=>(S.hired!=null?'wynajęty ':'')+MACH[S.mach].name+' (na placu przy leśniczówce)';
 const PLAC_EDGE=EDGES.find(e=>e.a==='a3'&&e.b==='l1');
-function parkAtPlac(v,cb){
- const sp=PLAC_SPOTS[0],yy=NODES.l1[1];
+function parkAtPlac(v,cb,i=0){
+ const sp=PLAC_SPOTS[i]||PLAC_SPOTS[0],yy=NODES.l1[1];
  v.goTo({edge:PLAC_EDGE,s:PLAC_EDGE.len},{park:false,onArrive:()=>v.driveOff([[sp.x+22,yy],[sp.x+22,sp.y-28],[sp.x-14,sp.y+2]],{onArrive:()=>{v.v=0;v.parked=true;cb&&cb()}})});
 }
-function spawnMachine(kind,toPlac){
- const S=J.skid,M=MACH[kind];S.mach=kind;
- S.trac=new Vehicle(M.veh,ENTRY(rand()<.5));S.trac.cap=M.cap;S.list=[];S.cur=null;S.watch=0;S.atHome=false;
- if(toPlac){S.phase='arriving';S.trac.label=M.name+' jedzie na plac przy leśniczówce';parkAtPlac(S.trac,()=>{S.phase='idle';S.atHome=true;S.trac.label=homeLabel()})}
- else{S.phase='idle';S.trac.label=M.name+' (usługa zrywki) dojeżdża do lasu'}
+function spawnMachine(kind,toPlac,S=J.skid){
+ const M=MACH[kind];S.mach=kind;
+ S.trac=new Vehicle(M.veh,ENTRY(rand()<.5));S.trac.cap=M.cap;S.list=[];S.cur=null;S.watch=0;S.atHome=false;if(S.hired!=null)S.trac.col='red';
+ if(toPlac){S.phase='arriving';S.trac.label=M.name+' jedzie na plac przy leśniczówce';parkAtPlac(S.trac,()=>{S.phase='idle';S.atHome=true;S.trac.label=homeLabel(S)},S.slot||0)}
+ else{S.phase='idle';S.trac.label=S.hired!=null?'wynajęty forwarder dojeżdża do lasu':M.name+' (usługa zrywki) dojeżdża do lasu'}
 }
 export const placeForwarder=()=>spawnMachine('forwarder',true);
 const crewsFelling=()=>J.crews.some(C=>C.tasks.some(k=>k.type==='fell')||C.cluster.some(k=>k.type==='fell'));
 // Koniec pracy albo brak kłód: na plac (forwarder, albo usługa, gdy robota jeszcze trwa) albo zjazd z lasu.
-function goHome(){
- const S=J.skid,v=S.trac,M=MACH[S.mach];if(!v)return;
- if(!S.owned&&!crewsFelling()&&!freePiles().length){
+function goHome(S=J.skid){
+ const v=S.trac,M=MACH[S.mach];if(!v)return;
+ if(!S.owned&&(S.hired!=null||!crewsFelling())&&!freePiles(S).length){
   v.label=M.name+' zjeżdża z lasu — zrywka skończona';v.goTo(goalNode(exitNode(v.pos[0])),{leave:true});
   S.trac=null;S.phase='idle';S.atHome=false;return}
  if(S.atHome)return;
  S.phase='home';v.label=M.name+' jedzie na nocleg na plac przy leśniczówce';
- parkAtPlac(v,()=>{S.phase='idle';S.atHome=true;v.label=homeLabel()});
+ parkAtPlac(v,()=>{S.phase='idle';S.atHome=true;v.label=homeLabel(S)},S.slot||0);
 }
 export function initJobs(){
  J.skid.trac=null;J.skid.phase='idle';
@@ -378,7 +378,7 @@ export function buyForwarder(){
  const old=S.trac;if(old){old.label='ciągnik usługowy odjeżdża (zastąpiony forwarderem)';old.goTo(goalNode(exitNode(old.pos[0])),{leave:true})}
  spawnMachine('forwarder',true);toast('Kupiono forwarder (12 m³). Zrywka '+zl(COST.skidOwn)+'/m³, utrzymanie '+zl(COST.fwd)+' za dzień pracy.');
 }
-const anchor=v=>J.skid.mach==='forwarder'?cartFront(v.cart):cartRear(v.cart);
+const anchor=v=>v.kind==='forwarder'?cartFront(v.cart):cartRear(v.cart);
 export function rutWork(v,step){v.rutAcc=(v.rutAcc||0)+step;if(v.rutAcc>2){v.rutAcc=0;paintRut(v.pos[0],v.pos[1],v.heading,v.spec.hw*.65);if(v.cart){const c=v.cart;paintRut(c.x,c.y,c.angle,12)}}}
 function pathTo(v,tx,ty,stop){
  let p=NAV.veh.findPath(v.pos[0],v.pos[1],tx,ty);if(!p||!p.length)p=[[tx,ty]];
@@ -391,11 +391,25 @@ function pathTo(v,tx,ty,stop){
  }
  return out;
 }
-const freePiles=()=>E.piles.filter(p=>p.state==='ground'&&!p.dead&&!(p.skipT>state.elapsed));
+const SKIDS=()=>[J.skid,J.skid2];
+// 1.4.3: kłody, po które nie jedzie już druga maszyna (cel drugiej jest pomijany)
+const freePiles=S=>E.piles.filter(p=>p.state==='ground'&&!p.dead&&!(p.skipT>state.elapsed)&&!SKIDS().some(o=>o!==S&&o.trac&&o.target===p));
 const reachD=(v,p)=>{const [ax,ay]=anchor(v);return Math.min(Math.hypot(p.x-ax,p.y-ay),Math.hypot(p.x-v.pos[0],p.y-v.pos[1]))};
 function skidUpdate(dt){
- const S=J.skid,M=MACH[S.mach];
- if(!S.trac){if(!S.owned&&cal.work(7,15)&&freePiles().length)spawnMachine('tractor',false);else if(S.owned)spawnMachine('forwarder',true);return}
+ skidUnit(J.skid,dt);
+ // 1.4.3: wynajęty drugi forwarder (czerwony) — pracuje do końca pory roku, gdy w lesie leży drewno; potem odjeżdża
+ const S2=J.skid2;if(S2.hired!=null&&S2.hired!==Math.floor(state.days/SEASON_DAYS)&&!S2.trac){S2.hired=null;toast('Wynajęty forwarder skończył umowę (koniec pory roku).')}
+ if(S2.hired!=null||S2.trac)skidUnit(S2,dt);
+}
+export const FWD_HIRE=900;
+export function hireForwarder(){
+ const S2=J.skid2;if(S2.hired!=null){toast('Drugi forwarder już pracuje do końca pory roku.');return false}
+ if(!canAfford(FWD_HIRE))return false;pay(FWD_HIRE,'wynajem drugiego forwardera');S2.hired=Math.floor(state.days/SEASON_DAYS);
+ toast('Wynajęto drugi forwarder (czerwony) do końca pory roku. Zrywka '+zl(COST.skidOwn)+'/m³.');return true;
+}
+function skidUnit(S,dt){
+ const M=MACH[S.mach];
+ if(!S.trac){if(S.hired!=null){if(cal.work(7,15)&&freePiles(S).length)spawnMachine('forwarder',false,S)}else if(!S.owned&&cal.work(7,15)&&freePiles(S).length)spawnMachine('tractor',false,S);else if(S.owned)spawnMachine('forwarder',true,S);return}
  const v=S.trac;
  if(S.phase!=='idle'&&S.phase!=='arriving'&&S.phase!=='home')S.watch+=dt;
  if(S.watch>240){   // zabezpieczenie: brak postępu przez 4 godziny gry — odholowanie do bazy
@@ -403,18 +417,18 @@ function skidUpdate(dt){
   if(S.target)S.target.skipT=state.elapsed+600;
   const load=v.load,val=S.val||0,[px,py]=v.pos;v.dead=true;S.trac=null;S.phase='idle';S.watch=0;
   if(load>0){for(const k of ['tart','pap','opal'])if(S.ls&&S.ls[k]>.01)addToStack(stackFor(px,py,k),S.ls[k],S.lv[k]);S.ls=S.lv=null}
-  if(S.owned)spawnMachine('forwarder',true);
+  if(S.owned)spawnMachine('forwarder',true,S);
   toast(M.name[0].toUpperCase()+M.name.slice(1)+' utknął. Odholowano go, ładunek leży przy drodze.'+(S.owned?'':' Przyjedzie inny ciągnik.'));return;
  }
  if(S.phase==='idle'){
-  if(!cal.work(7,17)){goHome();return}
-  const free=freePiles();if(!free.length){goHome();return}
+  if(!cal.work(7,17)){goHome(S);return}
+  const free=freePiles(S);if(!free.length){goHome(S);return}
   const [vx,vy]=v.pos;free.sort((a,b)=>Math.hypot(a.x-vx,a.y-vy)-Math.hypot(b.x-vx,b.y-vy));
   const p=free[0],rp=nearestRoad(p.x,p.y,['forest','dukt'],{margin:60});
   S.target=p;S.went=false;S.phase='driving';S.watch=0;S.atHome=false;
   v.label=M.name+' jedzie po drewno do oddz. '+oddzial(p.x,p.y);
   const near=Math.hypot(p.x-rp.x,p.y-rp.y)<=M.reach-12;
-  v.goTo({edge:rp.edge,s:rp.s},{park:near,onArrive:()=>{S.watch=0;if(near)startLoad();else goIn(p)}});
+  v.goTo({edge:rp.edge,s:rp.s},{park:near,onArrive:()=>{S.watch=0;if(near)startLoad(S);else goIn(p,S)}});
  }else if(S.phase==='load'){
   if(S.wait>0){S.wait-=dt;return}
   if(!S.cur){
@@ -424,12 +438,12 @@ function skidUpdate(dt){
   }
   if(!S.cur){
    for(const p of S.list)if(p.state==='reserved')p.state='ground';S.list=[];
-   if(v.load<v.cap-.3){const [ax,ay]=v.pos,next=freePiles().filter(p=>Math.hypot(p.x-ax,p.y-ay)<420).sort((a,b)=>Math.hypot(a.x-ax,a.y-ay)-Math.hypot(b.x-ax,b.y-ay))[0];
+   if(v.load<v.cap-.3){const [ax,ay]=v.pos,next=freePiles(S).filter(p=>Math.hypot(p.x-ax,p.y-ay)<420).sort((a,b)=>Math.hypot(a.x-ax,a.y-ay)-Math.hypot(b.x-ax,b.y-ay))[0];
     if(next){S.target=next;
-     if(reachD(v,next)<=M.reach){startLoad();if(S.list.length)return}
-     else if((S.loops=(S.loops||0)+1)<=4){goIn(next);return}
+     if(reachD(v,next)<=M.reach){startLoad(S);if(S.list.length)return}
+     else if((S.loops=(S.loops||0)+1)<=4){goIn(next,S);return}
      next.skipT=state.elapsed+300}}
-   comeBack();return;
+   comeBack(S);return;
   }
   const p=S.cur,[wx,wy]=anchor(v),dx=wx-p.x,dy=wy-p.y,d=Math.hypot(dx,dy);
   if(d<12){v.load+=p.vol;const ps=pileSorts(p),pv=pileVals(p);S.ls=S.ls||{tart:0,pap:0,opal:0};S.lv=S.lv||{tart:0,pap:0,opal:0};for(const k in ps){S.ls[k]+=ps[k];S.lv[k]+=pv[k]}p.dead=true;S.cur=null;S.wait=M.crane?.5:.8;S.watch=0;sfx(M.crane?'log':'clunk');return}
@@ -447,32 +461,32 @@ function skidUpdate(dt){
   if(v.load<=.001){
    J.stacks=J.stacks.filter(z=>z.vol>.05||truckBusy(z));
    const d=S.delivered||0,ds=S.dsort||{};v.load=0;S.val=0;S.ls=null;S.lv=null;S.stacks=null;S.delivered=0;S.dsort=null;S.watch=0;
-   if(d>0){bill(Math.round(d*skidRate()),'zrywka');planProgress('cut',d);toast('Przy drodze w oddz. '+st.odd+' złożono '+displayNumber(d,1)+' m³: '+['tart','pap','opal'].filter(k=>ds[k]>.05).map(k=>SORTS[k].short+' '+displayNumber(ds[k],1)).join(', ')+'.')}
-   if(freePiles().length&&cal.work(7,17)){S.phase='idle';}
-   else{S.phase='idle';goHome()}
+   if(d>0){bill(Math.round(d*skidRate(S)),'zrywka');planProgress('cut',d);toast('Przy drodze w oddz. '+st.odd+' złożono '+displayNumber(d,1)+' m³: '+['tart','pap','opal'].filter(k=>ds[k]>.05).map(k=>SORTS[k].short+' '+displayNumber(ds[k],1)).join(', ')+'.')}
+   if(freePiles(S).length&&cal.work(7,17)){S.phase='idle';}
+   else{S.phase='idle';goHome(S)}
   }
  }
 }
-function startLoad(){
- const S=J.skid,v=S.trac,M=MACH[S.mach];
- S.list=freePiles().filter(p=>reachD(v,p)<=M.reach).sort((a,b)=>reachD(v,a)-reachD(v,b));
+function startLoad(S=J.skid){
+ const v=S.trac,M=MACH[S.mach];
+ S.list=freePiles(S).filter(p=>reachD(v,p)<=M.reach).sort((a,b)=>reachD(v,a)-reachD(v,b));
  if(S.list.length)S.loops=0;
  for(const p of S.list)p.state='reserved';
  S.phase='load';S.cur=null;S.wait=.8;v.label=M.crane?'forwarder ładuje kłody żurawiem':'zrywka: wyciągarka ciągnie kłody';
 }
-function goIn(p){
- const S=J.skid,v=S.trac,M=MACH[S.mach];
+function goIn(p,S=J.skid){
+ const v=S.trac,M=MACH[S.mach];
  const pts=pathTo(v,p.x,p.y,M.reach-40);S.went=true;S.phase='in';S.watch=0;
  let L=0,px=v.pos[0],py=v.pos[1];for(const q of pts){L+=Math.hypot(q[0]-px,q[1]-py);px=q[0];py=q[1]}
  if(L>30)J.trails.push({d:state.days,p:[[Math.round(v.pos[0]),Math.round(v.pos[1])],...pts.map(q=>[Math.round(q[0]),Math.round(q[1])])]});
  v.label=M.name+' jedzie szlakiem zrywkowym';
- v.driveOff(pts,{work:rutWork,onArrive:()=>{S.watch=0;startLoad()}});
+ v.driveOff(pts,{work:rutWork,onArrive:()=>{S.watch=0;startLoad(S)}});
 }
 // Powrót na drogę i złożenie drewna na stosie przy najbliższym poboczu.
-function comeBack(){
- const S=J.skid,v=S.trac,M=MACH[S.mach];
+function comeBack(S=J.skid){
+ const v=S.trac,M=MACH[S.mach];
  const toStack=()=>{
-  if(v.load<=.001){S.phase='idle';goHome();return}
+  if(v.load<=.001){S.phase='idle';goHome(S);return}
   const k0=['tart','pap','opal'].find(q=>S.ls&&S.ls[q]>.001)||'opal',st=S.stack=stackFor(v.pos[0],v.pos[1],k0);S.stacks={[k0]:st};S.phase='tostack';v.label=M.name+' wiezie '+displayNumber(v.load,1)+' m³ na stos przy drodze';
   v.goTo({edge:st.edge,s:st.s},{park:true,onArrive:()=>{S.phase='unload';S.watch=0;v.label='układanie stosu przy drodze'}});
  };
@@ -599,11 +613,11 @@ function craneArm(g,bx,by,tx,ty,lift=18){
  g.lineCap='butt';rect2(g,tx-4,ty-7,8,5,'#3a3a36');rect2(g,tx-3,ty-6,6,3,'#8a8a80');
 }
 export function drawRopes(g){
- const S=J.skid,v=S.trac;
+ for(const S of SKIDS()){const v=S.trac;
  if(v&&S.phase==='load'&&S.cur){const [wx,wy]=anchor(v),p=S.cur;
   if(MACH[S.mach].crane)craneArm(g,wx,wy,p.x,p.y);
   else{g.strokeStyle='#2a2a26';g.lineWidth=1;g.beginPath();g.moveTo(Math.round(wx)+.5,Math.round(wy)+.5);g.lineTo(Math.round(p.x)+.5,Math.round(p.y)+.5);g.stroke()}}
- if(v&&S.phase==='unload'&&S.stack&&MACH[S.mach].crane){const [wx,wy]=anchor(v),t=state.elapsed*2;craneArm(g,wx,wy,S.stack.x+Math.sin(t)*10,S.stack.y+Math.cos(t*.7)*6)}
+ if(v&&S.phase==='unload'&&S.stack&&MACH[S.mach].crane){const [wx,wy]=anchor(v),t=state.elapsed*2;craneArm(g,wx,wy,S.stack.x+Math.sin(t)*10,S.stack.y+Math.cos(t*.7)*6)}}
  // żuraw HDS: dłużyca — żuraw za kabiną, chwytak kursuje między stosem a kłonicami; BDF — żuraw z tyłu ramy
  {const T=J.truck,v2=T.v;
   if(v2&&T.cur&&(T.phase==='load'||T.phase==='unfold')){const h=v2.heading,bx=v2.pos[0]-Math.sin(h)*-14,by=v2.pos[1]+Math.cos(h)*-14,k=(Math.sin(state.elapsed*1.6)+1)/2;

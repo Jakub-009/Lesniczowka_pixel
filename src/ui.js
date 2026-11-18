@@ -4,7 +4,7 @@ import {$,state,cal,SEASONS,DOW,displayNumber,zl,SETTINGS,camera,VIEW,clamp,toas
 import {HL,WX,LVLN,fireLvl,trapsOn,sick,buyTraps,buildTower,COSTS as HC} from './health.js';
 import {SP,STAND,STUMP,SAPLING_AGE,CUT_AGE,THIN_AGE,crownR,heightM,dbhCm,volume,counts,treesIn,QUAL,SORTS,sortSplit,treeValue} from './forest.js';
 import {STANDS,oddzial,roadClearance} from './map.js';
-import {J,COST,PRICE,MACH,pendingCount,ordersCount,clearOrders,toggleMark,dispatchCrew,orderTruck,plantNear,plantAtStumps,buyForwarder,stackTotal,stackValue,anyTruck,hireCrew,hiredCrew,crewName,HIRE_COST,truckTotal,pileSorts,spotOf,fellCost,sanitary,skidRate,OPAL_KEEP,cutKind,CUT_NAME,ETAT_M3,etatUsed,etatPlanned,seedTreeNear,leaveNatural} from './jobs.js';
+import {J,COST,PRICE,MACH,pendingCount,ordersCount,clearOrders,toggleMark,dispatchCrew,orderTruck,plantNear,plantAtStumps,buyForwarder,stackTotal,stackValue,anyTruck,hireForwarder,FWD_HIRE,hireCrew,hiredCrew,crewName,HIRE_COST,truckTotal,pileSorts,spotOf,fellCost,sanitary,skidRate,OPAL_KEEP,cutKind,CUT_NAME,ETAT_M3,etatUsed,etatPlanned,seedTreeNear,leaveNatural} from './jobs.js';
 import {R,inPlot,perimOf,plotStats,prepCost,areaHa,spotsIn,orderPrep,orderPlant,removePlot,rowsOf,fenceCost,orderFence,orderRepel,repelCost,seasonKey,MIXES,mixFor,cycleMix,mixSp} from './renew.js';
 import {repelOn,trailOn,buyRepel,buyTrail,vs,VC} from './visit.js';
 import {NAT,canMonument,makeMonument,makeReserve,journalRows,MON_COST,RES_COST,richness} from './nature.js';
@@ -90,6 +90,7 @@ function statusPanel(){
   if(!S.trac)setRow('dotS','skidstate',S.owned?'w drodze':E.piles.some(p=>!p.dead)?'usługa · '+(cal.work(7,15)?'przyjedzie':cal.nextStart(7,15)):'usługa na wezwanie','idle');
   else if(S.phase==='idle'&&!cal.work(7,17))setRow('dotS','skidstate','po pracy','idle');
   else setRow('dotS','skidstate',ph[S.phase]||S.phase,S.phase==='idle'||S.phase==='home'?'wait':'work')}
+ {const S2=J.skid2;if(S2.trac&&!S2.trac.dead){const e=$('#skidstate');e.textContent+=' · 2. forwarder';$('#dotS').style.background=DOT.work}}   // 1.4.3: wynajęty forwarder
  {const PL=R.plow,on=PL.phase!=='idle'||PL.queue.length;$('#plowrow').style.display=on?'flex':'none';
   if(on)setRow('dotP','plowstate',PL.phase==='idle'?'czeka · '+cal.nextStart(7,16)+' ('+PL.queue.length+')':PL.phase==='plowing'?'orze P'+PL.cur.id:PL.phase==='leaving'?'odjeżdża':'w drodze do P'+(PL.cur?PL.cur.id:''),PL.phase==='idle'?'wait':'work')}
  {const tot=stackTotal(),op=stackTotal(q=>q.sort==='opal'),tv=[J.truck.v?'dłużyca':'',J.bdf.v?'BDF':''].filter(Boolean).join(' + '),pend=J.truck.pending||J.bdf.pending;
@@ -292,6 +293,7 @@ const SEC={
   ${hint('bud',`Każda sadzonka ze szkółki kosztuje ${zl(COST.plantNursery)} zamiast ${zl(COST.plant)} i lepiej się przyjmuje. Szkółka daje ok. 400 sadzonek na porę roku (bez zimy). Garaż: druga terenówka i tańsza karma.`)}</div>`,
   sprz:`<div class="bsec"><h3>SPRZĘT</h3>
   ${row('Zrywka',J.skid.owned?MACH.forwarder.name+' (własny)':MACH.tractor.name+' (usługa)')}${J.skid.owned?row('Utrzymanie forwardera',zl(COST.fwd)+' za dzień pracy'):`<div class="offer"><b>Forwarder z żurawiem · ${zl(MACH.forwarder.price)}</b><span>Utrzymanie: ${zl(COST.fwd)} za każdy dzień, w którym pracuje (dni bez pracy nic nie kosztują).</span><span>Zrywka własnym forwarderem ${zl(COST.skidOwn)}/m³ zamiast ${zl(COST.skid)}/m³ (usługa). Ładowność ${MACH.forwarder.cap} m³ zamiast ${MACH.tractor.cap} m³, ładuje żurawiem, stoi na placu.</span></div>${btn('fwd','Kup forwarder · '+zl(MACH.forwarder.price))}`}
+  ${row('Wynajęty forwarder (czerwony)',J.skid2.hired!=null?'pracuje do końca pory roku · '+zl(COST.skidOwn)+'/m³':'—')}${J.skid2.hired!=null?'':btn('hireFwd','Wynajmij drugi forwarder do końca pory roku · '+zl(FWD_HIRE))}
   ${row('Drewno przy drogach',displayNumber(stackTotal(),1)+' m³ · ok. '+zl(Math.round(stackValue()*ECO.market)))}${row('w tym opał dla ludności',displayNumber(stackTotal(q=>q.sort==='opal'),1)+' m³')}${row('Cena rynkowa','×'+displayNumber(ECO.market,2))}
   <p class="hint2">Ciężarówka przyjeżdża sama od 10 m³ przy drogach. Wcześniej wywóz zamówisz na karcie stosu.</p>
   ${(()=>{const c=costParts(),v=[c.varB?'ekipa B '+zl(c.varB):'',c.varF?'forwarder '+zl(c.varF):''].filter(Boolean).join(', ');return row('Koszty dzienne stałe',zl(c.fixed))+(v?row('Tylko za dzień pracy',v):'')})()}</div>`,
@@ -444,7 +446,7 @@ export function bindUI(){
   const pe=e.target.closest('[data-per]');if(pe){sumPer=pe.dataset.per;baseSig='';renderBase();return}
   const hs=e.target.closest('[data-hk]');if(hs){e.preventDefault();const k=hs.dataset.hk;hintOpen.has(k)?hintOpen.delete(k):hintOpen.add(k);baseSig='';renderBase();return}
   const b=e.target.closest('[data-b]');if(!b)return;const k=b.dataset.b;
-  ({buyrepel:buyRepel,buytrail:buyTrail,payall:payAllInvoices,autopay:toggleAutoPay,loan0:()=>takeLoan(0),loan1:()=>takeLoan(1),loan2:()=>takeLoan(2),repay:repayLoan,ambona:()=>buyAmbona(nextAmbonaSlot()),pasnik:()=>buyFeeder(nextFeederSlot()),hireFell:()=>hireCrew('fell'),hirePlant:()=>hireCrew('plant'),hirePod:hireDeputy,firePod:fireDeputy,nursery:buildNursery,garage:buildGarage,fwd:buyForwarder,truck:()=>orderTruck(true),reduce:requestReduction,traps:buyTraps,tower:buildTower,cams:buyCams,bar:toggleBarriers,parking:buyParking})[k]?.();
+  ({buyrepel:buyRepel,buytrail:buyTrail,payall:payAllInvoices,autopay:toggleAutoPay,loan0:()=>takeLoan(0),loan1:()=>takeLoan(1),loan2:()=>takeLoan(2),repay:repayLoan,ambona:()=>buyAmbona(nextAmbonaSlot()),pasnik:()=>buyFeeder(nextFeederSlot()),hireFell:()=>hireCrew('fell'),hireFwd:hireForwarder,hirePlant:()=>hireCrew('plant'),hirePod:hireDeputy,firePod:fireDeputy,nursery:buildNursery,garage:buildGarage,fwd:buyForwarder,truck:()=>orderTruck(true),reduce:requestReduction,traps:buyTraps,tower:buildTower,cams:buyCams,bar:toggleBarriers,parking:buyParking})[k]?.();
   baseSig='';renderBase();hud()});
  // 1.0: spójne zamykanie okien — ✕, klik w tło (poza kartą); Esc obsługuje input.js
  document.addEventListener('click',e=>{

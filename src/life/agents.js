@@ -14,13 +14,13 @@ export const rand=rnd;
 
 // ───────── holowanie (model przyczepy jednoosiowej z tow.js farmy) ─────────
 // forest = przyczepa ciągnika, log = naczepa ciężarówki, plow = pług leśny LPz, bunk = tylna rama forwardera (przegub)
-const CARTS={small:{hw:8,hh:10,tongue:8,axle:.2},forest:{hw:13,hh:30,tongue:14,axle:.4},log:{hw:13,hh:40,tongue:14,axle:.5},plow:{hw:13,hh:11,tongue:12,axle:.1},bunk:{hw:15,hh:26,tongue:5,axle:.25}};
+const CARTS={small:{hw:8,hh:10,tongue:8,axle:.2},forest:{hw:13,hh:30,tongue:14,axle:.4},log:{hw:13,hh:40,tongue:14,axle:.5},plow:{hw:13,hh:11,tongue:12,axle:.1},bunk:{hw:15,hh:26,tongue:0,axle:.25,maxRel:.75}};   // 1.4.3: forwarder — przegub bez dyszla, skręt łamany do ok. 43°
 const fwd=a=>[Math.sin(a),-Math.cos(a)];
 function advanceCart(c,hx,hy,vehAngle){
  const d=CARTS[c.kind];if(c.hx==null){c.hx=hx;c.hy=hy;return}
  const dx=hx-c.hx,dy=hy-c.hy;c.hx=hx;c.hy=hy;
  let a=c.angle+(dx*Math.cos(c.angle)+dy*Math.sin(c.angle))/(d.tongue+d.hh*(1+d.axle));
- const rel=angDiff(vehAngle,a);if(Math.abs(rel)>1.15)a=vehAngle+Math.sign(rel)*1.15;
+ const rel=angDiff(vehAngle,a),mr=d.maxRel||1.15;if(Math.abs(rel)>mr)a=vehAngle+Math.sign(rel)*mr;
  c.angle=a;const f=fwd(a),L=d.tongue+d.hh;c.x=hx-f[0]*L;c.y=hy-f[1]*L;
 }
 function alignCart(c,hx,hy,angle){const d=CARTS[c.kind],f=fwd(angle),L=d.tongue+d.hh;c.angle=angle;c.x=hx-f[0]*L;c.y=hy-f[1]*L;c.hx=hx;c.hy=hy}
@@ -258,7 +258,7 @@ export class Vehicle{
  }
  draw(){
   const [x,y]=this.pos;if(!near(x,y,120))return;
-  if(this.cart&&!this.folded){const c=this.cart;if(c.kind==='small')S.smallTrailer(ctx,c,this.load||0);else if(c.kind==='forest')S.forestTrailer(ctx,c,this.load,this.cap);else if(c.kind==='log')S.logTrailer(ctx,c,this.load,this.cap);else if(c.kind==='plow')S.plowTop(ctx,c,this.plowing);else S.bunkTop(ctx,c,this.load,this.cap)}
+  if(this.cart&&!this.folded){const c=this.cart;if(c.kind==='small')S.smallTrailer(ctx,c,this.load||0);else if(c.kind==='forest')S.forestTrailer(ctx,c,this.load,this.cap);else if(c.kind==='log')S.logTrailer(ctx,c,this.load,this.cap);else if(c.kind==='plow')S.plowTop(ctx,c,this.plowing);else S.bunkTop(ctx,c,this.load,this.cap,this.col)}
   const k=this.kind,h=this.heading,t=this.travel;
   if(k==='car'||k==='carT')S.carTop(ctx,x,y,h,this.color,t);
   else if(k==='patrol')S.patrolTop(ctx,x,y,h,t,this.beacon);
@@ -267,7 +267,7 @@ export class Vehicle{
   else if(k==='waste')S.wasteTop(ctx,x,y,h,t);
   else if(k==='firetruck')S.fireTop(ctx,x,y,h,t,this.beacon);
   else if(k==='tractor'||k==='plower')S.tractorTop(ctx,x,y,h,t,this.steer);
-  else if(k==='forwarder')S.forwarderTop(ctx,x,y,h,t,this.steer);
+  else if(k==='forwarder')S.forwarderTop(ctx,x,y,h,t,this.steer,this.col);
   else if(k==='truck')S.truckTop(ctx,x,y,h,t,this.cap?this.load/this.cap:0,this.folded);
   else if(k==='bdf')S.bdfTop(ctx,x,y,h,t,this.cap?this.load/this.cap:0);
   else if(k==='quad')S.quadTop(ctx,x,y,h,t,this.color);

@@ -29,7 +29,7 @@ export function clearSave(){try{localStorage.removeItem(KEY)}catch(e){}}
 // 1.1.1 (S01): drewno w jadącym ciągniku/forwarderze i na ciężarówce zapisuje się jako stos przy najbliższej drodze — nie znika po wczytaniu
 function cargo(){
  const out=[],at=(v,ks,vol,val)=>{const rp=nearestRoad(v.pos[0],v.pos[1],['forest','dukt'],{margin:60});/* 1.3.0: stos przy drodze leśnej albo dukcie (ciężarówka dojeżdża do obu) */for(const k of ks)if(vol[k]>.01)out.push([rp.edge.id,Math.round(rp.s),+vol[k].toFixed(2),Math.round(val[k]||0),k,k!=='opal'])};
- const S=J.skid;if(S.trac&&!S.trac.dead&&S.trac.load>.01&&S.ls)at(S.trac,['tart','pap','opal'],S.ls,S.lv||{});
+ for(const S of [J.skid,J.skid2])if(S.trac&&!S.trac.dead&&S.trac.load>.01&&S.ls)at(S.trac,['tart','pap','opal'],S.ls,S.lv||{});
  for(const T of [J.truck,J.bdf])if(T.v&&!T.v.dead&&T.v.load>.01)at(T.v,['tart'],{tart:T.v.load},{tart:T.val||0});
  return out;
 }
@@ -41,7 +41,7 @@ export function saveGame(){
    plants:J.plants.map(p=>[Math.round(p.x),Math.round(p.y),p.sp,p.assigned?1:0,p.plot||0,p.prep?1:0,p.plac?1:0]),etat:J.etat,plantSp:J.plantSp,
    piles:E.piles.filter(p=>!p.dead).map(p=>[Math.round(p.x),Math.round(p.y),+p.a.toFixed(2),+p.vol.toFixed(3),p.sp,p.logs,p.bark,p.sorts||null,p.vals||null]),
    eco:{ord:ECO.ord,goneRen:ECO.goneRen||0,cover0:ECO.cover0,damage:ECO.damage,plog:ECO.plog.slice(0,14).map(q=>[+q.t.toFixed(3),+q.d.toFixed(2),q.why]),plan:ECO.plan,market:ECO.market,fin:saveFin(),pod:ECO.staff.pod,nursery:ECO.nursery,feedCost:ECO.feedCost,st:ECO.st,act:ECO.act,led:saveLed()},burns:E.burns||[],inc:saveInc(f=>f.slot),
-   plots:R.plots.map(p=>{const q={...p};delete q.inc;return q}),nextPlot:R.nextId,trails:J.trails.slice(-160),forwarder:J.skid.owned,hired:J.crews.filter(C=>C.hired!=null).map(C=>[C.role,C.hired]),
+   plots:R.plots.map(p=>{const q={...p};delete q.inc;return q}),nextPlot:R.nextId,trails:J.trails.slice(-160),forwarder:J.skid.owned,fwdHired:J.skid2.hired,hired:J.crews.filter(C=>C.hired!=null).map(C=>[C.role,C.hired]),
    base:{nursery:BASE.nursery,garage:BASE.garage,nplan:BASE.nplan||0,stats:BASE.stats,opal:BASE.opalPiles.filter(o=>!o.dead).map(o=>[Math.round(o.x),Math.round(o.y),+o.a.toFixed(2),+o.vol.toFixed(2),o.edge.id,Math.round(o.s),+o.day.toFixed(2),o.odd])},
    assess:ASSESS.slice(-80),hl:saveHealth(),mail:serializeMail(),nat:saveNature(),
    fauna:{wolf:{...FA.wolf},pop:FA.pop,plan:FA.plan,culled:FA.culled,reduction:FA.reduction,feeders:FA.feeders.map(f=>[f.slot,+f.level.toFixed(3)]),ambony:saveAmbony(),winterT:FA.winterT,emptyT:FA.emptyT}};
@@ -79,6 +79,7 @@ export function loadGame(){
   for(const t of J.trails){markAlpha(FADE**(state.days-t.d));paintTrail(t.p)}
   markAlpha(1);
   if(o.forwarder&&!J.skid.owned){J.skid.owned=true;placeForwarder()}
+  J.skid2.hired=o.fwdHired??null;
   E.piles=(o.piles||[]).map(([x,y,a,vol,sp,logs,bark,sorts,vals])=>({x:Math.min(Math.max(x,8),WORLD.w-8),y:Math.min(Math.max(y,8),WORLD.h-8),a,vol,sp,logs,bark,sorts:sorts||undefined,vals:vals||undefined,state:'ground',dead:false}));
   const ec=o.eco||{};ECO.cover0=ec.cover0;
   // 1.1.1: statystyki sezonu przetrwają wczytanie; stary zapis bez nich liczy sezon od chwili wczytania
