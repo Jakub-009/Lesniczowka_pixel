@@ -13,7 +13,7 @@ import {initPatrol,updateIncidents,U,spawnRider,spawnSmoke,spawnIntruder,addTras
 import {initFauna,updateFauna,FA} from './life/fauna.js';
 import {initAmbony,AMB} from './life/ambony.js';
 import {initBase,updateBase,BASE,buildNursery,buildGarage,hireDeputy} from './base.js';
-import {initJobs,updateJobs,J,orderTruck,hireCrewB,dispatchCrew} from './jobs.js';
+import {initJobs,updateJobs,J,orderTruck,hireCrew,dispatchCrew} from './jobs.js';
 import {updateRenew,R,createPlot,orderPrep,orderPlant} from './renew.js';
 import {initEconomy,updateEconomy,ECO,LED} from './economy.js';
 import {spawnWildlife as respawnWild} from './life/populate.js';
@@ -172,5 +172,5 @@ addEventListener('beforeunload',saveGame);
 document.addEventListener('visibilitychange',()=>{if(document.hidden){saveGame();if(state.playing&&!state.paused)$('#pausebtn').click()}});
 document.title='Leśniczówka '+VERSION;
 // Diagnostyka do testów
-window.__las={ledger:()=>LED,NAT,nat:()=>import('./nature.js'),dispatchCrew,AMB,startCrossing,dispatchPolice,buyCams,toggleBarriers,buyParking,spawnDump,MAIL,mail,HL,R,createPlot,orderPrep,orderPlant,dirtyAll,seasonGrow,cal,spawnIntruder,saveGame,loadGame,state,E,J,U,FA,BASE,ECO,buildNursery,buildGarage,hireDeputy,hireCrewB,orderTruck,trees,counts,camera,VIEW,centerOn,spawnRider,spawnSmoke,addTrash,dispatch,step:(s)=>{for(let i=0;i<Math.ceil(s*60);i++)sim(STEP)},simStep:(s,dt)=>{for(let i=0;i<Math.ceil(s/dt);i++)sim(dt)},zoom};
+window.__las={ledger:()=>LED,NAT,nat:()=>import('./nature.js'),dispatchCrew,AMB,startCrossing,dispatchPolice,buyCams,toggleBarriers,buyParking,spawnDump,MAIL,mail,HL,R,createPlot,orderPrep,orderPlant,dirtyAll,seasonGrow,cal,spawnIntruder,saveGame,loadGame,state,E,J,U,FA,BASE,ECO,buildNursery,buildGarage,hireDeputy,hireCrew,orderTruck,trees,counts,camera,VIEW,centerOn,spawnRider,spawnSmoke,addTrash,dispatch,step:(s)=>{for(let i=0;i<Math.ceil(s*60);i++)sim(STEP)},simStep:(s,dt)=>{for(let i=0;i<Math.ceil(s/dt);i++)sim(dt)},zoom};
 hud();startLoop();

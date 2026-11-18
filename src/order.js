@@ -11,7 +11,7 @@ import {removeTree,treesIn} from './forest.js';
 import {J} from './jobs.js';
 import {HK2} from './life/populate.js';
 
-export const COSTS={waste:700,cams:2400,camsDay:25,parking:3500,parkingDay:15};
+export const COSTS={waste:700,cams:2400,camsDay:25,parking:3500,parkingDay:15,signs:900};
 const open_=q=>q.status!=='done'&&q.status!=='gone';
 const odd=(x,y)=>'oddz. '+oddzial(x,y);
 export const ord=()=>ECO.ord;
@@ -130,10 +130,13 @@ function updatePolice(dt){
 }
 
 // ───────── fotopułapki, szlabany, parking ─────────
+// 1.3.0: „Kontrola wjazdów” — fotopułapki i znaki zakazu wjazdu jednym zakupem (oba działają na quady i nocnych intruzów)
+export const ctrlOn=()=>camsOn()&&!!ECO.ord.signs;
+export const ctrlCost=()=>(camsOn()?0:COSTS.cams)+(ECO.ord.signs?0:COSTS.signs);
 export function buyCams(){
- if(camsOn()){toast('Fotopułapki już działają.');return}
- if(!canAfford(COSTS.cams))return;pay(COSTS.cams,'fotopułapki przy wjazdach');ECO.ord.cams=true;
- toast('Fotopułapki zamontowane ('+zl(COSTS.camsDay)+' dziennie).');
+ if(ctrlOn()){toast('Kontrola wjazdów już działa.');return}
+ const c=ctrlCost();if(!canAfford(c))return;pay(c,'kontrola wjazdów: fotopułapki i znaki zakazu wjazdu');ECO.ord.cams=true;ECO.ord.signs=true;
+ toast('Kontrola wjazdów działa: fotopułapki i znaki zakazu wjazdu ('+zl(COSTS.camsDay)+' dziennie).');
 }
 export function toggleBarriers(){
  ECO.ord.bar=!ECO.ord.bar;

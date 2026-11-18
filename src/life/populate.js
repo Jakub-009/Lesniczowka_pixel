@@ -57,8 +57,10 @@ export function spawnPickers(berry){
  // 1.1.7: przy zamkniętych szlabanach nikt z odwiedzających nie wjeżdża za szlaban: parking, a gdy pełny — pobocze przed szlabanem; bez miejsca rezygnują
  const shut=!!ECO.ord.bar,bay=shut||rand()<.6?HK2.free():-1,vg=shut&&bay<0&&!ECO.ord.parking?HK2.verge():null;   // 1.1.8: z parkingiem tylko parking (pełny — rezygnują); bez parkingu pobocze przed szlabanem   // 0.8.3: część odwiedzających parkuje w zatoce przy drodze (gdy jest zbudowana)
  if(shut&&bay<0&&!vg)return;
- const e=bay>=0?HK2.edge(bay):vg?vg.e:pick(E2),s=bay>=0?HK2.approach(bay):vg?vg.s:60+rand()*(e.len-120);
- const car=spawnFrom('car',{color:pick(CAR_COLS)});car.label=who;car.pub=true;if(bay>=0)HK2.reserve(bay,car);if(vg)vg.car=car;
+ // 1.3.0: przy otwartych szlabanach ok. 30% odwiedzających jedzie na dukty (70% zostaje przy drogach leśnych) — mniej tłoku na głównej pętli
+ const dk=!shut&&bay<0&&!vg&&rand()<.3?EDGES.filter(q=>q.kind==='dukt'):null;
+ const e=bay>=0?HK2.edge(bay):vg?vg.e:dk?pick(dk):pick(E2),s=bay>=0?HK2.approach(bay):vg?vg.s:60+rand()*Math.min(e.len-120,dk?700:1e9);
+ const car=spawnFrom('car',{color:pick(CAR_COLS),...(dk?{allow:['main','forest','dukt']}:{})});car.label=who;car.pub=true;if(bay>=0)HK2.reserve(bay,car);if(vg)vg.car=car;
  const walk=(v,cx,cy)=>{
   const n=1+(rand()<.55?1:0);let back=0;
   for(let i=0;i<n;i++){

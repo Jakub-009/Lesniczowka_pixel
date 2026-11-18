@@ -5,7 +5,7 @@ import {state,SEASON_DAYS,WORLD} from './core.js';
 import {serializeTrees,loadTrees,trees,removeTree,STAND,fillVerges} from './forest.js';
 import {inRect} from './map.js';
 import {roadClearance} from './map.js';
-import {J,MACH,restoreStack,hireCrewB,placeForwarder,stackFor,restoreCrewTasks} from './jobs.js';
+import {J,MACH,restoreStack,hireCrew,placeForwarder,stackFor,restoreCrewTasks} from './jobs.js';
 import {R,passesOf,restorePlots,plantDone} from './renew.js';
 import {nearestRoad} from './roads.js';
 import {paintTrail,paintFurrowRow,markAlpha} from './paint.js';
@@ -28,7 +28,7 @@ export function hasSave(){try{return !!localStorage.getItem(KEY)}catch(e){return
 export function clearSave(){try{localStorage.removeItem(KEY)}catch(e){}}
 // 1.1.1 (S01): drewno w jadącym ciągniku/forwarderze i na ciężarówce zapisuje się jako stos przy najbliższej drodze — nie znika po wczytaniu
 function cargo(){
- const out=[],at=(v,ks,vol,val)=>{const rp=nearestRoad(v.pos[0],v.pos[1],['forest'],{margin:60});/* 1.1.9: stos tylko przy drodze leśnej (tam dojedzie ciężarówka) */for(const k of ks)if(vol[k]>.01)out.push([rp.edge.id,Math.round(rp.s),+vol[k].toFixed(2),Math.round(val[k]||0),k,k!=='opal'])};
+ const out=[],at=(v,ks,vol,val)=>{const rp=nearestRoad(v.pos[0],v.pos[1],['forest','dukt'],{margin:60});/* 1.3.0: stos przy drodze leśnej albo dukcie (ciężarówka dojeżdża do obu) */for(const k of ks)if(vol[k]>.01)out.push([rp.edge.id,Math.round(rp.s),+vol[k].toFixed(2),Math.round(val[k]||0),k,k!=='opal'])};
  const S=J.skid;if(S.trac&&!S.trac.dead&&S.trac.load>.01&&S.ls)at(S.trac,['tart','pap','opal'],S.ls,S.lv||{});
  const T=J.truck;if(T.v&&!T.v.dead&&T.v.load>.01)at(T.v,['tart'],{tart:T.v.load},{tart:T.val||0});
  return out;
@@ -38,10 +38,10 @@ export function saveGame(){
  try{
   const o={v:3,ver:'1.1.5',days:state.days,money:state.money,health:state.health,protect:state.protect,trees:serializeTrees(),
    stacks:[...J.stacks.filter(s=>s.vol>.05).map(s=>[s.edge.id,Math.round(s.s),+s.vol.toFixed(2),Math.round(s.value),s.sort||'tart',s.truck!==false]),...cargo()],sold:J.sold,truckPending:!!J.truck.pending,
-   plants:J.plants.map(p=>[Math.round(p.x),Math.round(p.y),p.sp,p.assigned?1:0,p.plot||0,p.prep?1:0,p.plac?1:0]),etat:J.etat,plac:J.plac,
+   plants:J.plants.map(p=>[Math.round(p.x),Math.round(p.y),p.sp,p.assigned?1:0,p.plot||0,p.prep?1:0,p.plac?1:0]),etat:J.etat,plantSp:J.plantSp,
    piles:E.piles.filter(p=>!p.dead).map(p=>[Math.round(p.x),Math.round(p.y),+p.a.toFixed(2),+p.vol.toFixed(3),p.sp,p.logs,p.bark,p.sorts||null,p.vals||null]),
    eco:{ord:ECO.ord,goneRen:ECO.goneRen||0,cover0:ECO.cover0,damage:ECO.damage,plog:ECO.plog.slice(0,14).map(q=>[+q.t.toFixed(3),+q.d.toFixed(2),q.why]),plan:ECO.plan,market:ECO.market,fin:saveFin(),pod:ECO.staff.pod,nursery:ECO.nursery,feedCost:ECO.feedCost,st:ECO.st,act:ECO.act,led:saveLed()},burns:E.burns||[],inc:saveInc(f=>f.slot),
-   plots:R.plots.map(p=>{const q={...p};delete q.inc;return q}),nextPlot:R.nextId,trails:J.trails.slice(-160),forwarder:J.skid.owned,crewB:J.crews.length>1,
+   plots:R.plots.map(p=>{const q={...p};delete q.inc;return q}),nextPlot:R.nextId,trails:J.trails.slice(-160),forwarder:J.skid.owned,hired:J.crews.filter(C=>C.hired!=null).map(C=>[C.role,C.hired]),
    base:{nursery:BASE.nursery,garage:BASE.garage,nplan:BASE.nplan||0,stats:BASE.stats,opal:BASE.opalPiles.filter(o=>!o.dead).map(o=>[Math.round(o.x),Math.round(o.y),+o.a.toFixed(2),+o.vol.toFixed(2),o.edge.id,Math.round(o.s),+o.day.toFixed(2),o.odd])},
    assess:ASSESS.slice(-80),hl:saveHealth(),mail:serializeMail(),nat:saveNature(),
    fauna:{wolf:{...FA.wolf},pop:FA.pop,plan:FA.plan,culled:FA.culled,reduction:FA.reduction,feeders:FA.feeders.map(f=>[f.slot,+f.level.toFixed(3)]),ambony:saveAmbony(),winterT:FA.winterT,emptyT:FA.emptyT}};
@@ -62,7 +62,7 @@ export function loadGame(){
   for(const [id,s,vol,val,sort,truck] of o.stacks||[]){
    if(restoreStack(id,s,vol,val,sort||'tart',truck))continue;const G=GONE[id];if(!G)continue;
    const L=Math.hypot(G[2]-G[0],G[3]-G[1]),k=Math.min(1,s/L),st=stackFor(G[0]+(G[2]-G[0])*k,G[1]+(G[3]-G[1])*k,sort||'tart');st.vol+=vol;st.value+=val;if(truck===false)st.truck=false}
-  J.plants=(o.plants||[]).map(([x,y,sp,as,plot,prep,plac])=>({x,y,sp,assigned:!!as,plot:plot||undefined,prep:!!prep,plac:plac==null?true:!!plac}));J.etat=o.etat||{k:-1,used:0};J.plac=o.plac!==false;J.truck.pending=!!o.truckPending;
+  J.plants=(o.plants||[]).map(([x,y,sp,as,plot,prep,plac],i)=>({x,y,sp,assigned:!!as,plot:plot||undefined,prep:!!prep,plac:!prep,t:i*.001}));   // 1.3.0: placówki zawsze (poza orką)J.etat=o.etat||{k:-1,used:0};J.plac=true;J.plantSp=o.plantSp||'sosna';J.truck.pending=!!o.truckPending;
   // powierzchnie odnowieniowe i szlaki: dane + ponowne malowanie bruzd i kolein (z wyblaknięciem według wieku)
   const st0={};for(const p of o.plots||[])st0[p.id]=p.state;
   R.plots=(o.plots||[]).map(p=>({...p,state:p.state==='planting'||p.state==='queued'||p.state==='prepping'?(p.prepared?'prepared':'new'):p.state}));R.nextId=o.nextPlot||R.plots.length+1;
@@ -86,7 +86,8 @@ export function loadGame(){
   if(ec.ord)Object.assign(ECO.ord,ec.ord);
   loadFin(ec.fin);loadLed(ec.led);if(ec.market)ECO.market=ec.market;if(ec.nursery)ECO.nursery=ec.nursery;if(ec.feedCost)ECO.feedCost=ec.feedCost;
   E.burns=o.burns||[];loadHealth(o.hl);
-  if(o.crewB&&J.crews.length<2)hireCrewB();
+  // 1.3.0: wynajęte ekipy (do końca pory roku); dawna ekipa B (dniówki) nie wraca — jej zadania przejmują ekipy cięcia i sadzenia
+  for(const [role,h] of o.hired||[])if(hireCrew(role,true)){const C=J.crews[J.crews.length-1];C.hired=h}
   if(o.base){BASE.nursery=!!o.base.nursery;BASE.garage=!!o.base.garage;BASE.nplan=o.base.nplan||0;Object.assign(BASE.stats,o.base.stats||{});
    BASE.opalPiles=(o.base.opal||[]).map(([x,y,a,vol,eid,s,day,odd])=>({x,y,a,vol,edge:EDGES.find(e=>e.id===eid)||EDGES[4],s,day,odd,logs:Math.max(2,Math.min(6,Math.round(vol*1.5))),bark:'#7a5a3e',sp:'sosna'}))}
   if(ec.pod&&!ECO.staff.pod){ECO.staff.pod=true;hirePod()}

@@ -8,10 +8,10 @@ const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(SET))}catch(e){}};
 const STEPS=[
  ['Cel gry','Prowadzisz małe leśnictwo. Patrz na budżet, stan lasu i ochronę terenu u góry (kliknij pasek, żeby zobaczyć, z czego się składa). Nie ma przegranej ani pośpiechu. Czas możesz zatrzymać (P), przyspieszyć (T) albo przewinąć do rana („Do jutra”).'],
  ['Mapa i narzędzia','Przeciągnij mapę myszą, kółko przybliża. Narzędzia (1–4) są na dolnym pasku: podgląd, wycinka, sadzenie, odnowienie. Kliknięcie obiektu otwiera jego kartę. Esc lub ✕ zamyka okno.'],
- ['Pierwsza wycinka','Wybierz Wycinkę (2) i kliknij dojrzałe drzewa albo przeciągnij obszar. Potem E: ekipa ścina, ciągnik zwozi kłody do drogi. K sprowadza ciężarówkę, która płaci za drewno.'],
- ['Odnowienie','Po wycince zostają pniaki. Sadź narzędziem 3 (klik lub rzędy) albo zaznacz zrąb narzędziem 4: przygotowanie gleby, sadzenie, grodzenie przed zwierzyną.'],
+ ['Pierwsza wycinka','Wybierz Wycinkę (2) i kliknij dojrzałe drzewa albo przeciągnij obszar. Potem E: ekipa cięcia ścina, ciągnik zwozi kłody do drogi. Od 10 m³ przy drogach przyjeżdża ciężarówka, która płaci za drewno.'],
+ ['Odnowienie','Po wycince zostają pniaki. Sadź narzędziem 3 (nad paskiem wybierasz gatunek; klik lub rzędy) albo zaznacz zrąb narzędziem 4: przygotowanie gleby, sadzenie, grodzenie przed zwierzyną. Sadzi zielona ekipa sadzenia.'],
  ['Zgłoszenia i faktury','Zgłoszenia (pożar, wysypisko, intruzi, kornik) pojawiają się po prawej. Q wysyła patrol. Wiadomości są w poczcie (C), a faktury płacisz w Leśniczówce (L, Finanse) w terminie.'],
- ['Leśniczówka (L)','Okno L zawiera kadry, budynki i sprzęt, finanse, zdrowie lasu, przyrodę i koło łowieckie. Ustawienia i pomoc: przycisk Menu (H to sama pomoc).']
+ ['Leśniczówka (L)','Okno L ma pięć zakładek: kadry i sprzęt, finanse, las, ochrona terenu oraz przyroda i łowy. Ustawienia i pomoc: przycisk Menu (H to sama pomoc).']
 ];
 let step=0,wasPaused=false;
 const open=el=>!$(el).classList.contains('hidden');

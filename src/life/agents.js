@@ -29,7 +29,7 @@ export const cartFront=c=>{const d=CARTS[c.kind],f=fwd(c.angle);return[c.x+f[0]*
 
 // ───────── pojazdy ─────────
 // prędkości w px/s (12 px = 1 m); forest = mnożnik na drodze leśnej, off = prędkość w terenie, wb = rozstaw osi (promień skrętu)
-// 0.9: wąskie dukty leśne — tylko leśniczy, ekipy, maszyny zrywkowe, quady/crossy oraz służby (ciężarówka, śmieciarka, auta odwiedzających i rowery zostają na drogach)
+// 0.9: wąskie dukty leśne — leśniczy, ekipy, maszyny zrywkowe, quady/crossy i służby; 1.3.0: także ciężarówka po drewno i ok. 30% aut odwiedzających (allow ustawiane przy tworzeniu)
 const DUKT=['main','forest','dukt'];
 export const VSPEC={
  car:{speed:100,forest:.55,acc:38,hw:10,hh:23,wb:30,name:'samochód osobowy'},
@@ -187,7 +187,11 @@ export class Vehicle{
       if(!collide(pr,w.shape))continue;
       if(this.avoidT>0&&this.laneX-this.avoidX>2)continue;   // jeszcze zmieniamy pas — nie hamujemy
       if(this.avoidT>0&&this.avoidX<=-(this.edge.w/2+8)-this.edge.lane+.5)continue}   // ciasno: przeciskamy się obok stojącego
-     else{if(c<-.5)continue;   // nadjeżdżający z naprzeciwka — etap B
+     else{if(c<-.5){
+       // 1.3.0: na wąskim dukcie nadjeżdżający z naprzeciwka mijają się, zjeżdżając prawymi kołami na pas zieleni (bez mijanek)
+       if(this.edge.kind==='dukt'&&w.edge===this.edge){const h=this.heading,dx=w.pos[0]-this.pos[0],dy=w.pos[1]-this.pos[1],ah=dx*Math.sin(h)-dy*Math.cos(h);
+        if(ah>0&&ah<150&&Math.abs(dx*Math.cos(h)+dy*Math.sin(h))<40){this.passT=1.2;target=Math.min(target,28)}}
+       continue}   // nadjeżdżający z naprzeciwka — etap B
       if(!collide(pr,w.shape))continue;
       if(c<.3&&collide(w.probe(),this.shape)){const meMain=this.edge.kind==='main',wMain=w.edge&&w.edge.kind==='main';if(meMain&&!wMain||meMain===wMain&&this.vid<w.vid)continue}}
      blocked=true;break}
@@ -202,8 +206,8 @@ export class Vehicle{
   this.v+=clamp(target-this.v,-110*dt,this.spec.acc*dt);if(this.v<0)this.v=0;
   // zjazd na pobocze przy parkowaniu: przesunięcie pasa narasta przed miejscem postoju
   if(!this.off){const parkSoon=this.parked||(this.park&&this.final&&this.stopS!=null&&this.stopS-this.s<90);
-   if(this.avoidT>0)this.avoidT-=dt;
-   const lx=parkSoon?this.edge.w/2+10-this.edge.lane:this.avoidT>0?this.avoidX:0;this.laneX+=clamp(lx-this.laneX,-22*dt,22*dt)}
+   if(this.avoidT>0)this.avoidT-=dt;if(this.passT>0)this.passT-=dt;
+   const lx=parkSoon?this.edge.w/2+10-this.edge.lane:this.avoidT>0?this.avoidX:this.passT>0&&this.edge.kind==='dukt'?this.edge.w/2+this.spec.hw-6-this.edge.lane:0;this.laneX+=clamp(lx-this.laneX,-22*dt,22*dt)}
   // skręt (model rowerowy) i ruch do przodu
   if(this.v>.05){
    const [cx,cy]=this.carrot(),dd=Math.hypot(cx-this.pos[0],cy-this.pos[1]);
@@ -250,7 +254,7 @@ export class Vehicle{
   const k=this.kind,h=this.heading,t=this.travel;
   if(k==='car')S.carTop(ctx,x,y,h,this.color,t);
   else if(k==='patrol')S.patrolTop(ctx,x,y,h,t,this.beacon);
-  else if(k==='van')S.vanTop(ctx,x,y,h,t,this.bus?['#e8c23a','#2a2a26']:null);
+  else if(k==='van')S.vanTop(ctx,x,y,h,t,this.bus?['#e8c23a','#2a2a26']:this.pal||null);   // 1.3.0: bus ekipy sadzenia jest zielony
   else if(k==='police')S.policeTop(ctx,x,y,h,t,this.beacon);
   else if(k==='waste')S.wasteTop(ctx,x,y,h,t);
   else if(k==='firetruck')S.fireTop(ctx,x,y,h,t,this.beacon);

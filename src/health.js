@@ -104,8 +104,8 @@ function weatherTick(){
  const se=cal.season(),day=Math.floor(state.days);
  if(day!==HL.dayRoll){HL.dayRoll=day;
   HL.stormAt=rand()<[.05,.05,.14,.1][se]?day+.1+rand()*.8:-1;
-  if(HL.ban&&fireLvl()<=1){HL.ban=false;toast('Zakaz wstępu zniesiony (zagrożenie niskie).')}
-  if(HL.ban)pay(40,'zakaz wstępu do lasu (tablice, kontrole)');
+  // 1.3.0: zakaz wstępu ogłasza i znosi nadleśnictwo (bez przycisku i bez kosztów leśnictwa)
+  if(HL.ban&&fireLvl()<=1){HL.ban=false;mail('fire','Nadleśnictwo znosi zakaz wstępu do lasu — zagrożenie pożarowe spadło.')}
   if(HL.tower)pay(60,'dyżury na wieży przeciwpożarowej');
  }
  if(HL.stormAt>0&&state.days>=HL.stormAt){HL.stormAt=-1;HL.wx='storm';HL.stormEnd=state.days+.12;strike()}
@@ -118,8 +118,7 @@ function weatherTick(){
  const w=HL.wx==='rain'||HL.wx==='snow';
  HL.dry=clamp(HL.dry+(w?-.12:[.035,.08,.012,-.03][se]),0,1);
  if(se===3)HL.dry*=.97;
- if(fireLvl()===3&&!HL.ban&&!HL.warned){HL.warned=true;toast('Wysokie zagrożenie pożarowe. Rozważ zakaz wstępu (L).')}
- if(fireLvl()<3)HL.warned=false;
+ if(fireLvl()===3&&!HL.ban){HL.ban=true;mail('fire','Najwyższy stopień zagrożenia pożarowego: nadleśnictwo ogłasza zakaz wstępu do lasu. Grzybiarzy i spacerowiczów będzie mniej, dopóki susza nie minie.')}
 }
 export function updateHealth(){
  weatherTick();
@@ -137,9 +136,6 @@ export function buildTower(){
  if(HL.tower)return;if(!canAfford(COSTS.tower))return;pay(COSTS.tower,'budowa wieży przeciwpożarowej');HL.tower=true;
  for(const t of treesIn(TOWER.x-40,TOWER.y-40,TOWER.x+40,TOWER.y+40).slice())if(Math.hypot(t.x-TOWER.x,t.y-TOWER.y)<38){t.st=STUMP;t.stumpR=3;t.stumpAge=60;t.kb=0;dirtyTree(t)}
  toast('Wieża przeciwpożarowa gotowa (dyżur '+zl(60)+' dziennie).');
-}
-export function toggleBan(){
- HL.ban=!HL.ban;toast(HL.ban?'Zakaz wstępu do lasu ('+zl(40)+' dziennie).':'Zakaz wstępu do lasu zniesiony.');
 }
 
 // ── zapis ──

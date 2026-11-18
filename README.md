@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 1.2.1** („Czytelne okna” + trwały zapis i porządek HUD-u). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 1.3.0** („Czytelne okna” + trwały zapis i porządek HUD-u). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -45,7 +45,6 @@ Pory roku zmieniają las (jesienne kolory, bezlistne drzewa i śnieg zimą), jes
 | Tab | mapa leśnictwa: warstwy Gatunki, Wiek, Odnowienie, Prace; tabela oddziałów |
 | U | schowaj / pokaż interfejs |
 | N | przewijanie nocy wł./wył. |
-| K | zamów wywóz drewna |
 | Q | patrol do najstarszego zgłoszenia |
 | F | kamera śledzi wybrany obiekt |
 | WASD / strzałki | przesuwanie widoku |
@@ -229,6 +228,20 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
+
+## Zmiany w 1.3.0 „Mniej przycisków”
+Wydanie po audycie uproszczeń: mniej rzeczy do pamiętania, więcej dzieje się samo.
+- **Dwie ekipy:** stała ekipa cięcia (pomarańczowe stroje, biały bus) i stała ekipa sadzenia (zielone stroje, zielony bus). Płacisz tylko za pracę: ścinka za m³ (sanitarną nadal nadleśnictwo), sadzenie w cenie sadzonki. Dawna ekipa B na dniówki znika. W Kadrach można wynająć dodatkową ekipę cięcia albo sadzenia do końca pory roku (600 zł jednorazowo, praca płatna jak u stałych).
+- **Kolejka ekip:** najpierw cięcia sanitarne, potem najstarsze zlecenie razem z zadaniami w zasięgu chodzenia (gra zapamiętuje czas oznaczenia). Sadzenie nie blokuje już wycinki.
+- **Sadzenie:** w narzędziu 3 nad paskiem wybierasz gatunek (sosna, świerk, dąb, buk, brzoza); klik i rzędy sadzą wybrany. Przy pniaku zawsze gatunek pniaka (wcześniej gatunek przeważający w oddziale).
+- **Szkółka bez planu:** jeden zapas sadzonek wszystkich gatunków — ze szkółką każda sadzonka jest tańsza.
+- **Bez przełączników odnowienia:** pojedyncze sadzonki i przy pniakach zawsze na placówkach, orka tylko na powierzchniach. W puszczy (oddz. 104) i w rezerwatach pniaki odnawiają się same, a martwe drzewa zostają w lesie (bez przycisku na karcie drzewa).
+- **Patrol:** pilne zgłoszenie (pożar, quad, nocny intruz) przerywa jazdę do zwykłego zadania, a przerwane wraca na początek kolejki. Quada, crossowca albo intruza mijanego po drodze leśniczy zatrzymuje sam, bez zgłoszenia.
+- **Dukty:** zrywka układa stosy także przy duktach (pod nową składnicą wycina kilka drzew), ciężarówka wjeżdża na dukty i zawraca na ich końcach za krawędzią mapy. Przy otwartych szlabanach ok. 30% odwiedzających jedzie na dukty. Na dukcie auta z naprzeciwka mijają się, zjeżdżając na pas zieleni (bez mijanek i placów).
+- **Leśniczówka:** 5 zakładek zamiast 7 (Kadry i sprzęt · Finanse z podsumowaniem kosztów · Las · Ochrona terenu · Przyroda i łowy). „Kontrola wjazdów” = fotopułapki i znaki zakazu jednym zakupem. „Odstraszacze przy szosie” nazywają się „Znaki i odblaski przy szosie”. Zakaz wstępu ogłasza i znosi samo nadleśnictwo przy najwyższym zagrożeniu pożarowym (list w Poczcie, bez opłat). Bez repelentu na powierzchnie (zostaje grodzenie). Bez ręcznego „zostaw opał dla ludności” — działa tylko reguła zapasu.
+- **Wywóz drewna:** bez przycisku i klawisza K — ciężarówka przyjeżdża sama od 10 m³, wcześniej „Zamów wywóz” na karcie stosu.
+- **Poczta:** trzy zakładki (Wszystkie, Zdarzenia, Przyroda); faktury płaci się w Finansach.
+- Zapisy z 1.2.x wczytują się: zapas szkółki sumuje się, zlecenia wracają do właściwych ekip, dawna ekipa B nie wraca.
 
 ## Zmiany w 1.2.1
 - **Ambony i paśniki nad koronami:** stoją w stałych miejscach w lesie, a rysowały się pod koronami drzew — z 8 kupionych ambon dwie były całkiem zakryte, a kilka wystawało tylko rogiem dachu (podobnie paśniki P3 i P4). Teraz rysują się nad koronami, razem z myśliwym na ambonie. Upolowana zwierzyna zostaje pod koronami.

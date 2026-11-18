@@ -158,7 +158,7 @@ export function orderPlant(p){
 // Szybkie sadzenie obszarem (narzędzie 3): rzędy zaplanowanych sadzonek bez przygotowania gleby.
 export function planAreaPlants(x0,y0,x1,y1){
  const x=Math.min(x0,x1),y=Math.min(y0,y1),spots=spotsIn(x,y,Math.abs(x1-x0),Math.abs(y1-y0)).slice(0,400);
- for(const [px,py] of spots)J.plants.push({x:px,y:py,sp:speciesFor(px,py),assigned:false,plac:J.plac});
+ for(const [px,py] of spots)J.plants.push({x:px,y:py,sp:J.plantSp||speciesFor(px,py),assigned:false,plac:true,t:state.elapsed});
  return spots.length;
 }
 // Grodzenie powierzchni siatką (chroni sadzonki przed zgryzaniem przez sarny i jelenie).

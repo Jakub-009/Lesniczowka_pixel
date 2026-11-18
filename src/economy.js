@@ -1,6 +1,7 @@
 // Trzy wskaźniki: budżet leśnictwa, stan lasu, ochrona terenu — plan na porę roku i raport z sezonu (0.2).
 import {state,clamp,cal,toast,zl,displayNumber,SEASONS,SEASON_DAYS,YEARS_PER_SEASON} from './core.js';
-import {trees,STUMP,STAND,SAPLING_AGE,coverSum,treesIn,seasonGrow} from './forest.js';
+import {trees,STUMP,STAND,SAPLING_AGE,coverSum,treesIn,seasonGrow,dirtyTree} from './forest.js';
+import {NAT,wildZone} from './nest.js';
 import {E} from './ents.js';
 import {sfx} from './sound.js';
 import {mail,prio} from './mail.js';
@@ -30,7 +31,7 @@ function issueInvoice(){
 }
 export function payInvoice(id,silent){
  const i=FIN.inv.find(q=>q.id===id);if(!i||i.paid)return false;
- if(state.money-i.amount<-DEBT_LIM){if(!silent)toast('Brak środków na fakturę nr '+i.id+' ('+zl(i.amount)+'). Sprzedaj drewno (K).');return false}
+ if(state.money-i.amount<-DEBT_LIM){if(!silent)toast('Brak środków na fakturę nr '+i.id+' ('+zl(i.amount)+'). Sprzedaj drewno (wywóz na karcie stosu).');return false}
  pay(i.amount,'faktura nr '+i.id+' (ekipa pozyskowa)',penParts(i));i.paid=true;sfx('coin');if(!silent)toast('Zapłacono fakturę nr '+i.id+': '+zl(i.amount)+'.');return true}
 export function payAllInvoices(){let n=0,sum=0;for(const i of invoices().slice()){const a=i.amount;if(payInvoice(i.id,true)){n++;sum+=a}}toast(n?'Zapłacono '+n+' faktur na '+zl(sum)+'.':owedCount()?'Brak środków na zapłatę faktur.':'Nie ma faktur do zapłaty.');return n}
 export const toggleAutoPay=()=>{FIN.auto=!FIN.auto;toast(FIN.auto?'Płacenie automatyczne: włączone.':'Płacenie automatyczne: wyłączone.');if(FIN.auto)for(const i of invoices().slice())payInvoice(i.id,true)};
@@ -70,13 +71,13 @@ function setMarket(){const se=cal.season();ECO.market=+((se===3?1.1:se===1?.9:1)
 // Koszty dzienne: utrzymanie leśniczówki i paliwo + pensje i sprzęt. 0.8.3: ekipa B i forwarder kosztują tylko w dni, w których pracowały
 // (real=true — tyle schodzi z kasy; bez argumentu — pełna stawka, pokazywana w panelu).
 // 1.1.5: dailyBase = 0 — utrzymanie leśniczówki (dawniej 300 zł/dzień) pokrywa nadleśnictwo; płacisz tylko za to, co dokupisz
-export function dailyCost(real=false){return ECO.dailyBase+(ECO.ord.cams?25:0)+(ECO.ord.parking?15:0)+(ECO.ord.repel?10:0)+(J.crews.length>1&&(!real||ECO.act.b)?COST.crewB:0)+(ECO.staff.pod?COST.pod:0)+(J.skid.owned&&(!real||ECO.act.f)?COST.fwd:0)}
+export function dailyCost(real=false){return ECO.dailyBase+(ECO.ord.cams?25:0)+(ECO.ord.parking?15:0)+(ECO.ord.repel?10:0)+(ECO.staff.pod?COST.pod:0)+(J.skid.owned&&(!real||ECO.act.f)?COST.fwd:0)}
 // 1.1.2 (U06): rozbicie kosztów — stałe schodzą codziennie, ekipa B i forwarder tylko za dni, w których pracowały
-export function costParts(){const varB=J.crews.length>1?COST.crewB:0,varF=J.skid.owned?COST.fwd:0;return{fixed:dailyCost()-varB-varF,varB,varF}}
+export function costParts(){const varB=0,varF=J.skid.owned?COST.fwd:0;return{fixed:dailyCost()-varB-varF,varB,varF}}
 export function costText(){const c=costParts(),v=[c.varB?'ekipa B +'+zl(c.varB):'',c.varF?'forwarder +'+zl(c.varF):''].filter(Boolean);return (c.fixed?zl(c.fixed)+' stałe':'utrzymanie leśniczówki pokrywa nadleśnictwo')+(v.length?' · za dzień pracy: '+v.join(', '):'')}
 // Zlecenia wymagają pieniędzy w kasie — bez nich trzeba najpierw sprzedać drewno.
 // 0.8.3: debet=true — zlecenia, które zarabiają (wycinka), wolno zlecać na debecie do −DEBT_LIM, inaczej z minusu nie da się wyjść.
-export function canAfford(n,debet=false){if(debet?state.money-n>=-DEBT_LIM:state.money>=n)return true;toast(debet?'Limit debetu ('+zl(DEBT_LIM)+') wyczerpany. Sprzedaj drewno (K).':'Brak środków: potrzeba '+zl(n)+', w kasie '+zl(state.money)+'.');sfx('unmark');return false}
+export function canAfford(n,debet=false){if(debet?state.money-n>=-DEBT_LIM:state.money>=n)return true;toast(debet?'Limit debetu ('+zl(DEBT_LIM)+') wyczerpany. Sprzedaj drewno (wywóz na karcie stosu).':'Brak środków: potrzeba '+zl(n)+', w kasie '+zl(state.money)+'.');sfx('unmark');return false}
 // ── 1.1.4: księga kosztów i przychodów (zakładka „Podsumowanie kosztów”) ──
 // LED.d[dzień] = {kategoria: kwota}; przychód dodatni, koszt ujemny. LED.n[dzień] = liczniki (drzewa ścięte, m³ sprzedane).
 export const LED={d:{},n:{},since:null,note:''};
@@ -138,16 +139,15 @@ let accT=0;
 // kara dobowa za jedno otwarte zgłoszenie (pokazuje ją też okno Ochrony terenu); łączny sufit: 9 pkt na dobę
 export const incPenalty=q=>q.type==='feed'||q.type==='assess'||prio(q)<=0?0:q.status==='new'?[0,1,3,3][prio(q)]:(prio(q)>=2?1:0);
 export function updateEconomy(dt){
- if(J.crews[1]&&J.crews[1].phase!=='idle')ECO.act.b=true;
  if(J.skid.owned&&J.skid.trac&&!['idle','home','arriving'].includes(J.skid.phase))ECO.act.f=true;
  const day=Math.floor(state.days);
  if(day!==ECO.lastDay){
   const n=day-ECO.lastDay;ECO.lastDay=day;
   for(let i=0;i<n;i++){
-   {const parts=[['Koszty stałe (utrzymanie, paliwo, pensje)',ECO.dailyBase],['Opłaty dzienne (fotopułapki, parking, odstraszacze)',(ECO.ord.cams?25:0)+(ECO.ord.parking?15:0)+(ECO.ord.repel?10:0)],['Ekipa B (dniówki)',J.crews.length>1&&ECO.act.b?COST.crewB:0],['Podleśniczy (pensja)',ECO.staff.pod?COST.pod:0],['Forwarder — utrzymanie',J.skid.owned&&ECO.act.f?COST.fwd:0]].filter(q=>q[1]>0);
+   {const parts=[['Koszty stałe (utrzymanie, paliwo, pensje)',ECO.dailyBase],['Opłaty dzienne (fotopułapki, parking, odstraszacze)',(ECO.ord.cams?25:0)+(ECO.ord.parking?15:0)+(ECO.ord.repel?10:0)],['Podleśniczy (pensja)',ECO.staff.pod?COST.pod:0],['Forwarder — utrzymanie',J.skid.owned&&ECO.act.f?COST.fwd:0]].filter(q=>q[1]>0);
     const dc=dailyCost(true);if(dc>0)pay(dc,'koszty dzienne (utrzymanie, paliwo, pensje)',parts)}ECO.act.b=false;ECO.act.f=false;issueInvoice();remind();
-   if(state.money<-DEBT_LIM){if(!ECO.debtWarn){ECO.debtWarn=true;mail('money','Debet ponad '+zl(DEBT_LIM)+'. Nadleśnictwo wstrzymuje nowe zakupy i zlecenia wycinki, dopóki nie sprzedasz drewna (klawisz K) albo nie poprawi się saldo.')}}else if(state.money>=0)ECO.debtWarn=false;
-   if(state.money<0&&day-ECO.hintDay>=3){const tt=truckTotal();if(tt>=1){ECO.hintDay=day;mail('money','Saldo jest ujemne, a przy drogach leży '+displayNumber(tt,1)+' m³ drewna. Zamów wywóz (K), a pieniądze wrócą do kasy.')}}
+   if(state.money<-DEBT_LIM){if(!ECO.debtWarn){ECO.debtWarn=true;mail('money','Debet ponad '+zl(DEBT_LIM)+'. Nadleśnictwo wstrzymuje nowe zakupy i zlecenia wycinki, dopóki nie sprzedasz drewna (wywóz zamawiasz na karcie stosu przy drodze) albo nie poprawi się saldo.')}}else if(state.money>=0)ECO.debtWarn=false;
+   if(state.money<0&&day-ECO.hintDay>=3){const tt=truckTotal();if(tt>=1){ECO.hintDay=day;mail('money','Saldo jest ujemne, a przy drogach leży '+displayNumber(tt,1)+' m³ drewna. Ciężarówka zabierze je sama od 10 m³ — albo zamów wywóz od razu na karcie stosu.')}}
    // 0.6.2: najmocniej obniża ochronę zgłoszenie bez reakcji; to w kolejce patrolu — słabiej (patrol już jedzie)
    // 0.8.1: kara zależy od wagi zgłoszenia (drobiazgi ważą mało, propozycje wcale) i ma dzienny sufit, żeby zaległości nie dobijały na wysokim tempie
    const live=E.incidents.filter(q=>q.status!=='done'&&q.status!=='gone'&&q.type!=='feed'&&q.type!=='assess'&&prio(q)>0);
@@ -161,8 +161,12 @@ export function updateEconomy(dt){
  // odnowienie: pień jest „odnowiony”, gdy w pobliżu rośnie młode drzewko; młode, posadzone drzewka dają premię (1.1)
  const un=[];let ren=0,young=0,natW=0;
  for(const t of trees){
-  if(t.st===STAND){if(t.planted&&t.age<SAPLING_AGE*3)young++;continue}
+  if(t.st===STAND){if(t.planted&&t.age<SAPLING_AGE*3)young++;
+   // 1.3.0: martwe drzewa w puszczy i rezerwatach zostają w lesie same (bez przycisku na karcie drzewa)
+   if(t.kb===3&&!t.dw&&!t.assigned&&!t.nest&&wildZone(t.x,t.y)){t.dw=true;t.marked=false;t.san=false;NAT.dw++;dirtyTree(t)}
+   continue}
   if(t.st!==STUMP||t.stumpAge>40)continue;
+  if(!t.nat&&wildZone(t.x,t.y))t.nat=1;   // 1.3.0: w puszczy i rezerwatach pniak zawsze czeka na samosiew
   if(treesIn(t.x-30,t.y-30,t.x+30,t.y+30).some(q=>q.st===STAND&&q.age<SAPLING_AGE*3))ren++;else if(t.nat){ren++;natW++}else un.push(t)}   // 1.1.5: pniak czekający na samosiew nie obniża Stanu lasu
  const gr=Math.round(ECO.goneRen||0);   // zdrowiejące, zniknięte pniaki nadal liczą się jako odnowione (zanikają z pamięci po kilku porach roku)
  ECO.natWait=natW;ECO.unrenList=un;ECO.stumps=ren+un.length+gr;ECO.renewed=ren+gr;ECO.renew=ECO.stumps?ECO.renewed/ECO.stumps:1;ECO.unrenewed=un.length;

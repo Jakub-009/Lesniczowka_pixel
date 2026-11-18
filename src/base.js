@@ -10,7 +10,7 @@ import {pileTop} from './life/sprites.js';
 import {outlinedDraw,text3} from './sprite.js';
 import {trees,treesIn,removeTree} from './forest.js';
 import {ECO,pay,earn,canAfford,bumpProtect,ledCount} from './economy.js';
-import {J,COST,PRICE,opalStack,takeFromStack,hireCrewB,fireCrewB,buyForwarder,MACH} from './jobs.js';
+import {J,COST,PRICE,opalStack,takeFromStack,buyForwarder,MACH} from './jobs.js';
 import {U,hirePod,firePod,report} from './incidents.js';
 import {HK2} from './life/populate.js';
 import {sfx} from './sound.js';
@@ -25,22 +25,19 @@ export function initBase(){
  ECO.feedCost=120;ECO.fireStaff=()=>{if(firePod())ECO.staff.pod=false};
  if(!ECO.seasonHooks.includes(nurseryHook))ECO.seasonHooks.push(nurseryHook);
 }
-// plan produkcji szkółki (0.6.2): z jakich gatunków powstają sadzonki
-export const NPLANS=[{name:'sosna (bór)',w:{sosna:1}},{name:'sosna z brzozą',w:{sosna:.75,brzoza:.25}},{name:'liściaste: dąb i buk',w:{dab:.5,buk:.5}},{name:'świerk i buk',w:{swierk:.6,buk:.4}},{name:'mieszane',w:{sosna:.4,swierk:.15,dab:.15,buk:.15,brzoza:.15}}];
-export function nurseryFix(){const N=ECO.nursery;if(N&&!N.sp)N.sp={sosna:N.stock||0}}
-export function cycleNursery(){BASE.nplan=((BASE.nplan||0)+1)%NPLANS.length;toast('Szkółka: '+NPLANS[BASE.nplan].name+' (od następnej pory roku).')}
-export const nurseryText=()=>{nurseryFix();const N=ECO.nursery;if(!N)return'—';const SPN={sosna:'so',swierk:'św',dab:'db',buk:'bk',brzoza:'brz'};return Object.entries(N.sp).filter(([,v])=>v>0).map(([k,v])=>SPN[k]+' '+v).join(' · ')||'pusto'};
+// 1.3.0: szkółka bez planu produkcji — jeden wspólny zapas sadzonek wszystkich gatunków (ze szkółki taniej, bez niej drożej).
+// Zapis sprzed 1.3.0 miał zapas osobno dla gatunków (N.sp) — sumujemy go.
+export function nurseryFix(){const N=ECO.nursery;if(!N)return;if(N.sp){N.stock=Object.values(N.sp).reduce((a,b)=>a+(b||0),0);delete N.sp}N.stock=Math.max(0,Math.round(N.stock||0))}
+export const nurseryText=()=>{nurseryFix();const N=ECO.nursery;return N?N.stock+' sadzonek':'—'};
 function nurseryHook(){
  if(!BASE.nursery||!ECO.nursery)return null;
  if(cal.season()===3)return{nursery:0};
- const add=Math.min(400,1200-ECO.nursery.stock),W=NPLANS[BASE.nplan||0].w;nurseryFix();
- for(const k in W){const n=Math.round(add*W[k]);ECO.nursery.sp[k]=(ECO.nursery.sp[k]||0)+n}
- ECO.nursery.stock=Object.values(ECO.nursery.sp).reduce((a,b)=>a+b,0);return{nursery:add};
+ nurseryFix();const add=Math.max(0,Math.min(400,1200-ECO.nursery.stock));ECO.nursery.stock+=add;return{nursery:add};
 }
 // ── budowy i kadry ──
 export function buildNursery(){
  if(BASE.nursery)return;if(!canAfford(BUILD.nursery))return;
- pay(BUILD.nursery,'budowa szkółki leśnej');BASE.nursery=true;ECO.nursery={stock:200,sp:{sosna:200}};
+ pay(BUILD.nursery,'budowa szkółki leśnej');BASE.nursery=true;ECO.nursery={stock:200};
  for(const t of treesIn(NURSERY.x-12,NURSERY.y-12,NURSERY.x+NURSERY.w+12,NURSERY.y+NURSERY.h+12).slice())if(inRect(t.x,t.y,NURSERY,10))removeTree(t);
  toast('Szkółka gotowa: 200 sadzonek, potem ok. 400 na sezon (bez zimy).');
 }
@@ -93,7 +90,7 @@ function deal(u,p){
   toast('Kancelaria: sprzedano '+displayNumber(q,1)+' m³ opału za '+zl(price)+'. Odbiór: oddz. '+st.odd+'.');
   note('Sprzedaż opału: '+displayNumber(q,1)+' m³ ('+zl(price)+')');
  }else if(k==='permit'){earn(40,'zezwolenie (wjazd / zbiór chrustu)');BASE.stats.permits++;note('Wydano zezwolenie (40 zł)');toast('Kancelaria: zezwolenie na zbiór chrustu, 40 zł.')}
- else if(k==='seed'){nurseryFix();const n=Math.min(100,ECO.nursery.stock-20);let left=n;for(const k2 of Object.keys(ECO.nursery.sp).sort((a,b)=>ECO.nursery.sp[b]-ECO.nursery.sp[a])){const d=Math.min(left,ECO.nursery.sp[k2]);ECO.nursery.sp[k2]-=d;left-=d}ECO.nursery.stock-=n;earn(Math.round(n*1.8),'sprzedaż sadzonek ze szkółki');BASE.stats.seedlings+=n;note('Sprzedano '+n+' sadzonek');toast('Kancelaria: sprzedano '+n+' sadzonek ze szkółki ('+zl(Math.round(n*1.8))+').')}
+ else if(k==='seed'){nurseryFix();const n=Math.min(100,ECO.nursery.stock-20);ECO.nursery.stock-=n;earn(Math.round(n*1.8),'sprzedaż sadzonek ze szkółki');BASE.stats.seedlings+=n;note('Sprzedano '+n+' sadzonek');toast('Kancelaria: sprzedano '+n+' sadzonek ze szkółki ('+zl(Math.round(n*1.8))+').')}
  else{
   const t=E.trash.find(q=>!q.dead&&!q.fire&&!q.inc);
   if(t){t.inc=report('trash',t.x,t.y,(t.kind==='snare'?'Petent zgłasza wnyki':'Petent zgłasza śmieci')+' w oddz. '+oddzial(t.x,t.y)+'.',t);note('Zgłoszenie od petenta')}

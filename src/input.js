@@ -66,7 +66,7 @@ export function bindInput(zoomFn){
     for(const t of area)if(t.marked&&!t.assigned){t.marked=false;list.push(t)}
     if(list.length)UNDO.push({type:'unmark',list});toast(list.length?'Usunięto oznaczenie '+list.length+' drzew. Ctrl+Z: cofnij.':'W zaznaczeniu nie było oznaczonych drzew.')}
    else if(state.tool==='mark'){const list=[];
-    for(const t of area)if(t.st===STAND&&!t.falling&&!t.lying&&!t.assigned&&t.age>=CUT_AGE&&!t.marked&&!offLimits(t.x,t.y)&&!noCut(t.x,t.y,t)){t.marked=true;list.push(t)}
+    for(const t of area)if(t.st===STAND&&!t.falling&&!t.lying&&!t.assigned&&t.age>=CUT_AGE&&!t.marked&&!offLimits(t.x,t.y)&&!noCut(t.x,t.y,t)){t.marked=true;t.mt=state.elapsed;list.push(t)}
     if(list.length)UNDO.push({type:'mark',list});
     toast(list.length?'Zaznaczono '+list.length+' drzew. E: wyślij ekipę, Ctrl+Z: cofnij.':'W zaznaczeniu nie ma drzew do wycinki (od '+CUT_AGE+' lat).')}
    else if(state.tool==='plant'){const before=J.plants.length,n=planAreaPlants(x0,y0,x1,y1);if(n)UNDO.push({type:'plant',list:J.plants.slice(before)});toast(n?'Zaplanowano '+n+' sadzonek. E: wyślij ekipę, Ctrl+Z: cofnij.':'Brak wolnych miejsc na sadzonki.')}
@@ -106,7 +106,7 @@ export function bindInput(zoomFn){
   else if(k==='o')toggleOdd(true);
   else if(k==='tab')toggleWin('map');
   else if(k==='u'){document.body.classList.toggle('noui');toast(document.body.classList.contains('noui')?'Interfejs schowany (U — pokaż).':'Interfejs widoczny.')}
-  else if(k==='e')dispatchCrew();else if(k==='x')clearOrders();else if(k==='k')orderTruck(true);
+  else if(k==='e')dispatchCrew();else if(k==='x')clearOrders();   // 1.3.0: K usunięte — wywóz zamawia się na karcie stosu (ciężarówka i tak przyjeżdża sama od 10 m³)
   else if(k==='q'){const q=E.incidents.find(x=>x.status==='new');if(q)dispatch(q);else toast('Brak nowych zgłoszeń.')}
   else if(k==='f')followSel();
   else if(k==='t')cycleRate(e.shiftKey);else if(k==='p')$('#pausebtn').click();else if(k==='m')toggleSound();

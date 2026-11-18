@@ -185,9 +185,10 @@ class Unit{
  out(){const r=this.person,[x,y]=this.carDoor();r.x=x;r.y=y;r.hidden=false;r.heading=0;return r}
  startNext(){
   // 0.6.2: najpierw pożar, potem zgłoszenie najbliżej terenówki (na dużej mapie kolejność „po drodze” oszczędza godziny)
+  // 1.3.0: po pożarze pilne (quad, nocny intruz), potem drzewa na drodze, potem najbliższe
   this.queue=this.queue.filter(q=>q.status!=='done'&&q.status!=='gone');
-  const [cx,cy]=this.car.pos,fire=this.queue.find(q=>q.type==='fire'||q.type==='block');
-  const inc=fire||this.queue.slice().sort((a,b)=>Math.hypot(a.x-cx,a.y-cy)-Math.hypot(b.x-cx,b.y-cy))[0];
+  const [cx,cy]=this.car.pos,near=l=>l.slice().sort((a,b)=>Math.hypot(a.x-cx,a.y-cy)-Math.hypot(b.x-cx,b.y-cy))[0];
+  const inc=this.queue.find(q=>q.type==='fire')||near(this.queue.filter(q=>prio(q)>=3))||this.queue.find(q=>q.type==='block')||near(this.queue);
   if(inc)this.queue=this.queue.filter(q=>q!==inc);
   if(!inc){this.goHome();return}
   this.cur=inc;inc.status='assigned';inc.unit=this;if(!inc.paid){pay(35,'paliwo — wyjazd patrolu');inc.paid=true}   // 1.1.1: po wczytaniu zapisu wyjazd nie jest opłacany drugi raz
@@ -288,9 +289,28 @@ export function initPatrol(){
 export function hirePod(){const u=new Unit('podleśniczy',1,CAR_EDGE.len-70,'#6a7a4a');U.push(u);return u}
 export function firePod(){const u=U[1];if(!u)return false;if(u.phase!=='home'){toast('Podleśniczy jest w terenie — zwolnisz go po powrocie.');return false}
  u.car.dead=true;u.person.dead=true;U.pop();return true}
+// 1.3.0: pilne zgłoszenie przerywa zwykłe zadanie — patrol jadący do czegoś niepilnego zawraca do pilnego, a przerwane wraca na początek kolejki
+function preempt(u,inc,msg){
+ for(const w of U)w.queue=w.queue.filter(q=>q!==inc);
+ if(u.cur&&u.cur!==inc){const o=u.cur;o.status='queued';u.queue.unshift(o)}
+ u.cur=null;inc.status='queued';u.queue.push(inc);u.startNext();if(msg)toast(msg);
+}
+// 1.3.0: leśniczy w drodze do niepilnego zadania, który mija quada, crossowca albo nocnego intruza w lesie, zatrzymuje go bez zgłoszenia
+function spotIntruders(){
+ for(const u of U){if(u.phase!=='driving'||!u.car||u.cur&&prio(u.cur)>=3)continue;const c=u.car;
+  for(const v of E.vehicles){if(v.dead||v.stopped||v.leaving||!(v.illegal||v.intruder)||!inForest(v))continue;
+   if(Math.hypot(v.pos[0]-c.pos[0],v.pos[1]-c.pos[1])>110)continue;
+   let inc=v.inc;if(inc&&!open_(inc))continue;   // już raz załatwiony (pouczony, odjeżdża) — nie zatrzymujemy go drugi raz
+   if(!inc){v.report=null;const o=odd(v.pos[0],v.pos[1]);inc=v.inc=v.illegal?report('quad',v.pos[0],v.pos[1],(v.kind==='quad'?'Quad':'Motocykl crossowy')+' na drodze leśnej, '+o+'.',v,true):report('intruder',v.pos[0],v.pos[1],INTR[v.intruder].text(o),v,true)}
+   if(inc.status==='assigned'&&inc.unit&&inc.unit!==u)continue;
+   preempt(u,inc,u.name[0].toUpperCase()+u.name.slice(1)+' zauważył '+(v.illegal?(v.kind==='quad'?'quada':'crossowca'):'podejrzane auto')+' po drodze i go zatrzymuje.');break}
+ }
+}
 export function dispatch(inc,quiet){
  if(!inc||inc.status!=='new')return;
  if(inc.type==='dump'){HK.waste&&HK.waste(inc);return}
+ if(prio(inc)>=3&&!U.some(u=>u.phase==='home'||u.phase==='return')){const v=U.find(u=>u.phase==='driving'&&u.cur&&prio(u.cur)<3);
+  if(v){preempt(v,inc,quiet?null:v.name[0].toUpperCase()+v.name.slice(1)+' przerywa zadanie i jedzie do pilnego zgłoszenia.');return}}
  const free=U.find(u=>u.phase==='home'||u.phase==='return'),u=free||U.slice().sort((a,b)=>a.queue.length-b.queue.length)[0];
  inc.status='queued';u.queue.push(inc);
  if(u.phase==='home'||u.phase==='return')u.startNext();
@@ -324,6 +344,7 @@ export function updateIncidents(dt){
   if(v.report!=null&&inForest(v)){v.report-=dt;if(v.report<=0){v.report=null;if(!v.dead)v.inc=report('quad',v.pos[0],v.pos[1],(v.kind==='quad'?'Quad':'Motocykl crossowy')+' na drodze leśnej, '+odd(v.pos[0],v.pos[1])+'.',v)}}
   if(v.life<=0&&!v.stopped&&!v.leaving&&v.roam){v.leaving=true;v.goTo(goalNode(exitNode(v.pos[0])),{leave:true})}
  }
+ spotIntruders();
  for(const t of E.trash){
   if(t.kind==='dump')continue;
   if(t.fire){t.t+=dt;if(!t.dead){t.grow=Math.min(1,t.grow+dt*.0042*fireSpeed());t.peak=Math.max(t.peak||0,t.grow);if(rand()<dt*14)particle('smoke',t.x+(rand()-.5)*14*(1+t.grow),t.y,{vx:6+rand()*6,vy:-14-rand()*10,life:2.5+rand()*1.5,size:3+rand()*4*(1+t.grow)})}
@@ -405,7 +426,7 @@ function selectThinning(A){
  const near=t=>{const r=crownR(t)*1.9;return treesIn(t.x-r,t.y-r,t.x+r,t.y+r).filter(q=>q!==t&&q.st===STAND&&q.age>=SAPLING_AGE&&Math.hypot(q.x-t.x,q.y-t.y)<r)};
  const cand=[];for(const t of all){if(!t.qk||t.q!==2||t.marked||t.assigned||t.uprawa)continue;const nb=near(t);if(nb.length<2)continue;cand.push({t,score:nb.filter(q=>q.q===0).length*3+nb.length})}
  cand.sort((a,b)=>b.score-a.score);
- for(const c of cand.slice(0,cap)){c.t.marked=true;A.marked++}
+ for(const c of cand.slice(0,cap)){c.t.marked=true;c.t.mt=state.elapsed;A.marked++}
  ASSESS.push({x:A.x,y:A.y,day:state.days});
  if(!A.marked)A.why=cand.length?'':'drzewostan jest luźny — nie wymaga trzebieży';
 }

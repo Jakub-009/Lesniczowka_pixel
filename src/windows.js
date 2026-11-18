@@ -19,10 +19,12 @@ const dayLabel=d=>{d=Math.floor(d);return 'Rok '+(Math.floor(d/(4*SEASON_DAYS))+
 const ago=d=>{const n=Math.floor(state.days)-Math.floor(d);return n<=0?'dziś':n===1?'wczoraj':n+' dni temu'};
 
 // ── Poczta ──
-const GROUP={invoice:'fak',money:'fak',nature:'prz',plan:'plan',assess:'plan'};   // reszta: zdarzenia
-const grp=m=>GROUP[m.kind]||'zd';
+// 1.3.0: trzy zakładki — faktury płaci się w Finansach (kafelek powyżej), plan sezonu jest pod przyciskiem „Plan sezonu”; ich listy zostają we „Wszystkie”
+const GROUP={nature:'prz'};   // reszta (poza „Wszystkie”): zdarzenia
+const NOEV=new Set(['invoice','money','plan','assess']);
+const grp=m=>GROUP[m.kind]||(NOEV.has(m.kind)?'':'zd');
 const KIND={dump:['■','#b08a5a'],fire:['■','#e0482f'],quad:['■','#e8a32e'],intruder:['■','#e8a32e'],trash:['■','#c9b02a'],beetle:['■','#c9764a'],storm:['■','#6f9cc8'],plan:['✉','#5f9a45'],money:['■','#c9582f'],assess:['✔','#5f9a45'],wolf:['■','#7f94a8'],road:['■','#a08a5a'],invoice:['✉','#c9962f'],nature:['✦','#4fa690']};
-const MTABS=[['all','Wszystkie'],['fak','Faktury'],['zd','Zdarzenia'],['prz','Przyroda'],['plan','Plan']];
+const MTABS=[['all','Wszystkie'],['zd','Zdarzenia'],['prz','Przyroda']];
 let mailTab='all',fresh=new Set();
 const split=t=>{const i=t.search(/[.!?](?=\s+[A-ZĄĆĘŁŃÓŚŹŻ])/);return i>=5&&i<t.length-1?[t.slice(0,i+1),t.slice(i+1).trim()]:[t,'']};   // koniec zdania, a nie „oddz. 103”
 function invState(m){if(m.inv==null)return '';const i=FIN.inv.find(q=>q.id===m.inv);if(!i)return '';

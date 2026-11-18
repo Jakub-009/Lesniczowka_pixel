@@ -95,6 +95,11 @@ body.noui .ui>*:not(#msg){display:none}
 .planbtn{align-self:center;white-space:nowrap}.planbtn b{color:#2a3b2d}.planbtn.hot{background:#9fd27a;box-shadow:0 3px 0 #4f7a3a}
 .toolbar{left:50%;bottom:22px;transform:translateX(-50%);width:max-content;max-width:min(800px,calc(100vw - 600px));min-width:420px}
 .toolbar .toolhint{min-height:0;margin:0 0 8px;text-align:center;font-size:10px;color:#c9d2ad}.toolbar .toolhint:empty{display:none}
+/* 1.3.0: wybór gatunku w narzędziu Sadzenie */
+.toolbar .spbar{display:flex;justify-content:center;align-items:center;gap:5px;margin:0 0 8px;font-size:11px;color:#c9d2ad}
+.toolbar .spbar button{display:inline-flex;align-items:center;gap:5px;width:auto;margin:0;padding:4px 8px;font-size:11px}
+.toolbar .spbar button i{display:inline-block;width:9px;height:9px;border:1px solid #1d2b22}
+.toolbar .spbar button.on{background:#f4d58a;box-shadow:0 3px 0 #a37c2a,0 0 0 2px #14201a}
 .trow2{display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:center}
 .trow2 .grp{display:flex;gap:6px;align-items:center}
 .toolbar .tool,.toolbar .act{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:6px 9px;margin:0;width:auto}
