@@ -28,7 +28,7 @@ export function hasSave(){try{return !!localStorage.getItem(KEY)}catch(e){return
 export function clearSave(){try{localStorage.removeItem(KEY)}catch(e){}}
 // 1.1.1 (S01): drewno w jadącym ciągniku/forwarderze i na ciężarówce zapisuje się jako stos przy najbliższej drodze — nie znika po wczytaniu
 function cargo(){
- const out=[],at=(v,ks,vol,val)=>{const rp=nearestRoad(v.pos[0],v.pos[1],['main','forest','dukt']);for(const k of ks)if(vol[k]>.01)out.push([rp.edge.id,Math.round(rp.s),+vol[k].toFixed(2),Math.round(val[k]||0),k,k!=='opal'])};
+ const out=[],at=(v,ks,vol,val)=>{const rp=nearestRoad(v.pos[0],v.pos[1],['forest'],{margin:60});/* 1.1.9: stos tylko przy drodze leśnej (tam dojedzie ciężarówka) */for(const k of ks)if(vol[k]>.01)out.push([rp.edge.id,Math.round(rp.s),+vol[k].toFixed(2),Math.round(val[k]||0),k,k!=='opal'])};
  const S=J.skid;if(S.trac&&!S.trac.dead&&S.trac.load>.01&&S.ls)at(S.trac,['tart','pap','opal'],S.ls,S.lv||{});
  const T=J.truck;if(T.v&&!T.v.dead&&T.v.load>.01)at(T.v,['tart'],{tart:T.v.load},{tart:T.val||0});
  return out;

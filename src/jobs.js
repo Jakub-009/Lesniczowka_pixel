@@ -289,7 +289,10 @@ export function stackFor(x,y,sort='tart'){
  const {s,P}=spotAt(rp.edge,rp.s),st={id:J.nextStack++,edge:rp.edge,s,...P,vol:0,value:0,sort,truck:sort!=='opal',odd:oddzial(P.x,P.y)};J.stacks.push(st);return st;
 }
 // wczytanie zapisu: stare stosy (po jednym na sortyment, mogły leżeć na jezdni) trafiają na nowe składnice
-export function restoreStack(edgeId,s0,vol,value,sort='tart',truck){const e=EDGES.find(q=>q.id===edgeId);if(!e)return null;const {s,P}=spotAt(e,s0),st={id:J.nextStack++,edge:e,s,...P,vol,value,sort,truck:truck??sort!=='opal',odd:oddzial(P.x,P.y)};J.stacks.push(st);return st}
+// 1.1.9: stos zapisany przy szosie albo dukcie (błąd 1.1.1) przenosi się do najbliższej drogi leśnej, gdzie dojeżdża ciężarówka
+export function restoreStack(edgeId,s0,vol,value,sort='tart',truck){let e=EDGES.find(q=>q.id===edgeId);if(!e)return null;
+ if(e.kind!=='forest'){const p0=ptAt(e,Math.max(0,Math.min(e.len,s0))),rp=nearestRoad(p0[0],p0[1],['forest'],{margin:60});if(!rp)return null;e=rp.edge;s0=rp.s}
+ const {s,P}=spotAt(e,s0),st={id:J.nextStack++,edge:e,s,...P,vol,value,sort,truck:truck??sort!=='opal',odd:oddzial(P.x,P.y)};J.stacks.push(st);return st}
 export const spotOf=st=>J.stacks.filter(q=>q.vol>.05&&Math.hypot(q.x-st.x,q.y-st.y)<8);
 export function addToStack(st,vol,value){st.vol+=vol;st.value+=value}
 export function takeFromStack(st,vol){const q=Math.min(vol,st.vol),val=st.vol>0?st.value*q/st.vol:0;st.vol-=q;st.value-=val;if(st.vol<.05&&!J.truck.route.includes(st)&&J.truck.cur!==st)J.stacks=J.stacks.filter(z=>z!==st);return{q,val}}
@@ -468,7 +471,10 @@ function nextStop(){
   for(const s of T.route)if(s.vol<.05)J.stacks=J.stacks.filter(z=>z!==s);T.route=[];
   T.phase='leaving';v.label='ciężarówka odjeżdża z drewnem';v.goTo(goalNode(exitNode(v.pos[0])),{leave:true});return}
  T.phase='coming';v.label='ciężarówka jedzie do stosu w oddz. '+T.cur.odd;
- v.goTo({edge:T.cur.edge,s:T.cur.s},{park:true,onArrive:()=>{T.phase='load';T.wait=1;v.label='załadunek żurawiem HDS'}});
+ v.goTo({edge:T.cur.edge,s:T.cur.s},{park:true,onArrive:()=>{
+  // 1.1.9: ciężarówka nie dojechała do stosu (brak trasy) — nie ładuje z daleka, jedzie do następnego
+  if(Math.hypot(v.pos[0]-T.cur.x,v.pos[1]-T.cur.y)>70){nextStop();return}
+  T.phase='load';T.wait=1;v.label='załadunek żurawiem HDS'}});
 }
 function truckUpdate(dt){
  const T=J.truck,v=T.v;
