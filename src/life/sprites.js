@@ -343,13 +343,6 @@ export function dogTop(g,x,y,h,phase,col='#7a5a3a',col2='#3a2e26'){
  blob(g,x,y,7,3,3);
  drawRotated(g,x,y,h,s=>{rect(s,-5,-2,10,4,col);rect(s,-4,-2,5,3,col2);rect(s,5,-2,4,4,col);rect(s,8,-1,2,2,'#2f2a26');rect(s,5,-3,2,1,col2);rect(s,5,2,2,1,col2);rect(s,-8,-1+Math.round(Math.sin(phase*6)),4,1,col)});
 }
-export function birds(g,t,camera,VIEW){
- for(let i=0;i<9;i++){
-  const cycle=(t*.67+i*83)%560,bx=(i%2?2500-cycle*4.4:cycle*4.4-100),by=120+((i*173)%1500)+Math.sin(t*.9+i)*6;
-  if(bx<camera.x-10||bx>camera.x+VIEW.w+10||by<camera.y-10||by>camera.y+VIEW.h+10)continue;
-  const flap=Math.sin(t*6.5+i*3)>.15?-2:2;line(g,bx-5,by+flap,bx,by,'#38463c',1);line(g,bx,by,bx+5,by+flap,'#38463c',1);
- }
-}
 // Kłody (stos przy pniu): równoległe wałki z jasnymi czołami.
 export function pileTop(g,p){
  const n=p.logs;

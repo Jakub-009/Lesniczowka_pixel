@@ -22,7 +22,7 @@ export function pick(x,y){
  let best=null,bd=1e9;
  const test=(o,px,py,r)=>{const d=Math.hypot(px-x,py-y);if(d<r&&d<bd){bd=d;best=o}};
  for(const p of E.people)if(!p.hidden)test(p,p.x,p.y,9);
- for(const a of E.animals)test(a,a.x,a.y,11);
+ for(const a of E.animals)if(!a.hidden)test(a,a.x,a.y,11);
  for(const v of E.vehicles)test(v,v.pos[0],v.pos[1],v.spec.hh*.9);
  for(const p of E.piles)if(!p.dead)test(p,p.x,p.y,14);
  for(const st of J.stacks)if(st.vol>.05)test(st,st.x,st.y,22);

@@ -195,8 +195,10 @@ export class Vehicle{
       if(this.avoidT>0&&this.avoidX<=-(this.edge.w/2+8)-this.edge.lane+.5)continue}   // ciasno: przeciskamy się obok stojącego
      else{if(c<-.5){
        // 1.3.0: na wąskim dukcie nadjeżdżający z naprzeciwka mijają się, zjeżdżając prawymi kołami na pas zieleni (bez mijanek)
-       if(this.edge.kind==='dukt'&&w.edge===this.edge){const h=this.heading,dx=w.pos[0]-this.pos[0],dy=w.pos[1]-this.pos[1],ah=dx*Math.sin(h)-dy*Math.cos(h);
-        if(ah>0&&ah<150&&Math.abs(dx*Math.cos(h)+dy*Math.sin(h))<40){this.passT=1.2;target=Math.min(target,28)}}
+       // 1.5.1: tak samo na głównej drodze leśnej — tam wystarczy odsunąć się do prawej krawędzi (duże pojazdy kołami na pobocze) i lekko zwolnić
+       const pk=this.edge.kind;
+       if((pk==='dukt'||pk==='forest')&&w.edge===this.edge){const h=this.heading,dx=w.pos[0]-this.pos[0],dy=w.pos[1]-this.pos[1],ah=dx*Math.sin(h)-dy*Math.cos(h);
+        if(ah>0&&ah<(pk==='forest'?170:150)&&Math.abs(dx*Math.cos(h)+dy*Math.sin(h))<40){this.passT=1.2;target=Math.min(target,pk==='forest'?40:28)}}
        continue}   // nadjeżdżający z naprzeciwka — etap B
       if(!hitW(pr))continue;
       if(c<.3&&collide(w.probe(),this.shape)){const meMain=this.edge.kind==='main',wMain=w.edge&&w.edge.kind==='main';if(meMain&&!wMain||meMain===wMain&&this.vid<w.vid)continue}}
@@ -213,7 +215,7 @@ export class Vehicle{
   // zjazd na pobocze przy parkowaniu: przesunięcie pasa narasta przed miejscem postoju
   if(!this.off){const parkSoon=this.parked||(this.park&&this.final&&this.stopS!=null&&this.stopS-this.s<90);
    if(this.avoidT>0)this.avoidT-=dt;if(this.passT>0)this.passT-=dt;
-   const lx=parkSoon?this.edge.w/2+10-this.edge.lane:this.avoidT>0?this.avoidX:this.passT>0&&this.edge.kind==='dukt'?this.edge.w/2+this.spec.hw-6-this.edge.lane:0;this.laneX+=clamp(lx-this.laneX,-22*dt,22*dt)}
+   const lx=parkSoon?this.edge.w/2+10-this.edge.lane:this.avoidT>0?this.avoidX:this.passT>0&&this.edge.kind==='dukt'?this.edge.w/2+this.spec.hw-6-this.edge.lane:this.passT>0&&this.edge.kind==='forest'?Math.max(0,this.spec.hw+5-this.edge.lane):0;this.laneX+=clamp(lx-this.laneX,-22*dt,22*dt)}
   // skręt (model rowerowy) i ruch do przodu
   if(this.v>.05){
    const [cx,cy]=this.carrot(),dd=Math.hypot(cx-this.pos[0],cy-this.pos[1]);
@@ -321,18 +323,22 @@ export const ASPEC={
  deer:{name:'jeleń',speed:15,run:58,flee:170,leash:300,idle:[5,12],big:true},
  boar:{name:'dzik',speed:12,run:44,flee:100,leash:200,idle:[3,8],big:true},
  piglet:{name:'warchlak',speed:13,run:46,flee:100,leash:120,idle:[2,5]},
- fox:{name:'lis',speed:30,run:78,flee:130,leash:420,idle:[3,9]},
+ fox:{name:'lis',speed:24,run:78,flee:130,leash:300,idle:[4,10]},   // 1.5.1: żerujący lis chodzi wolniej i częściej przystaje (myszkuje)
  wolf:{name:'wilk',speed:24,run:70,flee:240,leash:520,idle:[3,8],big:true},
  hare:{name:'zając',speed:18,run:80,flee:70,leash:160,idle:[3,9]},
  dog:{name:'pies',speed:22,run:50,flee:0,leash:200,idle:[5,12]}
 };
 // Aktywność dobowa: zwierzyna w dzień leży w ostojach (gęstwina), o zmierzchu i nocą wychodzi żerować.
+// 1.5.1: pora żerowania zależy od pory roku (dłuższy dzień latem, krótszy zimą); zimą część zwierzyny żeruje też w dzień.
+const DAWN=[7,6,7.5,8],DUSK=[19,20,18,16];   // wiosna, lato, jesień, zima
 export function activeNow(kind,seed=0){
- const h=cal.hour(),dusk=h<7.5||h>18.5;
+ const h=cal.hour(),se=cal.season(),a=DAWN[se],b=DUSK[se],dusk=h<a+.5||h>b-.5;
  if(kind==='dog')return true;
- if(kind==='boar'||kind==='piglet'||kind==='wolf')return h<6.5||h>19.5;
- if(kind==='roe')return dusk||seed%3===0;          // część saren żeruje też w dzień
- return dusk;                                      // jelenie, lisy, zające
+ if(kind==='boar'||kind==='piglet'||kind==='wolf')return h<a-.5||h>b+.5||(se===3&&kind==='boar'&&seed%4===0);
+ if(kind==='roe')return dusk||seed%3===0||(se===3&&seed%3===1);   // część saren żeruje w dzień, zimą więcej
+ if(kind==='deer')return dusk||(se===3&&seed%2===0);
+ if(kind==='fox')return (h>a-1.5&&h<a+1)||(h>b-1&&h<b+1.5)||(se===3&&h>11&&h<14&&seed%2===0);   // lis: o świcie i o zmierzchu, zimą też w południe
+ return dusk;                                      // zające
 }
 export class Group{
  constructor(hx,hy,seed,o={}){Object.assign(this,{hx,hy,ox:hx,oy:hy,seed,n:0,t:20+hash(seed,3)*40,range:[220,520],fixed:false,kind:'roe',act:null},o)}
@@ -363,6 +369,7 @@ export class Wild{
  wander(){
   const G=this.group,rest=!activeNow(this.kind,this.seed);
   if(rest&&!this.follow&&Math.hypot(this.x-G.hx,this.y-G.hy)<70){this.state='idle';this.t=20+this.rand()*40;return}   // leży w ostoi
+  if(rest&&this.kind==='fox'&&this.plan(G.hx,G.hy)){this.state='walk';return}   // 1.5.1: lis wraca prosto do nory
   for(let k=0;k<14;k++){const a=this.rand()*6.283,d=20+this.rand()*(rest?40:this.leash)*(this.follow?.25:1),bx=this.follow?this.follow.x:G.hx,by=this.follow?this.follow.y:G.hy,x=bx+Math.cos(a)*d,y=by+Math.sin(a)*d;
    if(this.N().walkable(x,y)&&this.plan(x,y)){this.state='walk';return}}
   this.state='idle';this.t=3+this.rand()*4;
@@ -375,6 +382,10 @@ export class Wild{
  }
  update(dt){
   this.phase+=dt;
+  // 1.5.1: lis poza porą żerowania siedzi w norze (niewidoczny); wychodzi tylko na żerowanie
+  if(this.kind==='fox'){const act=activeNow('fox',this.seed);
+   if(!act&&this.state!=='run'){const G=this.group;if(this.hidden)return;if(Math.hypot(this.x-G.hx,this.y-G.hy)<30){this.hidden=true;this.state='idle';this.v=0;return}}
+   else if(this.hidden){this.hidden=false;this.state='idle';this.t=1}}
   if(this.flee&&this.state!=='run'){
    const th=nearestThreat(this.x,this.y,this.flee*((this.kind==='roe'||this.kind==='deer')?WX.flee:1));
    if(th)this.escape(th.x,th.y);
@@ -394,7 +405,7 @@ export class Wild{
    if(moved<8){this.stuckN++;if(this.stuckN>=3){const p=this.N().nearestWalkable(this.x,this.y,10);if(p){this.x=p[0];this.y=p[1]}this.state='idle';this.t=2;this.stuckN=0;this.v=0}else this.wander()}else this.stuckN=0}
  }
  draw(){
-  if(!near(this.x,this.y,30))return;const run=this.state==='run',k=this.kind;
+  if(this.hidden||!near(this.x,this.y,30))return;const run=this.state==='run',k=this.kind;
   if(k==='roe')S.roeTop(ctx,this.x,this.y,this.heading,this.phase,run,this.male);
   else if(k==='deer')S.deerTop(ctx,this.x,this.y,this.heading,this.phase,run,this.male);
   else if(k==='boar'||k==='piglet')S.boarTop(ctx,this.x,this.y,this.heading,this.phase,run,k==='piglet');

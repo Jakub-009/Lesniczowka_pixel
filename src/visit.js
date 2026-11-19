@@ -22,7 +22,8 @@ export const TRAIL=[[2852,1368],[2858,1344],[2874,1322],[2898,1306],[2924,1300],
 export const BOARDS=[[2874,1322],[2924,1300],[2950,1336],[2910,1362]];
 // 1.5.0: zatoczka przy szosie pod ścieżką przyrodniczą i ścieżka dojściowa przez las do bramy ścieżki (pojawiają się z zakupem ścieżki)
 const TB={x:2880};TB.y=hy(TB.x);
-const ACCESS=[[TB.x,TB.y-40],[2878,1640],[2868,1560],[2862,1480],[2856,1420],TRAIL[0]];
+const ACCESS=[[TB.x,TB.y-54],   // 1.5.1: ścieżka zaczyna się na tylnej krawędzi zatoki (nie wchodzi na asfalt)
+ [2878,1640],[2868,1560],[2862,1480],[2856,1420],TRAIL[0]];
 const BOARD_TXT=['Runo leśne','Martwe drewno','Ptaki lasu','Wiek drzew'];
 export function buySigns(){
  if(signsOn()){toast('Znaki zakazu wjazdu już stoją.');return false}
@@ -65,7 +66,7 @@ const BUS_DUKT={x:2892,y:1152},BUS_ROAD={x:TB.x,y:TB.y};
 function spawnTour(){
  const n=8+((rand()*4)|0),inForest=false,dst=inForest?BUS_DUKT:BUS_ROAD;   // 1.5.0: autobus zawsze staje w zatoce przy szosie (dzieci idą ścieżką dojściową), nie wjeżdża już na dukt
  const rp=nearestRoad(dst.x,dst.y,inForest?['dukt']:['main']);if(!rp)return;
- const bus=new Vehicle('van',{...ENTRY(false)});bus.bus=true;bus.atRoad=!inForest;bus.label='autobus szkolny jedzie na ścieżkę przyrodniczą';
+ const bus=new Vehicle('van',{...ENTRY(false)});bus.bus=true;bus.title='autobus szkolny';bus.atRoad=!inForest;bus.label='autobus szkolny jedzie na ścieżkę przyrodniczą';
  if(inForest)bus.goTo({edge:rp.edge,s:rp.s},{park:true,onArrive:v=>{v.label='autobus szkolny czeka na wycieczkę';tourFrom(v,n)}});
  else{   // 1.5.0: autobus wjeżdża w zatokę przy szosie
   const sx=Math.sin(bus.heading)>=0?1:-1,yr=hy(TB.x)-28,r0=nearestRoad(TB.x-sx*95,hy(TB.x),['main']);bus.bay=sx;
@@ -112,14 +113,19 @@ export function drawVisitGround(g,camera,VIEW){
   for(let x=-60;x<60;x+=10)rect(g,TB.x+x,yr-1,6,2,'#e8e6dc');   // linia przerywana (krawędź jezdni)
   rect(g,TB.x-20,yr-20,40,2,'#e8e6dc');rect(g,TB.x-20,yr-20,2,8,'#e8e6dc');rect(g,TB.x+18,yr-20,2,8,'#e8e6dc');   // oznakowanie miejsca postoju
   }
- if(inView(2870,1520,camera,VIEW,260)){g.save();g.lineCap='round';g.lineJoin='round';
-  for(const [w,c] of [[7,'#6b5a3a'],[5,'#b49a68']]){g.strokeStyle=c;g.lineWidth=w;g.beginPath();ACCESS.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.stroke()}g.restore()}
- if(!inView(2900,1330,camera,VIEW,160))return;
- g.save();g.lineCap='round';g.lineJoin='round';
- for(const [w,c] of [[9,'#6b5a3a'],[7,'#b49a68'],[3,'#c8b484']]){g.strokeStyle=c;g.lineWidth=w;g.beginPath();TRAIL.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.stroke()}
- g.restore();
- for(let k=0;k<TRAIL.length*5;k++){const a=TRAIL[k%TRAIL.length],b=TRAIL[(k+1)%TRAIL.length],u=((k*37)%10)/10;rect(g,a[0]+(b[0]-a[0])*u+((k*13)%7-3),a[1]+(b[1]-a[1])*u+((k*29)%7-3),2,1,'#8a7448')}
+ if(inView(2870,1520,camera,VIEW,260))drawPath(g,ACCESS,'butt');
+ if(inView(2900,1330,camera,VIEW,160))drawPath(g,TRAIL,'round');
 }
+// 1.5.1: jeden wygląd dla ścieżki przyrodniczej i ścieżki dojściowej (obrzeże, nawierzchnia, jaśniejszy środek, drobny żwir)
+function drawPath(g,P,cap){
+ g.save();g.lineJoin='round';g.lineCap=cap;
+ for(const [w,c] of [[9,'#6b5a3a'],[7,'#b49a68'],[3,'#c8b484']]){g.strokeStyle=c;g.lineWidth=w;g.beginPath();P.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.stroke()}
+ g.restore();const n=P.length-1;
+ for(let k=0;k<n*5;k++){const a=P[k%n],b=P[k%n+1],u=((k*37)%10)/10;rect(g,a[0]+(b[0]-a[0])*u+((k*13)%7-3),a[1]+(b[1]-a[1])*u+((k*29)%7-3),2,1,'#8a7448')}
+}
+// 1.5.1: słupek nie może stać na wjeździe w drogę leśną (wynik liczony raz dla każdego miejsca)
+const SIDE=new Map();
+const onSideRoad=x=>{if(!SIDE.has(x)){const q=nearestRoad(x,hy(x)-42,['forest','dukt','drive'],{margin:0});SIDE.set(x,!!q&&q.d<26)}return SIDE.get(x)};
 export function drawVisit(g,camera,VIEW){
  const post=(x,y)=>{rect(g,x-1,y-2,2,12,'#4a4a48');rect(g,x-1,y-2,1,12,'#6a6a68')};
  if(trailOn()&&inView(2900,1330,camera,VIEW,140)){
@@ -131,8 +137,10 @@ export function drawVisit(g,camera,VIEW){
  // znaki przy szosie
  const x0=Math.floor(camera.x/70)*70,x1=camera.x+VIEW.w+70;
  if(repelOn()){
-  for(let x=x0;x<x1;x+=70){if(x<380||x>3280)continue;const y=hy(x)-30;if(y<camera.y-20||y>camera.y+VIEW.h+20)continue;rect(g,x-1,y,2,7,'#d8d8d0');rect(g,x-1,y,2,2,'#3a7ad8');rect(g,x-1,y+2,2,1,'#e8e8e0')}
-  for(const x of [1180,2150,2960,3330]){const y=hy(x)-50;   // 1.5.0: znak na poboczu, słupek nie wchodzi na jezdnięif(!inView(x,y,camera,VIEW,30))continue;post(x,y+6);
+  for(let x=x0;x<x1;x+=70){if(x<380||x>3280)continue;if(trailOn()&&Math.abs(x-TB.x)<100)continue;if(onSideRoad(x))continue;const y=hy(x)-42;   // 1.5.1: słupki odblaskowe na poboczu (podstawa poza jezdnią), nie w zatoce autobusowej
+  if(y<camera.y-20||y>camera.y+VIEW.h+20)continue;rect(g,x-1,y,2,7,'#d8d8d0');rect(g,x-1,y,2,2,'#3a7ad8');rect(g,x-1,y+2,2,1,'#e8e8e0')}
+  for(const x of [1180,2150,2960,3330]){const y=hy(x)-50;   // 1.5.0: znak na poboczu, słupek nie wchodzi na jezdnię
+   if(!inView(x,y,camera,VIEW,30))continue;post(x,y+6);
    g.fillStyle='#d8403a';g.beginPath();g.moveTo(x,y-14);g.lineTo(x+9,y+2);g.lineTo(x-9,y+2);g.closePath();g.fill();
    g.fillStyle='#f2efe4';g.beginPath();g.moveTo(x,y-10);g.lineTo(x+6,y);g.lineTo(x-6,y);g.closePath();g.fill();rect(g,x-3,y-4,5,2,'#2a2a26');rect(g,x-4,y-2,2,2,'#2a2a26');rect(g,x+1,y-6,2,2,'#2a2a26')}}
  if(signsOn()){

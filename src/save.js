@@ -44,7 +44,7 @@ export function saveGame(){
    plots:R.plots.map(p=>{const q={...p};delete q.inc;return q}),nextPlot:R.nextId,trails:J.trails.slice(-160),forwarder:J.skid.owned,fwdHired:J.skid2.hired,hired:J.crews.filter(C=>C.hired!=null).map(C=>[C.role,C.hired]),
    base:{nursery:BASE.nursery,garage:BASE.garage,nplan:BASE.nplan||0,stats:BASE.stats,opal:BASE.opalPiles.filter(o=>!o.dead).map(o=>[Math.round(o.x),Math.round(o.y),+o.a.toFixed(2),+o.vol.toFixed(2),o.edge.id,Math.round(o.s),+o.day.toFixed(2),o.odd])},
    assess:ASSESS.slice(-80),hl:saveHealth(),mail:serializeMail(),nat:saveNature(),
-   fauna:{wolf:{...FA.wolf},pop:FA.pop,plan:FA.plan,culled:FA.culled,reduction:FA.reduction,feeders:FA.feeders.map(f=>[f.slot,+f.level.toFixed(3)]),ambony:saveAmbony(),winterT:FA.winterT,emptyT:FA.emptyT}};
+   fauna:{wolf:{...FA.wolf},pop:FA.pop,plan:FA.plan,culled:FA.culled,reduction:FA.reduction,feeders:FA.feeders.map(f=>[f.slot,+f.level.toFixed(3)]),ambony:saveAmbony(),winterT:FA.winterT,emptyT:FA.emptyT,roar:FA.roarSeason??null}};
   localStorage.setItem(KEY,JSON.stringify(o));
  }catch(e){console.warn('Zapis gry nie powiódł się:',e)}
 }
@@ -92,7 +92,7 @@ export function loadGame(){
   if(o.base){BASE.nursery=!!o.base.nursery;BASE.garage=!!o.base.garage;BASE.nplan=o.base.nplan||0;Object.assign(BASE.stats,o.base.stats||{});
    BASE.opalPiles=(o.base.opal||[]).map(([x,y,a,vol,eid,s,day,odd])=>({x,y,a,vol,edge:EDGES.find(e=>e.id===eid)||EDGES[4],s,day,odd,logs:Math.max(2,Math.min(6,Math.round(vol*1.5))),bark:'#7a5a3e',sp:'sosna'}))}
   if(ec.pod&&!ECO.staff.pod){ECO.staff.pod=true;hirePod()}
-  if(o.fauna){const F=o.fauna;Object.assign(FA.pop,F.pop);delete FA.pop.wolf;FA.wolf=F.wolf?{present:!!F.wolf.present,size:F.wolf.size||0,until:F.wolf.until||0,cool:F.wolf.cool??state.days+8,days:F.wolf.days||0,total:F.wolf.total||0}:{present:false,size:0,until:0,cool:state.days+8,days:0,total:0};WX.flee=FA.wolf.present?1.4:1;Object.assign(FA.plan,F.plan);Object.assign(FA.culled,F.culled);FA.reduction=!!F.reduction;FA.winterT=F.winterT||0;FA.emptyT=F.emptyT||0;
+  if(o.fauna){const F=o.fauna;Object.assign(FA.pop,F.pop);if(F.roar!=null)FA.roarSeason=F.roar;delete FA.pop.wolf;FA.wolf=F.wolf?{present:!!F.wolf.present,size:F.wolf.size||0,until:F.wolf.until||0,cool:F.wolf.cool??state.days+8,days:F.wolf.days||0,total:F.wolf.total||0,last:F.wolf.last??null}:{present:false,size:0,until:0,cool:state.days+8,days:0,total:0};WX.flee=FA.wolf.present?1.4:1;Object.assign(FA.plan,F.plan);Object.assign(FA.culled,F.culled);FA.reduction=!!F.reduction;FA.winterT=F.winterT||0;FA.emptyT=F.emptyT||0;
    // 0.9: paśniki jako [miejsce, poziom]; zapisy sprzed 0.9 miały tablicę poziomów wszystkich czterech paśników
    {const fl=F.feeders||[];FA.feeders=fl.map((v,i)=>Array.isArray(v)?mkFeeder(v[0],v[1]):mkFeeder(i,v));if(!FA.feeders.length)FA.feeders=[mkFeeder(0)]}
    loadAmbony(F.ambony)}

@@ -92,7 +92,7 @@ function drum(){for(let i=0;i<14;i++)burst(900,4,.07*(1-i/16),.03,i*.055)}
 function owl(){tone('sine',380,340,.09,.35);tone('sine',390,330,.08,.6,.55)}
 export function sfx(k){
  if(!A||state.mute||A.ac.state!=='running')return;
- if(!active()&&(k==='crash'||k==='creak'||k==='winch'||k==='log'||k==='shot'||k==='roar'))return;   // odgłosy świata nie grają w pauzie
+ if(!active()&&(k==='crash'||k==='creak'||k==='winch'||k==='log'||k==='shot'||k==='roar'||k==='klang'||k==='honk'||k==='uhu'))return;   // odgłosy świata nie grają w pauzie
  if(k==='crash'){burst(180,.7,.22,1.1);burst(600,.9,.12,.6,.05);tone('triangle',70,40,.3,.5)}
  else if(k==='creak')tone('sawtooth',220,90,.07,1.1);
  else if(k==='coin'){tone('sine',880,880,.12,.14);tone('sine',1320,1320,.12,.2,.1)}
@@ -104,6 +104,10 @@ export function sfx(k){
  else if(k==='log')burst(260,1.2,.08,.18);
  else if(k==='shot'){burst(900,.5,.25,.35);burst(200,.6,.15,.9,.05)}
  else if(k==='roar'){roar()}
+ // 1.5.1: klangor żurawi (trąbiące „krruu” kilku ptaków), gęgawy i pohukiwanie puchacza („bu-ho”)
+ else if(k==='klang'){for(let i=0;i<4;i++){const f=480+Math.random()*120,d=i*.24+Math.random()*.1;tone('sawtooth',f,f*.88,.03,.26,d);tone('triangle',f*1.5,f*1.3,.02,.22,d+.02)}}
+ else if(k==='honk'){for(let i=0;i<5;i++){const f=270+Math.random()*60,d=i*.17+Math.random()*.06;tone('square',f,f*.85,.022,.11,d)}}
+ else if(k==='uhu'){tone('sine',330,300,.09,.32);tone('sine',305,280,.08,.42,.55)}
  else if(k==='door'){tone('triangle',300,240,.1,.12);tone('triangle',240,200,.08,.12,.12)}
 }
 // Ryk byka na rykowisku: niski, chrapliwy, opadający ton z szumem.

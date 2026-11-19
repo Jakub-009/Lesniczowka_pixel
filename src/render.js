@@ -11,8 +11,8 @@ import {drawBase} from './base.js';
 import {drawHealth,drawWeather} from './health.js';
 import {drawFeeders} from './life/fauna.js';
 import {AMB} from './life/ambony.js';
-import {birds} from './life/sprites.js';
-import {drawNature} from './nature.js';
+import {drawNature,natureGlow} from './nature.js';
+import {drawFog} from './fog.js';
 import {drawVisit,drawVisitGround} from './visit.js';
 import {NODES,EDGES,YARD,HOUSE} from './map.js';
 import {drawPlots,drawFences} from './renew.js';
@@ -111,6 +111,7 @@ function nightLayer(){
   if(v.beacon){const blue=v.kind==='police'||v.kind==='firetruck',on=Math.floor(state.elapsed*(blue?5:3)+v.vid)%2,c=blue?'70,120,255':'255,170,40';
    if(on){const g=ctx.createRadialGradient(x,y,1,x,y,18);g.addColorStop(0,`rgba(${c},${dark*.5})`);g.addColorStop(1,`rgba(${c},0)`);ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,18,0,6.283);ctx.fill()}}}
  for(const t of E.trash)if(t.fire&&!t.dead&&vis(t.x,t.y)){ctx.fillStyle=`rgba(255,120,40,${dark*.5})`;ctx.beginPath();ctx.arc(t.x,t.y,14+t.grow*18,0,6.28);ctx.fill()}
+ natureGlow(ctx,dark,vis);   // 1.5.1: oczy puchacza
  ctx.restore();return dark;
 }
 function drawFire(){
@@ -150,10 +151,12 @@ export function drawWorld(){
  drawForest(ctx,camera,VIEW.w,VIEW.h,'high');prefetchForest(camera,VIEW.w,VIEW.h,3);if(!prefDone)prefDone=prefetchAll(4);
  // prześwit: zwierzęta i ludzie pod koronami widoczni jako półprzezroczyste sylwetki
  if(SETTINGS.ghosts){ctx.globalAlpha=.5;for(const a of E.animals)if(!a.dead)a.draw();for(const p of E.people)if(!p.onStand)p.draw();for(const v of E.vehicles)if(v.off&&!v.dead)v.draw();ctx.globalAlpha=1}
+ drawFog(ctx);   // 1.5.1: poranna mgła — nad koronami i ludźmi, pod ogniem, znacznikami i ptakami
  drawFire();drawFalling();drawParticles();drawPlots(ctx,state.selected);drawMarkers();
  drawFocus(ctx);   // 1.1: podświetlone pniaki i granice oddziału (nad koronami)
  edgeCover();   // poza mapą nic nie wystaje: korony, cienie i kłody przy krawędzi są obcięte
- birds(ctx,state.elapsed,camera,VIEW);drawNature(ctx,camera,VIEW);drawVisit(ctx,camera,VIEW);
+ drawNature(ctx,camera,VIEW);   // 1.5.1: małe ptaki leśne rysuje teraz nature.js (zamiast „dwóch kresek” z sprites.js)
+drawVisit(ctx,camera,VIEW);
  if(DEBUG.on){ctx.strokeStyle='#40e0ff';for(const e of EDGES){const A=NODES[e.a],B=NODES[e.b];ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(B[0],B[1]);ctx.stroke()}}
  ctx.restore();
  const se=cal.season();

@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 1.5.0** („Porządne opisy”). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 1.5.1** („Życie lasu”). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -228,6 +228,17 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
+
+## Zmiany w 1.5.1 „Życie lasu”
+- **Poranna mgła:** przy pogodnych, chłodnych porankach (wiosną i jesienią często, latem rzadko, zimą wcale; nie w deszcz, wichurę ani suszę) przed świtem zbiera się mgła, najgęstsza około wschodu słońca, a w ciągu 1–2 godzin znika. Najgęstsza nad mokradłami i strumieniem, lżejsza nad polaną i drogami, nad lasem tylko lekki welon. Miękka, bez ostrych krawędzi, powoli dryfuje z wiatrem.
+- **Żurawie:** wiosną i jesienią stado 3–6 ptaków zatrzymuje się na 1–2 dni na brzegu mokradła przy szosie (chodzą i żerują). Do tego klucze żurawi i gęsi przelatują nad lasem — wiosną na północ, jesienią na południe — z klangorem i gęganiem.
+- **Puchacz:** raz w roku na 2–3 noce siada na suchym konarze na skraju puszczy. Za dnia chowa się w koronach, od zmierzchu jest widoczny (oczy świecą w ciemności), nocą słychać pohukiwanie.
+- **Informacje o przyrodzie:** listy o wilkach, ptakach i rykowisku mają w poczcie własny limit (faktury ich nie wypychają), a ich komunikat wisi na ekranie dłużej i nie daje się zasłonić zwykłemu. Rykowisko ma własny list, a dziennik w zakładce Przyroda i łowy pokazuje też wilki i ostatnie wizyty gości.
+- **Zwierzęta:** pora żerowania zależy od pory roku (latem dłuższy dzień, zimą krótszy; zimą część saren, jeleni i dzików żeruje też w dzień). Lis siedzi w norze i wychodzi tylko na żerowanie — o świcie i o zmierzchu, zimą także w południe.
+- **Małe ptaki leśne** (zięba, sikora, kos, sójka) krótko i falistym lotem przelatują nad koronami zamiast dawnych „dwóch kresek”.
+- **Mijanie na głównej drodze leśnej:** pojazdy z naprzeciwka zwalniają i odsuwają się do prawej krawędzi, a duże zjeżdżają kołami na pobocze — jak na duktach.
+- **Ścieżka przyrodnicza:** ścieżka dojściowa wygląda tak samo jak ścieżka przyrodnicza i zaczyna się na tylnej krawędzi zatoki; autobus szkolny ma na karcie własną nazwę.
+- **Słupki odblaskowe** stoją na poboczu, a nie na jezdni, i nie ma ich w zatoce ani na wjazdach w drogi leśne. Znaki A-18b mają znów słupek.
 
 ## Zmiany w 1.5.0 „Porządne opisy”
 - **Opisy w grze:** przepisane od nowa — karty drzew, pniaków, stosów, pojazdów, ludzi i zwierząt, zakładki Leśniczówki, okna Stanu lasu i Ochrony terenu, pomoc, samouczek, listy i komunikaty. Pełne zdania, poprawne końcówki przy liczbach (1 drzewo, 2 drzewa, 5 drzew), „Plan na wiosnę” zamiast „na wiosna”, „ścina sosnę” zamiast „ścina sosna”. Usunięte nieaktualne informacje (ciężarówka „od 10 m³”, zakładka „Las i porządek”).

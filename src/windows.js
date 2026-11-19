@@ -20,7 +20,7 @@ const ago=d=>{const n=Math.floor(state.days)-Math.floor(d);return n<=0?'dziś':n
 
 // ── Poczta ──
 // 1.3.0: trzy zakładki — faktury płaci się w Finansach (kafelek powyżej), plan sezonu jest pod przyciskiem „Plan sezonu”; ich listy zostają we „Wszystkie”
-const GROUP={nature:'prz'};   // reszta (poza „Wszystkie”): zdarzenia
+const GROUP={nature:'prz',wolf:'prz'};   // reszta (poza „Wszystkie”): zdarzenia
 const NOEV=new Set(['invoice','money','plan','assess']);
 const grp=m=>GROUP[m.kind]||(NOEV.has(m.kind)?'':'zd');
 const KIND={dump:['■','#b08a5a'],fire:['■','#e0482f'],quad:['■','#e8a32e'],intruder:['■','#e8a32e'],trash:['■','#c9b02a'],beetle:['■','#c9764a'],storm:['■','#6f9cc8'],plan:['✉','#5f9a45'],money:['■','#c9582f'],assess:['✔','#5f9a45'],wolf:['■','#7f94a8'],road:['■','#a08a5a'],invoice:['✉','#c9962f'],nature:['✦','#4fa690']};
@@ -43,7 +43,7 @@ function mailHtml(){
  if(!body)body='<p class="hint2">'+(MAIL.length?'W tej zakładce nic nie ma.':'Skrzynka jest pusta. Trafiają tu ważne wiadomości oraz zdarzenia, które łatwo przeoczyć przy szybkim upływie czasu.')+'</p>';
  const od=FIN.inv.some(i=>!i.paid&&(i.st||0)>=1);
  return head('Leśnictwo Zielony Gaj · skrzynka przy bramie','Poczta')+
- `<div class="tiles t3">${tile('Nowe',fresh.size||'brak')}${tile('W skrzynce',MAIL.length+' / 40')}<div class="tile ${od||dunning()?'bad':owedCount()?'warn':''} click" data-wa="fin"><span>Faktury do zapłaty</span><b>${owedCount()?owedCount()+' · '+zl(owedTotal()):'brak'}</b></div></div>
+ `<div class="tiles t3">${tile('Nowe',fresh.size||'brak')}${tile('W skrzynce',MAIL.length)}<div class="tile ${od||dunning()?'bad':owedCount()?'warn':''} click" data-wa="fin"><span>Faktury do zapłaty</span><b>${owedCount()?owedCount()+' · '+zl(owedTotal()):'brak'}</b></div></div>
  <div class="tabs">${MTABS.map(([k,n])=>`<button class="tab ${k===mailTab?'on':''}" data-wa="tab" data-k="${k}">${n} <i class="c">${cnt(k)}</i></button>`).join('')}</div>
  <div class="mlist">${body}</div><p class="hint2">Faktury opłacasz w Leśniczówce (L), w zakładce Finanse. Tutaj są wyświetlane wyłącznie informacyjnie.</p>`+foot;
 }

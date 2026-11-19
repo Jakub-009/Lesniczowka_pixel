@@ -1,5 +1,5 @@
 // Wspólne jednostki, stan gry, kalendarz i małe funkcje rysowania (wzorzec z „Polskiej wsi”).
-export const VERSION='1.5.0';
+export const VERSION='1.5.1';
 export const C=document.querySelector('#game');
 export const ctx=C.getContext('2d',{alpha:false});
 export const VIEW={w:640,h:360,scale:2,zoom:1,maxZoom:2};
@@ -56,7 +56,9 @@ export function displayNumber(n,d=1){return n.toFixed(d).replace('.',',')}
 // 1.5.0: liczebnik z rzeczownikiem w poprawnej formie: pf(1,"drzewo","drzewa","drzew") → „1 drzewo”, pf(5,…) → „5 drzew”
 export function pf(n,one,few,many){n=Math.round(n);const a=Math.abs(n),d=a%10,dd=a%100;return n+" "+(a===1?one:(d>=2&&d<=4&&!(dd>=12&&dd<=14))?few:many)}
 export const zl=n=>Math.round(n).toLocaleString('pl-PL')+' zł';
-export function toast(s){const m=$('#msg');m.textContent=s;m.style.opacity='1';RT.msgT=3.6}
+// 1.5.1: ważniejszy komunikat (p>0, np. wilki, rzadkie ptaki) wisi dłużej i nie daje się zasłonić zwykłemu — ten czeka i pojawia się po nim
+export function toast(s,t=3.6,p=0){if(RT.msgT>0&&(RT.msgP||0)>p){RT.msgQ=[s,t,p];return}const m=$('#msg');m.textContent=s;m.style.opacity='1';RT.msgT=t;RT.msgP=p}
+export function toastTick(frame){if(RT.msgT>0){RT.msgT-=frame;if(RT.msgT<=0){RT.msgP=0;if(RT.msgQ){const q=RT.msgQ;RT.msgQ=null;toast(...q)}else $('#msg').style.opacity='0'}}}
 export function particle(type,x,y,o={}){
  if(fx.length>260)return;
  fx.push({type,x,y,vx:o.vx??(Math.random()-.5)*24,vy:o.vy??(Math.random()-.5)*20-6,life:o.life??(.5+Math.random()*.4),max:o.life??.9,size:o.size??(1+Math.random()*2),col:o.col})

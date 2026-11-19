@@ -92,7 +92,7 @@ export function updateFauna(dt){
  // rykowisko: jesienią o zmierzchu i świcie byki ryczą
  if(cal.season()===2&&((h>17.5&&h<22)||(h>4.5&&h<7.5))&&FA.pop.deer>2){
   FA.roarT-=dt;if(FA.roarT<=0){FA.roarT=25+rand()*70;sfx('roar');
-   if(FA.roarSeason!==cal.year()){FA.roarSeason=cal.year();toast('Zaczęło się rykowisko — o zmierzchu słychać ryk jeleni.')}}
+   if(FA.roarSeason!==cal.year()){FA.roarSeason=cal.year();mail('nature','Zaczęło się rykowisko. O zmierzchu i o świcie w lesie słychać ryk jeleni-byków.')}}
  }
   fT+=dt;if(fT>1){fT=0;FA.carcasses=FA.carcasses.filter(c=>!c.dead)}
  wolfDaily();
@@ -115,7 +115,7 @@ function wolfDaily(){
  // ok. 25% szans na rok gry (rok = 12 dni): wilk wybiera spokojne, zasobne lasy
  if(rand()<.25/12*(FA.pop.roe+FA.pop.deer>30?1.25:.7)){
   const r=rand(),n=r<.25?2:r<.65?3:r<.9?4:5;
-  W.present=true;W.size=n;W.until=state.days+3+rand()*5;W.days=0;WX.flee=1.4;FH.wolves&&FH.wolves();
+  W.present=true;W.size=n;W.until=state.days+3+rand()*5;W.days=0;W.last=state.days;WX.flee=1.4;FH.wolves&&FH.wolves();
   mail('wolf','W lesie pojawiła się wataha wilków ('+OS(n)+'). Wilk podlega ścisłej ochronie. Zwierzyna będzie bardziej płochliwa, ale zgryzanie upraw może się zmniejszyć.');
   if(ECO.ord&&ECO.ord.cams)mail('wolf','Fotopułapka nagrała przechodzącego wilka.',{quiet:true});
  }

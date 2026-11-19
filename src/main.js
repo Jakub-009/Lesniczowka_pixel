@@ -1,6 +1,6 @@
 // Punkt wejścia: budowa świata, stały krok symulacji (60 Hz, przy przyspieszeniu kilka kroków na klatkę), kamera, zoom, pętla.
 import {SET,initGuide,startTempo,openTutor} from './guide.js';
-import {C,ctx,VIEW,WORLD,$,clamp,keys,state,camera,RT,fx,DEBUG,DAY_S,SETTINGS,toast,active,VERSION,cal} from './core.js';
+import {C,ctx,VIEW,WORLD,$,clamp,keys,state,camera,RT,fx,DEBUG,DAY_S,SETTINGS,toast,toastTick,active,VERSION,cal} from './core.js';
 import {buildGround,fadeMarks} from './paint.js';
 import {generate,updateFalls,trees,counts,dirtyAll,seasonGrow} from './forest.js';
 import {buildNavs,E,prune} from './ents.js';
@@ -27,6 +27,7 @@ import {bindInput} from './input.js';
 import {updateSound,toggleSound,resumeSound} from './sound.js';
 import {hasSave,clearSave,saveGame,loadGame} from './save.js';
 import {initNature,updateNature,NAT} from './nature.js';
+import {updateFog} from './fog.js';
 import {updateVisit} from './visit.js';
 
 const STEP=1/60,RATES=[1,2,3],NIGHT_FF=8,SKIP_DT=8,SKIP_N=5;
@@ -47,7 +48,7 @@ function sim(dt){
  safe('drzewa',updateFalls,dt);
  each('grupy',groups,dt);each('zwierzęta',E.animals,dt);each('ludzie',E.people,dt);each('pojazdy',E.vehicles,dt);
  safe('goście',updateVisitors,dt);safe('incydenty',updateIncidents,dt);safe('ekipy',updateJobs,dt);safe('odnowienia',updateRenew,dt);safe('fauna',updateFauna,dt);
- safe('baza',updateBase,dt);safe('porządek',updateOrder,dt);safe('przejścia',updateCrossing,dt);safe('zdrowie lasu',updateHealth,dt);safe('przyroda',updateNature,dt);safe('wycieczki',updateVisit,dt);safe('ekonomia',updateEconomy,dt);
+ safe('baza',updateBase,dt);safe('porządek',updateOrder,dt);safe('przejścia',updateCrossing,dt);safe('zdrowie lasu',updateHealth,dt);safe('przyroda',updateNature,dt);safe('mgła',updateFog,dt);safe('wycieczki',updateVisit,dt);safe('ekonomia',updateEconomy,dt);
  for(let i=fx.length-1;i>=0;i--){const p=fx[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.life<=0)fx.splice(i,1)}
  safe('sprzątanie',prune);
 }
@@ -108,7 +109,7 @@ function run(ts){
  RT.beat=performance.now();
  const frame=RT.last?Math.min((ts-RT.last)/1000,.1):0;RT.last=ts;RT.frame++;
  // 1.1.1 (U02): komunikat znika według czasu rzeczywistego — także w pauzie i przy otwartym oknie
- if(RT.msgT>0){RT.msgT-=frame;if(RT.msgT<=0)$('#msg').style.opacity='0'}
+ toastTick(frame);
  RT.acc+=frame;let n=0;while(RT.acc>=STEP&&n<4){safe('krok',step,STEP);RT.acc-=STEP;n++}if(n===4)RT.acc=0;
  safe('kamera',clampCamera);
  fpsT+=frame;fpsN++;if(fpsT>=.5){DEBUG.fps=Math.round(fpsN/fpsT);fpsT=0;fpsN=0}
