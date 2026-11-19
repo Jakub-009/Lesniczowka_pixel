@@ -1,5 +1,5 @@
 // Wspólne jednostki, stan gry, kalendarz i małe funkcje rysowania (wzorzec z „Polskiej wsi”).
-export const VERSION='1.4.3';
+export const VERSION='1.5.0';
 export const C=document.querySelector('#game');
 export const ctx=C.getContext('2d',{alpha:false});
 export const VIEW={w:640,h:360,scale:2,zoom:1,maxZoom:2};
@@ -23,6 +23,7 @@ export const PX_PER_M=12;
 // „czas lasu” skacze przy zmianie pory roku (las rośnie o YEARS_PER_SEASON lat — pokazuje to raport z sezonu).
 export const DAY_S=1440,SEASON_DAYS=3,YEARS_PER_SEASON=3;
 export const SEASONS=['wiosna','lato','jesień','zima'];
+export const SEASONS_ACC=['wiosnę','lato','jesień','zimę'];   // 1.5.0: biernik ("plan na wiosnę")
 export const DOW=['poniedziałek','wtorek','środa','czwartek','piątek','sobota','niedziela'];
 export const cal={
  hour:()=>(state.days%1)*24,
@@ -52,6 +53,8 @@ export const RT={last:0,acc:0,frame:0,msgT:0,hudT:0};
 export const DEBUG={on:false,fps:0};
 export const fx=[];
 export function displayNumber(n,d=1){return n.toFixed(d).replace('.',',')}
+// 1.5.0: liczebnik z rzeczownikiem w poprawnej formie: pf(1,"drzewo","drzewa","drzew") → „1 drzewo”, pf(5,…) → „5 drzew”
+export function pf(n,one,few,many){n=Math.round(n);const a=Math.abs(n),d=a%10,dd=a%100;return n+" "+(a===1?one:(d>=2&&d<=4&&!(dd>=12&&dd<=14))?few:many)}
 export const zl=n=>Math.round(n).toLocaleString('pl-PL')+' zł';
 export function toast(s){const m=$('#msg');m.textContent=s;m.style.opacity='1';RT.msgT=3.6}
 export function particle(type,x,y,o={}){

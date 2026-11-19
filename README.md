@@ -1,7 +1,7 @@
 # Leśniczówka — symulator leśnictwa
 
 Przeglądarkowa gra pixel-art o prowadzeniu małego polskiego leśnictwa. Widok z góry, wszystko rysowane kodem (bez plików graficznych).
-**Wersja 1.4.3** („Czytelne okna” + trwały zapis i porządek HUD-u). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
+**Wersja 1.5.0** („Porządne opisy”). Po 1.0 gra jest zamrożona, a 1.1 to jedyna zaplanowana zmiana: wskaźniki, okna i panel sterowania. Dalej tylko gra, testy i drobne poprawki; nowe pomysły trafiają na listę „po 1.0”. Silnik i sposób rysowania pochodzą z „Polskiej wsi” 0.6.2.
 
 ## Uruchamianie
 
@@ -18,7 +18,7 @@ Potem `http://localhost:8000/`. Nie otwieraj `index.html` dwuklikiem (`file://`)
 
 ## Na czym polega gra
 - **Gospodarka leśna:** wyznaczasz drzewa do wycinki (od 25 lat), wysyłasz ekipę. Pilarz ścina drzewo (upada w stronę lasu), tnie je na kłody, zostaje pniak i gałęzie.
-- **Transport drewna:** ciągnik zrywkowy (albo forwarder) sam przyjeżdża, ściąga kłody i układa je w **stosach przy najbliższej drodze**. Ciągnik siodłowy z wózkiem do dłużycy i żurawiem HDS objeżdża stosy i płaci według ceny rynkowej (sam przyjeżdża przy 16 m³ albo na żądanie — K).
+- **Transport drewna:** ciągnik zrywkowy (albo forwarder) sam przyjeżdża, ściąga kłody i układa je w **stosach przy najbliższej drodze**. Ciężarówka leśna (BDF) przyjeżdża automatycznie po zgromadzeniu co najmniej 5 m³ drewna, natomiast ciężarówka do przewozu dłużycy — od 20 m³. Odbiór drewna odbywa się wyłącznie przy drogach leśnych; wcześniejszy wywóz można zamówić na karcie stosu.
 - **Odnowienie:** sadzisz sadzonki (narzędzie 3 albo przycisk na karcie pniaka). Rosną widocznie z porami roku. Pniaki bez odnowienia obniżają stan lasu.
 - **Interwencje:** quady i crossy, śmieci, dym latem i wypalanie traw wiosną, nocni intruzi (kłusownik, złodziej drewna ze stosu, zimą złodziej choinek), paśniki do uzupełnienia. Wysyłasz patrol — leśniczy (albo podleśniczy) wsiada do terenówki i jedzie sam.
 - **Leśniczówka (L):** kancelaria z petentami, kadry, szkółka, garaż z magazynem, sprzęt, koło łowieckie, paśniki.
@@ -228,6 +228,18 @@ Fotopułapki i dodatkowy pracownik, wichury i szkody (wiatrołomy), szkodniki, g
   - śmieci, których nikt nie ruszy przez ok. 2 dni gry, wygasają bez kary i wracają do zgłoszeń po ok. półtora dnia;
   - dzienna kara za zalegające zgłoszenia zależy od wagi (drobiazg 1, zwykłe 3, pilne 3; propozycje 0) i ma sufit 9 punktów na dzień.
 - **Karta oddziału** (klawisz **O**, albo przycisk „Karta oddziału” na karcie drzewa i powierzchni): skład gatunkowy, liczba drzew i sadzonek, średni wiek, miąższość, drzewa dojrzałe i do trzebieży, stan oceny jakości, oznaczone do cięcia, zamierające, pniaki i nieodnowione, powierzchnie odnowieniowe, otwarte zgłoszenia i data ostatniego cechowania. Dla oddziału pod zaznaczonym obiektem albo środkiem ekranu.
+
+## Zmiany w 1.5.0 „Porządne opisy”
+- **Opisy w grze:** przepisane od nowa — karty drzew, pniaków, stosów, pojazdów, ludzi i zwierząt, zakładki Leśniczówki, okna Stanu lasu i Ochrony terenu, pomoc, samouczek, listy i komunikaty. Pełne zdania, poprawne końcówki przy liczbach (1 drzewo, 2 drzewa, 5 drzew), „Plan na wiosnę” zamiast „na wiosna”, „ścina sosnę” zamiast „ścina sosna”. Usunięte nieaktualne informacje (ciężarówka „od 10 m³”, zakładka „Las i porządek”).
+- **Bocian czarny odlatuje na zimę:** jesienią odlatuje na zimowiska, wiosną wraca (list przy odlocie i powrocie). Pod jego nieobecność chronione jest tylko drzewo z gniazdem — wiatrołom tuż obok można wyciąć. Nowy bocian osiedla się tylko wiosną lub latem.
+- **Bocian czarny i bielik** narysowane od nowa w stylu gry (pikselowe skrzydła z rozcapierzonymi lotkami; bocian: czarny, z czerwonym dziobem i nogami za ogonem; bielik: brązowy, z płową głową, żółtym dziobem i białym klinowatym ogonem).
+- **Wieża przeciwpożarowa** stoi na polanie (oddz. 106) i ma nowy wygląd: stalowa kratownica z kabiną obserwatora.
+- **Ścieżka przyrodnicza:** przy szosie powstaje asfaltowa zatoka autobusowa, a od niej przez las prowadzi ścieżka dojściowa do początku trasy. Autobus szkolny zawsze staje w zatoce.
+- **Znaki:** znaki zakazu wjazdu stoją przy szlabanach, na poboczu (nie na jezdni i nie pod koronami drzew), a znaki A-18b przy szosie — poza jezdnią. Szlabany są zielono-białe.
+- **Stosy drewna** nie powstają na parkingach leśnych.
+- **Sadzonki** oznaczone pulsującym pierścieniem (jak nieodnowione pniaki, w zielonym kolorze).
+- **Forwarder:** tylne koła kręcą się podczas jazdy.
+- **Dźwięk:** pauza wycisza tło (wiatr, piły, silniki), a wyciszenie (M) i ukryta karta zatrzymują dźwięk całkowicie — nic już nie „wisi”. Drobne poprawki brzmienia: nierówna praca silnika, piła zmieniająca obroty pod obciążeniem, trzy rodzaje śpiewu ptaków, wiatr w porywach.
 
 ## Zmiany w 1.4.3
 - Światło z okien leśniczówki: miękka, spłaszczona poświata przy ścianie zamiast dwóch ostrych kół.

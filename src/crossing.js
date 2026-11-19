@@ -3,7 +3,7 @@
 // zsynchronizowana z przejeżdżającym autem (bez fizyki zderzeń): zwykle auto tylko hamuje, rzadko dochodzi do potrącenia.
 // Skutki: zwierzę leży przy jezdni (zgłoszenie „padlina”: patrol albo koło łowieckie), ucieka ranne (myśliwy z psem szuka go
 // w lesie) albo znika, bo zabrał je kierowca (sam list). Bez Policji — nie ma tu sprawcy do ścigania.
-import {state,cal,toast,clamp} from './core.js';
+import {state,cal,toast,clamp,pf} from './core.js';
 import {hy,oddzial,EDGES} from './map.js';
 import {ENTRY,exitNode,goalNode,nearestRoad} from './roads.js';
 import {E,NAV} from './ents.js';
@@ -59,14 +59,14 @@ function doHit(){
  const ox=x,oy=roadY(x)+(X.north?38:-38);
  if(X.out==='lies'){
   a.dead=true;const car={x:ox,y:oy,a:X.north?.3:-2.9,kind,road:true,day:state.days};FA.carcasses.push(car);
-  car.inc=report('carcass',ox,oy,'Padlina przy szosie ('+NOM[kind]+'), '+odd(ox,oy)+'.',car,true);
-  mail('road','Samochód potrącił '+ACC[kind]+' na szosie w '+odd(ox,oy)+'. Zwierzę leży przy jezdni: wyślij patrol albo zabierze je koło łowieckie.',{x:ox,y:oy});
+  car.inc=report('carcass',ox,oy,'Przy szosie w '+odd(ox,oy)+' leży padlina ('+NOM[kind]+').',car,true);
+  mail('road','Samochód potrącił '+ACC[kind]+' na szosie w '+odd(ox,oy)+'. Zwierzę leży przy jezdni — wyślij patrol albo poczekaj, aż zabierze je koło łowieckie.',{x:ox,y:oy});
  }else if(X.out==='wounded'){
-  mail('road','Samochód potrącił '+ACC[kind]+' w '+odd(ox,oy)+'. Zwierzę uciekło ranne, myśliwy z psem je tropi.',{x:ox,y:oy});
+  mail('road','Samochód potrącił '+ACC[kind]+' w '+odd(ox,oy)+'. Ranne zwierzę uciekło do lasu, a myśliwy z psem idzie jego tropem.',{x:ox,y:oy});
   huntWounded(ox,oy+(X.north?60:-60),kind);
  }else{
   a.dead=true;
-  mail('road','Kierowca potrącił '+ACC[kind]+' w '+odd(ox,oy)+' i odjechał z nim.',{x:ox,y:oy,quiet:true});
+  mail('road','Kierowca potrącił '+ACC[kind]+' w '+odd(ox,oy)+', zabrał zwierzę i odjechał.',{x:ox,y:oy,quiet:true});
  }
 }
 // myśliwy z psem tropi postrzałka: dojeżdża, idzie w las, szuka, wraca
@@ -80,8 +80,8 @@ function huntWounded(x,y,kind){
   const ok=rand()<.7;
   h.run([{go:[x,y]},...spots.flatMap(s=>[{go:s},{wait:5,pose:'kneel',face:s}]),
    {call:q=>{
-     if(ok){mail('road','Myśliwy z psem odnalazł ranne zwierzę. Padlina zabrana.',{x:q.x,y:q.y,quiet:true})}
-     else mail('road','Tropienie nie dało rezultatu. Myśliwi wrócą rano.',{x:q.x,y:q.y,quiet:true})}},
+     if(ok){mail('road','Myśliwy z psem odnalazł ranne zwierzę i zabrał je z lasu.',{x:q.x,y:q.y,quiet:true})}
+     else mail('road','Tropienie nie przyniosło rezultatu. Myśliwi wrócą rano.',{x:q.x,y:q.y,quiet:true})}},
    {wait:3,pose:'stand'},{go:[cx,cy]},{call:q=>{q.dead=true;dog.dead=true;v.label='myśliwy odjeżdża';v.goTo(goalNode(exitNode(v.pos[0]+(rand()-.5)*1200)),{leave:true})}}]);
  }});
 }

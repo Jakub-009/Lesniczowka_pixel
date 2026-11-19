@@ -1,7 +1,7 @@
 // Zdrowie lasu (0.7): pogoda i susza, zagrożenie pożarowe, kornik drukarz (pułapki feromonowe, cięcia sanitarne),
 // wichury (wiatrołomy, zatarasowane drogi), wieża przeciwpożarowa i zakaz wstępu do lasu.
 // Stan zdrowia drzewa jest ukryty: kb 1 = zasiedlone (nie widać), 2 = zamiera (rude korony), 3 = martwe, 4 = wiatrołom.
-import {state,cal,toast,zl,clamp,hash,camera,VIEW} from './core.js';
+import {state,cal,toast,zl,clamp,hash,camera,VIEW,pf} from './core.js';
 import {trees,treesIn,STAND,STUMP,dirtyTree,crownR} from './forest.js';
 import {E} from './ents.js';
 import {report} from './incidents.js';
@@ -14,7 +14,7 @@ import {rand} from './life/agents.js';
 import {dryMask} from './paint.js';
 
 export const HL={dry:.15,wx:'clear',wxNext:0,stormAt:-1,stormEnd:0,tickNext:0,dayRoll:-1,traps:-1,tower:false,ban:false,blocks:[],list:[],stats:{cutSan:0,storms:0,outbreaks:0}};
-export const TOWER={x:2300,y:1560};
+export const TOWER={x:2165,y:1150};   // 1.5.0: wieża stoi na polanie (oddz. 106), na otwartej przestrzeni — widać ją i nie ginie pod koronami
 const TEMP_DAYS=12;   // rok gry = 4 pory × 3 dni
 export const WX={clear:'słonecznie',rain:'deszcz',snow:'śnieg',storm:'wichura'};
 export const LVLN=['brak zagrożenia','niskie','umiarkowane','wysokie'];
@@ -55,7 +55,7 @@ function beetleTick(){
   const age=now-t.kbT;
   if(t.kb===1&&age>(trap?.4:.8)){t.kb=2;dirtyTree(t);
    if(!E.incidents.some(q=>q.type==='beetle'&&open_(q)&&Math.hypot(q.x-t.x,q.y-t.y)<320))
-    report('beetle',t.x,t.y,(trap?'Pułapki wykazały kornika w ':'Zamierające świerki, podejrzenie kornika w ')+odd(t.x,t.y)+'.',{x:t.x,y:t.y,r:260,n:0})}
+    report('beetle',t.x,t.y,(trap?'Pułapki feromonowe wykazały obecność kornika w ':'W '+odd(t.x,t.y)+' zamierają świerki. Istnieje podejrzenie kornika')+(trap?odd(t.x,t.y):'')+'.',{x:t.x,y:t.y,r:260,n:0})}
   if(t.kb===2&&age>2.6){t.kb=3;dirtyTree(t)}
   if(t.kb===3&&age>7+((t.dw||inReserve(t.x,t.y))?70:0)){stump(t);continue}   // 0.9: martwe drewno (zostawione albo w rezerwacie) stoi znacznie dłużej
   if(t.kb<3&&rand()<.25*(1+HL.dry*1.5)*(trap?.45:1)*sub){
@@ -90,9 +90,9 @@ export function strike(){
   if(!rp||rp.d>70||rp.edge.a==='l1'||rp.edge.b==='l1'||HL.blocks.some(b=>b.edge===rp.edge&&Math.abs(b.s-rp.s)<150))continue;
   const p=ptAt(rp.edge,rp.s),b={edge:rp.edge,e:rp.edge.id,s:rp.s,x:p[0],y:p[1],ang:Math.atan2(p[3],p[2])+Math.PI/2};
   rp.edge.blocked=true;HL.blocks.push(b);bl++;
-  b.inc=report('block',b.x,b.y,'Drzewa powalone na drodze leśnej w '+odd(b.x,b.y)+': droga nieprzejezdna.',b)}
+  b.inc=report('block',b.x,b.y,'Powalone drzewa zablokowały drogę leśną w '+odd(b.x,b.y)+'. Droga jest nieprzejezdna.',b)}
  HL.stats.storms++;bumpDamage(Math.min(5,n*.08),'wichura');
- mail('storm','Wichura! W '+odd(cx,cy)+' powalone lub połamane drzewa: '+n+(bl?', zatarasowane drogi: '+bl:'')+'. Uprzątnij wiatrołomy, bo sprzyjają kornikowi.',{x:cx,y:cy});
+ mail('storm','Wichura! W '+odd(cx,cy)+' wiatr powalił albo połamał '+pf(n,'drzewo','drzewa','drzew')+(bl?', a '+pf(bl,'droga jest zatarasowana','drogi są zatarasowane','dróg jest zatarasowanych'):'')+'. Uprzątnij wiatrołomy, bo sprzyjają rozwojowi kornika.',{x:cx,y:cy});
 }
 export function clearBlock(b){
  b.dead=true;HL.blocks=HL.blocks.filter(q=>q!==b);
@@ -106,7 +106,7 @@ function weatherTick(){
  if(day!==HL.dayRoll){HL.dayRoll=day;
   HL.stormAt=rand()<[.05,.05,.14,.1][se]?day+.1+rand()*.8:-1;
   // 1.3.0: zakaz wstępu ogłasza i znosi nadleśnictwo (bez przycisku i bez kosztów leśnictwa)
-  if(HL.ban&&fireLvl()<=1){HL.ban=false;mail('fire','Nadleśnictwo znosi zakaz wstępu do lasu — zagrożenie pożarowe spadło.')}
+  if(HL.ban&&fireLvl()<=1){HL.ban=false;mail('fire','Zagrożenie pożarowe spadło, więc nadleśnictwo znosi zakaz wstępu do lasu.')}
   if(HL.tower)pay(60,'dyżury na wieży przeciwpożarowej');
  }
  if(HL.stormAt>0&&state.days>=HL.stormAt){HL.stormAt=-1;HL.wx='storm';HL.stormEnd=state.days+.12;strike()}
@@ -119,7 +119,7 @@ function weatherTick(){
  const w=HL.wx==='rain'||HL.wx==='snow';
  HL.dry=clamp(HL.dry+(w?-.12:[.035,.08,.012,-.03][se]),0,1);
  if(se===3)HL.dry*=.97;
- if(fireLvl()===3&&!HL.ban){HL.ban=true;mail('fire','Najwyższy stopień zagrożenia pożarowego: nadleśnictwo ogłasza zakaz wstępu do lasu. Grzybiarzy i spacerowiczów będzie mniej, dopóki susza nie minie.')}
+ if(fireLvl()===3&&!HL.ban){HL.ban=true;mail('fire','Ogłoszono najwyższy stopień zagrożenia pożarowego, dlatego nadleśnictwo wprowadza zakaz wstępu do lasu. Dopóki susza nie minie, grzybiarzy i spacerowiczów będzie mniej.')}
 }
 export function updateHealth(){
  weatherTick();
@@ -129,14 +129,14 @@ export function updateHealth(){
 // ── zakupy i decyzje (panel leśniczówki) ──
 export const COSTS={traps:1800,tower:6000};
 export function buyTraps(){
- if(trapsOn()){toast('Pułapki feromonowe już wyłożone.');return}
+ if(trapsOn()){toast('Pułapki feromonowe są już wyłożone.');return}
  if(!canAfford(COSTS.traps))return;pay(COSTS.traps,'pułapki feromonowe na kornika');HL.traps=state.days+TEMP_DAYS;
- toast('Pułapki na kornika wyłożone na rok.');
+ toast('Wyłożono pułapki feromonowe na kornika. Będą działać przez rok.');
 }
 export function buildTower(){
  if(HL.tower)return;if(!canAfford(COSTS.tower))return;pay(COSTS.tower,'budowa wieży przeciwpożarowej');HL.tower=true;
  for(const t of treesIn(TOWER.x-40,TOWER.y-40,TOWER.x+40,TOWER.y+40).slice())if(Math.hypot(t.x-TOWER.x,t.y-TOWER.y)<38){t.st=STUMP;t.stumpR=3;t.stumpAge=60;t.kb=0;dirtyTree(t)}
- toast('Wieża przeciwpożarowa gotowa (dyżur '+zl(60)+' dziennie).');
+ toast('Wieża przeciwpożarowa na polanie jest gotowa. Dyżur obserwatora kosztuje '+zl(60)+' dziennie.');
 }
 
 // ── zapis ──
@@ -144,7 +144,7 @@ export const saveHealth=()=>({dry:+HL.dry.toFixed(3),wx:HL.wx,traps:HL.traps,tow
 export function loadHealth(o){
  if(!o)return;Object.assign(HL,{dry:o.dry??.15,wx:o.wx==='storm'?'rain':o.wx||'clear',traps:o.traps??-1,tower:!!o.tower,ban:!!o.ban,blocks:(o.blocks||[]).map(b=>({...b})),stats:o.stats||HL.stats});
  HL.wxNext=state.days;HL.tickNext=state.days;HL.dayRoll=-1;rebuildHealth();
- for(const b of HL.blocks)if(b.edge&&!b.inc)b.inc=report('block',b.x,b.y,'Drzewa na drodze leśnej w '+odd(b.x,b.y)+': droga nieprzejezdna.',b,true);
+ for(const b of HL.blocks)if(b.edge&&!b.inc)b.inc=report('block',b.x,b.y,'Drzewa leżą na drodze leśnej w '+odd(b.x,b.y)+'. Droga jest nieprzejezdna.',b,true);
 }
 
 // ── rysowanie ──
@@ -162,11 +162,18 @@ export function drawHealth(g){
   if(s>.45)for(let i=0;i<STREAM.length;i+=3){const p=STREAM[i];if(!vis(p[0],p[1]))continue;R_(g,p[0]-3,p[1]-1,6,2,`rgba(150,128,92,${.6*(s-.4)})`)}
  }
  if(trapsOn())for(const [x,y] of traps()){if(!vis(x,y))continue;R_(g,x-1,y-8,2,9,'#5a4630');R_(g,x-3,y-12,6,5,'#d8c23a');R_(g,x-2,y-11,4,1,'#f4e68a');R_(g,x-3,y-7,6,2,'#3e7048')}
- if(HL.tower&&vis(TOWER.x,TOWER.y,80)){const {x,y}=TOWER;
-  R_(g,x-14,y+4,34,12,'#1c2b1b55');
-  for(const dx of [-10,10]){R_(g,x+dx-1,y-30,3,36,'#6b563d')}R_(g,x-11,y-12,22,2,'#7a6248');R_(g,x-11,y-22,22,2,'#7a6248');
-  R_(g,x-14,y-34,28,6,'#5e4a36');R_(g,x-12,y-33,24,3,'#8a7255');R_(g,x-15,y-42,30,8,'#9a4a34');R_(g,x-14,y-41,28,2,'#c46a4a');
-  R_(g,x-18,y-12,6,12,'#8a7255');R_(g,x-17,y-12,1,12,'#6b563d');
+ // 1.5.0: stalowa wieża kratownicowa widziana z góry: długi cień, cztery nogi zbiegające się ku kabinie, stężenia, kabina z oknami i dachem
+ if(HL.tower&&vis(TOWER.x,TOWER.y,120)){const {x,y}=TOWER,B=17,T=8,ln=(a,b,c,d,col,w=1)=>{g.strokeStyle=col;g.lineWidth=w;g.beginPath();g.moveTo(a,b);g.lineTo(c,d);g.stroke()};
+  g.fillStyle='#1c2b1b40';g.beginPath();g.moveTo(x-B,y+B);g.lineTo(x+B,y+B);g.lineTo(x+B+70,y+B+34);g.lineTo(x-B+70,y+B+34);g.closePath();g.fill();   // cień wieży
+  g.fillStyle='#1c2b1b55';g.fillRect(x+60,y+40,24,16);
+  R_(g,x-B-3,y-B-3,6,6,'#8a8578');R_(g,x+B-3,y-B-3,6,6,'#8a8578');R_(g,x-B-3,y+B-3,6,6,'#8a8578');R_(g,x+B-3,y+B-3,6,6,'#8a8578');   // stopy fundamentów
+  for(const [sx,sy] of [[-1,-1],[1,-1],[1,1],[-1,1]])ln(x+sx*B,y+sy*B,x+sx*T,y+sy*T-6,'#3e4440',2);   // nogi
+  for(const [a,b] of [[[-1,-1],[1,-1]],[[1,-1],[1,1]],[[1,1],[-1,1]],[[-1,1],[-1,-1]]]){   // stężenia krzyżowe na ścianach
+   const m=k=>B+(T-B)*k;for(const k of [0,.5]){const k2=k+.5;ln(x+a[0]*m(k),y+a[1]*m(k)-6*k,x+b[0]*m(k2),y+b[1]*m(k2)-6*k2,'#5a605a');ln(x+b[0]*m(k),y+b[1]*m(k)-6*k,x+a[0]*m(k2),y+a[1]*m(k2)-6*k2,'#5a605a')}}
+  R_(g,x-T-2,y-T-8,2*T+4,2*T+4,'#3e4440');R_(g,x-T-1,y-T-7,2*T+2,2*T+2,'#c8c2b0');   // kabina
+  R_(g,x-T,y-T-6,2*T,2,'#6a8a96');R_(g,x-T,y+T-6,2*T,2,'#6a8a96');R_(g,x-T,y-T-6,2,2*T,'#6a8a96');R_(g,x+T-2,y-T-6,2,2*T,'#6a8a96');   // okna dookoła
+  R_(g,x-T+2,y-T-4,2*T-4,2*T-4,'#8a3a2c');R_(g,x-T+2,y-T-4,2*T-4,2,'#b0563f');R_(g,x-1,y-12,2,2,'#4a4440');   // dach
+  ln(x,y-12,x+3,y-22,'#2a2a26');R_(g,x+2,y-23,3,2,'#d84a3a');   // antena
  }
  for(const b of HL.blocks){if(!vis(b.x,b.y))continue;
   g.save();g.translate(b.x,b.y);g.rotate(b.ang);

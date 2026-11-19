@@ -1,6 +1,6 @@
 // Porządek w lesie (0.8.2, przerobiony w 0.8.3): dzikie wysypiska i firma wywozowa, Policja wzywana na miejscu zdarzenia, fotopułapki, szlabany z rury i zatoka parkingowa.
-import {state,toast,cal,clamp,rect,line,DAY_S,zl,hash,camera,VIEW,WORLD} from './core.js';
-import {EDGES,BARRIERS,oddzial,roadClearance,ptAt,hy} from './map.js';
+import {state,toast,cal,clamp,rect,line,DAY_S,zl,hash,camera,VIEW,WORLD,pf} from './core.js';
+import {EDGES,BARRIERS,oddzial,roadClearance,ptAt,hy,LAYBYS} from './map.js';
 import {ENTRY,exitNode,goalNode,nearestRoad,pointOn,edgeOf,ROUTE} from './roads.js';
 import {E,NAV} from './ents.js';
 import {Vehicle,Ped,rand,VHOOK} from './life/agents.js';
@@ -21,9 +21,7 @@ export const parkingOn=()=>!!ECO.ord.parking;
 // ogólny mnożnik nielegalnych wjazdów: zamknięte szlabany odstraszają co najmniej połowę
 export const illegalFactor=()=>ECO.ord.bar?.5:1;
 // Zatoka parkingowa (0.8.3; od 0.9 jedna na każdym wjeździe z szosy): przy drodze leśnej tuż za szosą i przed szlabanem.
-// Współrzędne lokalne (v — w bok od osi drogi, s — wzdłuż drogi od szosy); sg=+1 zatoka po wschodniej stronie drogi, -1 po zachodniej.
-const mkBay=(id,sg)=>({e:EDGES.find(q=>q.id===id),sg,slots:[{v:42,s:126,car:null},{v:42,s:178,car:null}],approach:62,poly:[[20,58],[74,84],[74,196],[20,222]]});
-export const LAYBYS=[mkBay('j2-b1',1),mkBay('j1-a3',-1)];
+// Geometria zatok (LAYBYS) i inLayby są w map.js (1.5.0), żeby jobs.js nie importował order.js (cykl modułów).
 const lb=(B,v,s)=>{const p=ptAt(B.e,s);return[p[0]-p[3]*v*B.sg,p[1]+p[2]*v*B.sg]};
 const SLOTS=LAYBYS.flatMap(B=>B.slots.map(q=>({B,q})));
 // wolne miejsce dla odwiedzającego (albo -1): indeks wspólny dla obu zatok
@@ -50,7 +48,7 @@ export function spawnDump(){
   const p=new Ped({kind:'driver',x:cx,y:cy,speed:13});p.label='kierowca wyrzuca odpady';
   p.run([{go:[sx,sy]},{wait:9,pose:'kneel'},{call:()=>{
     const d={x:sx,y:sy,kind:'dump',dead:false,seed:Math.floor(rand()*1e4),t:0,report:camsOn()?2:25+rand()*30};E.trash.push(d);
-    if(camsOn()){earn(450,'mandat — nagranie z fotopułapki');bumpProtect(2,'mandat z fotopułapki');mail('dump','Fotopułapka przy wjeździe nagrała sprawcę wysypiska w '+odd(sx,sy)+': mandat 450 zł.',{x:sx,y:sy,quiet:true})}}},
+    if(camsOn()){earn(450,'mandat — nagranie z fotopułapki');bumpProtect(2,'mandat z fotopułapki');mail('dump','Fotopułapka przy wjeździe nagrała sprawcę wysypiska w '+odd(sx,sy)+'. Ukarano go mandatem w wysokości 450 zł.',{x:sx,y:sy,quiet:true})}}},
    {go:[cx,cy]},{call:q=>{q.dead=true;v.label='odjeżdża';leaveOut(v,v.pos[0])}}]);
   v.label='samochód z przyczepą (rozładunek)';
  }});
@@ -61,7 +59,7 @@ export function orderWaste(inc){
  if(!inc||inc.status!=='new')return;
  if(!canAfford(COSTS.waste))return;
  pay(COSTS.waste,'firma wywozowa — dzikie wysypisko');inc.status='queued';W.q.push(inc);
- toast('Wywóz odpadów zlecony ('+zl(COSTS.waste)+'). Śmieciarka przyjedzie w godz. 7–16.');
+ toast('Zlecono wywóz odpadów ('+zl(COSTS.waste)+'). Śmieciarka przyjedzie w godzinach 7–16.');
 }
 // 1.1.1: opłacony wywóz po wczytaniu zapisu wraca do kolejki śmieciarki bez ponownej zapłaty
 function requeueWaste(inc){if(!inc||inc.ref.dead)return;inc.status='queued';W.q.push(inc)}
@@ -88,7 +86,7 @@ function startWaste(inc){
 const POL=[];
 export function dispatchPolice(inc,cb){
  POL.push({inc,wait:10+rand()*10,car:null,t:0,done:false,cb,at:null});
- toast('Wezwano Policję. Radiowóz jedzie.');
+ toast('Wezwano Policję. Radiowóz jest w drodze.');
 }
 function policeAway(p){if(p.car&&!p.car.dead){p.car.beacon=false;p.car.stopped=false;p.car.label='radiowóz odjeżdża';p.car.goTo(goalNode(exitNode(p.car.pos[0])),{leave:true})}}
 function policeDone(p,why){
@@ -136,18 +134,18 @@ export const ctrlCost=()=>(camsOn()?0:COSTS.cams)+(ECO.ord.signs?0:COSTS.signs);
 export function buyCams(){
  if(ctrlOn()){toast('Kontrola wjazdów już działa.');return}
  const c=ctrlCost();if(!canAfford(c))return;pay(c,'kontrola wjazdów: fotopułapki i znaki zakazu wjazdu');ECO.ord.cams=true;ECO.ord.signs=true;
- toast('Kontrola wjazdów działa: fotopułapki i znaki zakazu wjazdu ('+zl(COSTS.camsDay)+' dziennie).');
+ toast('Uruchomiono kontrolę wjazdów: przy wjazdach stoją fotopułapki i znaki zakazu wjazdu. Utrzymanie kosztuje '+zl(COSTS.camsDay)+' dziennie.');
 }
 export function toggleBarriers(){
  ECO.ord.bar=!ECO.ord.bar;
- toast(ECO.ord.bar?'Szlabany zamknięte. Odwiedzający zostawiają auta '+(parkingOn()?'na parkingu albo ':'')+'na poboczu przed szlabanem; ekipy i maszyny otwierają i zamykają je same.':'Szlabany otwarte.');
+ toast(ECO.ord.bar?'Szlabany są zamknięte. Odwiedzający zostawiają auta '+(parkingOn()?'na parkingu albo ':'')+'na poboczu przed szlabanem, a ekipy i maszyny same je otwierają i zamykają.':'Szlabany są otwarte.');
 }
 export function buyParking(){
- if(parkingOn()){toast('Parking leśny już stoi.');return}
+ if(parkingOn()){toast('Parking leśny już istnieje.');return}
  if(!canAfford(COSTS.parking))return;pay(COSTS.parking,'parking leśny z koszem');ECO.ord.parking=true;
  for(const B of LAYBYS){const pts=B.poly.flatMap(([v,t])=>[lb(B,v,t),lb(B,v+34,t)]),x0=Math.min(...pts.map(q=>q[0]))-16,x1=Math.max(...pts.map(q=>q[0]))+16,y0=Math.min(...pts.map(q=>q[1]))-16,y1=Math.max(...pts.map(q=>q[1]))+16;
   for(const t of treesIn(x0,y0,x1,y1).slice())if(t.x>x0&&t.x<x1&&t.y>y0&&t.y<y1)removeTree(t)}
- toast('Parking przy szosie gotowy ('+zl(COSTS.parkingDay)+' dziennie za wywóz kosza).');
+ toast('Parking przy szosie jest gotowy. Opróżnianie kosza kosztuje '+zl(COSTS.parkingDay)+' dziennie.');
 }
 export const ordDaily=()=>(ECO.ord.cams?COSTS.camsDay:0)+(ECO.ord.parking?COSTS.parkingDay:0);
 
@@ -159,7 +157,7 @@ export function updateOrder(dt){
  if(O.dumpAt&&state.days>=O.dumpAt){O.dumpAt=null;spawnDump()}
  for(const t of E.trash){
   if(t.kind!=='dump'||t.dead||t.inc)continue;
-  t.t+=dt;if(t.t>t.report)t.inc=report('dump',t.x,t.y,'Dzikie wysypisko w '+odd(t.x,t.y)+'. Potrzebny wywóz ('+zl(COSTS.waste)+').',t);
+  t.t+=dt;if(t.t>t.report)t.inc=report('dump',t.x,t.y,'W '+odd(t.x,t.y)+' powstało dzikie wysypisko. Trzeba zamówić wywóz ('+zl(COSTS.waste)+').',t);
  }
  if(!W.cur&&W.q.length&&cal.work(7,16)){const inc=W.q.shift();if(inc.status==='queued'&&!inc.ref.dead)startWaste(inc)}
  if(W.cur&&(W.cur.truck.dead)){W.cur.inc.status='new';W.cur=null}
@@ -177,22 +175,24 @@ function barGeo(b){
   const rp=nearestRoad(b.x,b.y,['forest']),c=pointOn(rp.edge,rp.s),tg=ptAt(rp.edge,rp.s);
   let dx=b.x-c[0],dy=b.y-c[1];const d=Math.hypot(dx,dy)||1;dx/=d;dy/=d;
   let tx=tg[2],ty=tg[3];if(tx*(c[0]-c[0])+ty*(c[1]-hy(c[0]))<0){tx=-tx;ty=-ty}   // otwarty szlaban leży w stronę od szosy
-  g={A:[b.x,b.y],B:[c[0]-dx*d,c[1]-dy*d],a0:Math.atan2(ty,tx),a1:Math.atan2(-dy,-dx),L:2*d+8};
+  g={A:[b.x,b.y],B:[c[0]-dx*d,c[1]-dy*d],a0:Math.atan2(ty,tx),a1:Math.atan2(-dy,-dx),L:2*d+8,out:[-dx,-dy]};
   let df=g.a1-g.a0;if(!isFinite(df))df=0;df=((df+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;g.df=df;geoC.set(b,g);
  }
  return g;
 }
+// 1.5.0: znaki zakazu wjazdu stoją przy szlabanach — przy słupku oparcia, po drugiej stronie drogi niż słup obrotowy, na poboczu
+export const signSpots=()=>BARRIERS.map(b=>{const g=barGeo(b);return[g.B[0]+g.out[0]*9,g.B[1]+g.out[1]*9]});
 const vis_=(x,y,m=90)=>x>camera.x-m&&y>camera.y-m&&x<camera.x+VIEW.w+m&&y<camera.y+VIEW.h+m;
 function post(c,x,y,cap){x=Math.round(x);y=Math.round(y);c.fillStyle='#00000030';c.fillRect(x-2,y-1,9,9);rect(c,x-3,y-3,7,7,'#3e3b35');rect(c,x-2,y-2,5,5,'#8a867b');rect(c,x-2,y-2,5,1,'#b7b3a6');if(cap)rect(c,x-1,y-1,3,3,cap)}
 function drawBarrier(c,b){
  const g=barGeo(b),k=GATES[BARRIERS.indexOf(b)]?.k??(ECO.ord.bar?1:0),th=g.a0+g.df*k,[ax,ay]=g.A,[bx,by]=g.B,ex=ax+Math.cos(th)*g.L,ey=ay+Math.sin(th)*g.L;
  post(c,bx,by,'#5a4a30');post(c,ax,ay,'#c8a24a');
- // cień rury, potem rura w czerwono-białe pasy
+ // cień rury, potem rura w zielono-białe pasy (1.5.0: szlaban leśny)
  line(c,ax+3,ay+4,ex+3,ey+4,'#0000002e',5);
  const n=Math.max(2,Math.round(g.L/7));
- for(let i=0;i<n;i++){const t0=i/n,t1=(i+1)/n,col=i%2?'#c8342b':'#f2efe6';line(c,ax+(ex-ax)*t0,ay+(ey-ay)*t0-2,ax+(ex-ax)*t1,ay+(ey-ay)*t1-2,col,5)}
+ for(let i=0;i<n;i++){const t0=i/n,t1=(i+1)/n,col=i%2?'#2f7a3e':'#f2efe6';   line(c,ax+(ex-ax)*t0,ay+(ey-ay)*t0-2,ax+(ex-ax)*t1,ay+(ey-ay)*t1-2,col,5)}
  line(c,ax,ay-4,ex,ey-4,'#ffffff40',1);
- rect(c,ex-1,ey-4,3,5,'#7a1d17');
+ rect(c,ex-1,ey-4,3,5,'#1f4a28');
  if(k>.97){rect(c,ex-2,ey-1,5,5,'#2c2a26');rect(c,ex-1,ey,3,3,'#d4b24a')}   // kłódka
 }
 function drawParking(c,winter){

@@ -6,12 +6,12 @@ export const SET={tempo:1,tips:true,tut:true,volume:.8};
 try{Object.assign(SET,JSON.parse(localStorage.getItem(KEY)||'{}'))}catch(e){}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(SET))}catch(e){}};
 const STEPS=[
- ['Cel gry','Prowadzisz małe leśnictwo. Patrz na budżet, stan lasu i ochronę terenu u góry (kliknij pasek, żeby zobaczyć, z czego się składa). Nie ma przegranej ani pośpiechu. Czas możesz zatrzymać (P), przyspieszyć (T) albo przewinąć do rana („Do jutra”).'],
- ['Mapa i narzędzia','Przeciągnij mapę myszą, kółko przybliża. Narzędzia (1–4) są na dolnym pasku: podgląd, wycinka, sadzenie, odnowienie. Kliknięcie obiektu otwiera jego kartę. Esc lub ✕ zamyka okno.'],
- ['Pierwsza wycinka','Wybierz Wycinkę (2) i kliknij dojrzałe drzewa albo przeciągnij obszar. Potem E: ekipa cięcia ścina, ciągnik zwozi kłody do drogi. Od 10 m³ przy drogach przyjeżdża ciężarówka, która płaci za drewno.'],
- ['Odnowienie','Po wycince zostają pniaki. Sadź narzędziem 3 (nad paskiem wybierasz gatunek; klik lub rzędy) albo zaznacz zrąb narzędziem 4: przygotowanie gleby, sadzenie, grodzenie przed zwierzyną. Sadzi zielona ekipa sadzenia.'],
- ['Zgłoszenia i faktury','Zgłoszenia (pożar, wysypisko, intruzi, kornik) pojawiają się po prawej. Q wysyła patrol. Wiadomości są w poczcie (C), a faktury płacisz w Leśniczówce (L, Finanse) w terminie.'],
- ['Leśniczówka (L)','Okno L ma pięć zakładek: kadry i sprzęt, finanse, las, ochrona terenu oraz przyroda i łowy. Ustawienia i pomoc: przycisk Menu (H to sama pomoc).']
+ ['Cel gry','Prowadzisz małe leśnictwo. U góry ekranu widzisz budżet, stan lasu i ochronę terenu — kliknij dowolny pasek, aby sprawdzić, z czego się składa. W tej grze nie można przegrać i nic nie wymaga pośpiechu. Czas możesz zatrzymać (P), przyspieszyć (T) albo przewinąć do rana przyciskiem „Do jutra”.'],
+ ['Mapa i narzędzia','Mapę przesuwasz, przeciągając ją myszą, a kółkiem myszy ją przybliżasz. Na dolnym pasku znajdują się cztery narzędzia (klawisze 1–4): podgląd, wycinka, sadzenie i odnowienie. Kliknięcie obiektu otwiera jego kartę, a Esc lub ✕ zamyka okno.'],
+ ['Pierwsza wycinka','Wybierz narzędzie Wycinka (2) i kliknij dojrzałe drzewa albo przeciągnij myszą obszar. Następnie naciśnij E: ekipa cięcia zetnie drzewa, a ciągnik zrywkowy zwiezie kłody do drogi. Ciężarówka leśna (BDF) przyjeżdża po drewno automatycznie od 5 m³, a ciężarówka do przewozu dłużycy — od 20 m³. Za odebrane drewno otrzymujesz zapłatę.'],
+ ['Odnowienie','Po wycince zostają pniaki, które trzeba odnowić. Pojedyncze sadzonki albo całe rzędy sadzisz narzędziem 3 — gatunek wybierasz nad dolnym paskiem. Większy zrąb zaznacz narzędziem 4 jako powierzchnię odnowieniową: możesz na niej przygotować glebę, posadzić sadzonki i ogrodzić je przed zwierzyną. Sadzeniem zajmuje się ekipa sadzenia w zielonych kamizelkach.'],
+ ['Zgłoszenia i faktury','Zgłoszenia, takie jak pożar, wysypisko, intruzi czy kornik, pojawiają się po prawej stronie ekranu, a klawisz Q wysyła do nich patrol. Wiadomości trafiają do poczty (C). Faktury opłacasz w Leśniczówce (L, zakładka Finanse) — pamiętaj o terminach.'],
+ ['Leśniczówka (L)','Okno Leśniczówki (L) ma pięć zakładek: Kadry i sprzęt, Finanse, Las, Ochrona terenu oraz Przyroda i łowy. Ustawienia i pomoc otworzysz przyciskiem Menu, a sama pomoc jest też pod klawiszem H.']
 ];
 let step=0,wasPaused=false;
 const open=el=>!$(el).classList.contains('hidden');

@@ -1,6 +1,6 @@
 // Mysz i klawiatura: przeciąganie mapy, kółko = zoom (całkowite skale, ostre piksele), kliknięcie = wybór lub polecenie narzędzia.
 import {closeTutor as closeTutorEsc} from './guide.js';
-import {C,$,keys,state,camera,VIEW,SETTINGS,DEBUG,toast,active} from './core.js';
+import {C,$,keys,state,camera,VIEW,SETTINGS,DEBUG,toast,active,pf} from './core.js';
 import {treeAt,STAND,STUMP,CUT_AGE,treesIn,testGrow} from './forest.js';
 import {HOUSE,inRect,offLimits} from './map.js';
 import {noCut} from './nest.js';
@@ -40,12 +40,12 @@ let down=null;
 // 0.6.3: cofanie ostatnich zaznaczeń obszarem (Ctrl+Z)
 function undo(){
  const u=UNDO.pop();if(!u){toast('Nie ma czego cofnąć.');return}
- if(u.type==='mark'){let n=0;const set=new Set(u.list);n+=cancelCrewTasks(q=>q.t&&set.has(q.t));for(const t of u.list)if(t.marked&&!t.assigned){t.marked=false;n++}toast('Cofnięto oznaczenie '+n+' drzew.')}
- else if(u.type==='unmark'){let n=0;for(const t of u.list)if(!t.marked&&!t.assigned&&t.st===STAND){t.marked=true;n++}toast('Przywrócono oznaczenie '+n+' drzew.')}
- else if(u.type==='plant'){cancelCrewTasks(q=>q.p&&u.list.includes(q.p));const set=new Set(u.list.filter(p=>!p.assigned));J.plants=J.plants.filter(p=>!set.has(p));toast('Cofnięto plan '+set.size+' sadzonek.')}
+ if(u.type==='mark'){let n=0;const set=new Set(u.list);n+=cancelCrewTasks(q=>q.t&&set.has(q.t));for(const t of u.list)if(t.marked&&!t.assigned){t.marked=false;n++}toast('Cofnięto oznaczenie: '+pf(n,'drzewo','drzewa','drzew')+'.')}
+ else if(u.type==='unmark'){let n=0;for(const t of u.list)if(!t.marked&&!t.assigned&&t.st===STAND){t.marked=true;n++}toast('Przywrócono oznaczenie: '+pf(n,'drzewo','drzewa','drzew')+'.')}
+ else if(u.type==='plant'){cancelCrewTasks(q=>q.p&&u.list.includes(q.p));const set=new Set(u.list.filter(p=>!p.assigned));J.plants=J.plants.filter(p=>!set.has(p));toast('Cofnięto plan sadzenia: '+pf(set.size,'sadzonka','sadzonki','sadzonek')+'.')}
  hud();
 }
-function followSel(){const s=state.selected;if(state.follow){state.follow=null;toast('Kamera przestała śledzić.');return}state.follow=s&&(s.pos||s.look||s.phase!=null||s.kind)&&s.st===undefined?s:null;if(!state.follow)toast('Wybierz pojazd, osobę albo zwierzę.')}
+function followSel(){const s=state.selected;if(state.follow){state.follow=null;toast('Kamera przestała śledzić obiekt.');return}state.follow=s&&(s.pos||s.look||s.phase!=null||s.kind)&&s.st===undefined?s:null;if(!state.follow)toast('Najpierw wybierz pojazd, osobę albo zwierzę.')}
 function finishPoly(){const P=state.poly;state.poly=null;if(!P)return;const p=createPolyPlot(P);if(p)state.selected=p;hud()}
 export function bindInput(zoomFn){
  $('#undobtn').addEventListener('click',()=>{if(state.playing&&!state.modal)undo()});$('#followbtn').addEventListener('click',()=>{if(state.playing&&!state.modal)followSel()});
@@ -66,30 +66,30 @@ export function bindInput(zoomFn){
    const area=treesIn(Math.min(x0,x1),Math.min(y0,y1),Math.max(x0,x1),Math.max(y0,y1));
    if(state.tool==='mark'&&d.shift){const list=[];   // Shift + przeciągnięcie: odznaczenie obszaru
     for(const t of area)if(t.marked&&!t.assigned){t.marked=false;list.push(t)}
-    if(list.length)UNDO.push({type:'unmark',list});toast(list.length?'Usunięto oznaczenie '+list.length+' drzew. Ctrl+Z: cofnij.':'W zaznaczeniu nie było oznaczonych drzew.')}
+    if(list.length)UNDO.push({type:'unmark',list});toast(list.length?'Usunięto oznaczenie: '+pf(list.length,'drzewo','drzewa','drzew')+'. Ctrl+Z cofa zmianę.':'W zaznaczonym obszarze nie było oznaczonych drzew.')}
    else if(state.tool==='mark'){const list=[];
     for(const t of area)if(t.st===STAND&&!t.falling&&!t.lying&&!t.assigned&&t.age>=CUT_AGE&&!t.marked&&!offLimits(t.x,t.y)&&!noCut(t.x,t.y,t)){t.marked=true;t.mt=state.elapsed;list.push(t)}
     if(list.length)UNDO.push({type:'mark',list});
-    toast(list.length?'Zaznaczono '+list.length+' drzew. E: wyślij ekipę, Ctrl+Z: cofnij.':'W zaznaczeniu nie ma drzew do wycinki (od '+CUT_AGE+' lat).')}
-   else if(state.tool==='plant'){const before=J.plants.length,n=planAreaPlants(x0,y0,x1,y1);if(n)UNDO.push({type:'plant',list:J.plants.slice(before)});toast(n?'Zaplanowano '+n+' sadzonek. E: wyślij ekipę, Ctrl+Z: cofnij.':'Brak wolnych miejsc na sadzonki.')}
+    toast(list.length?'Zaznaczono do wycinki: '+pf(list.length,'drzewo','drzewa','drzew')+'. Naciśnij E, aby wysłać ekipę, albo Ctrl+Z, aby cofnąć.':'W zaznaczonym obszarze nie ma drzew do wycinki (od '+CUT_AGE+' lat).')}
+   else if(state.tool==='plant'){const before=J.plants.length,n=planAreaPlants(x0,y0,x1,y1);if(n)UNDO.push({type:'plant',list:J.plants.slice(before)});toast(n?'Zaplanowano '+pf(n,'sadzonkę','sadzonki','sadzonek')+'. Naciśnij E, aby wysłać ekipę, albo Ctrl+Z, aby cofnąć.':'W tym obszarze nie ma wolnych miejsc na sadzonki.')}
    else if(state.tool==='plot'){if(!state.poly){const p=createPlot(x0,y0,x1,y1);if(p)state.selected=p}}
    hud();return}
   if(d.drag)return;
   if(d.btn===2){state.poly=null;setTool('select');state.selected=null;return}
   if(!state.playing||state.modal)return;   // 1.1.1: w pauzie można oglądać i planować (pauza zatrzymuje tylko symulację)
   const [x,y]=toWorld(e);
-  if(state.tool==='mark'){const t=treeAt(x,y,t=>t.st===STAND);if(t){toggleMark(t);state.selected=t}else{if(state.selected)state.selected=null;else toast('Kliknij koronę drzewa.')}}   // 1.0: klik w puste miejsce zamyka kartę drzewa
+  if(state.tool==='mark'){const t=treeAt(x,y,t=>t.st===STAND);if(t){toggleMark(t);state.selected=t}else{if(state.selected)state.selected=null;else toast('Kliknij koronę drzewa, aby je oznaczyć.')}}   // 1.0: klik w puste miejsce zamyka kartę drzewa
   else if(state.tool==='plant')togglePlant(x,y);
   else if(state.tool==='plot'){
    if(state.poly){const P=state.poly;if(P.length>=3&&Math.hypot(x-P[0][0],y-P[0][1])<16)finishPoly();else P.push([x,y])}
-   else{const p=plotAt(x,y);if(p)state.selected=p;else{state.poly=[[x,y]];toast('Wielokąt: klikaj narożniki, Enter kończy, Esc anuluje.')}}}
+   else{const p=plotAt(x,y);if(p)state.selected=p;else{state.poly=[[x,y]];toast('Rysujesz wielokąt: klikaj kolejne narożniki. Enter kończy rysowanie, a Esc je anuluje.')}}}
   else{const p=pick(x,y);if(p&&p.isHouse){toggleBase(true);return}if(p&&p.isMailbox){toggleWin('mail');return}state.selected=p;state.follow=null}
   hud();
  });
  C.addEventListener('wheel',e=>{e.preventDefault();zoomFn(e.deltaY>0?1:-1,toWorld(e))},{passive:false});
  addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
-  if(state.poly&&state.playing){if(k==='enter'){e.preventDefault();finishPoly();return}if(k==='escape'){state.poly=null;toast('Wielokąt anulowany.');return}}
+  if(state.poly&&state.playing){if(k==='enter'){e.preventDefault();finishPoly();return}if(k==='escape'){state.poly=null;toast('Anulowano rysowanie wielokąta.');return}}
   if((e.ctrlKey||e.metaKey)&&k==='z'&&state.playing&&!state.modal){e.preventDefault();undo();return}
   // 1.1.1: skróty przeglądarki (Ctrl/Cmd/Alt + litera) nie uruchamiają akcji gry
   if(e.ctrlKey||e.metaKey||e.altKey)return;
@@ -107,9 +107,9 @@ export function bindInput(zoomFn){
   else if(k==='c')toggleWin('mail');
   else if(k==='o')toggleOdd(true);
   else if(k==='tab')toggleWin('map');
-  else if(k==='u'){document.body.classList.toggle('noui');toast(document.body.classList.contains('noui')?'Interfejs schowany (U — pokaż).':'Interfejs widoczny.')}
+  else if(k==='u'){document.body.classList.toggle('noui');toast(document.body.classList.contains('noui')?'Interfejs jest schowany. Klawisz U pokaże go z powrotem.':'Interfejs jest widoczny.')}
   else if(k==='e')dispatchCrew();else if(k==='x')clearOrders();   // 1.3.0: K usunięte — wywóz zamawia się na karcie stosu (ciężarówka i tak przyjeżdża sama od 10 m³)
-  else if(k==='q'){const q=E.incidents.find(x=>x.status==='new');if(q)dispatch(q);else toast('Brak nowych zgłoszeń.')}
+  else if(k==='q'){const q=E.incidents.find(x=>x.status==='new');if(q)dispatch(q);else toast('Nie ma nowych zgłoszeń.')}
   else if(k==='f')followSel();
   else if(k==='t')cycleRate(e.shiftKey);else if(k==='p')$('#pausebtn').click();else if(k==='m')toggleSound();
   else if(k==='g'&&DEBUG.on){testGrow(10);toast('Las urósł o 10 lat (test).')}   // 1.1.1: tylko w trybie diagnostycznym (F3)

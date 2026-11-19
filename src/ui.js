@@ -1,6 +1,6 @@
 // HUD w HTML (styl farmy): trzy wskaźniki, zegar i kalendarz, narzędzia, plan na sezon, zgłoszenia, karta wybranego obiektu.
 import {closeTutor,toggleSettings} from './guide.js';
-import {$,state,cal,SEASONS,DOW,displayNumber,zl,SETTINGS,camera,VIEW,clamp,toast,SEASON_DAYS,YEARS_PER_SEASON} from './core.js';
+import {$,state,cal,SEASONS,SEASONS_ACC,pf,DOW,displayNumber,zl,SETTINGS,camera,VIEW,clamp,toast,SEASON_DAYS,YEARS_PER_SEASON} from './core.js';
 import {HL,WX,LVLN,fireLvl,trapsOn,sick,buyTraps,buildTower,COSTS as HC} from './health.js';
 import {SP,STAND,STUMP,SAPLING_AGE,CUT_AGE,THIN_AGE,crownR,heightM,dbhCm,volume,counts,treesIn,QUAL,SORTS,sortSplit,treeValue} from './forest.js';
 import {STANDS,oddzial,roadClearance} from './map.js';
@@ -23,6 +23,7 @@ import {renderWin,closeWin} from './win.js';
 import {sfx} from './sound.js';
 import {showStumps,updateFocusBar} from './focus.js';
 import {COSTS as OC,buyCams,toggleBarriers,buyParking,camsOn,barClosed,parkingOn,CAM_COUNT,ctrlOn,ctrlCost} from './order.js';
+import {away} from './nest.js';
 
 export function lat(n){n=Math.round(n);const d=n%10,dd=n%100;return n+(n===1?' rok':(d>=2&&d<=4&&!(dd>=12&&dd<=14))?' lata':' lat')}
 const pct=v=>Math.round(v)+'%';
@@ -33,7 +34,7 @@ export function setRate(r,shift){
 }
 export const cycleRate=shift=>setRate([1,2,3][([1,2,3].indexOf(state.rate)+1)%3]||1,shift);
 export function setTool(t){state.tool=t;state.poly=null;state.hover=null;state.box=null;for(const b of document.querySelectorAll('[data-tool]'))b.classList.toggle('on',b.dataset.tool===t);
- const msg={select:'Kliknij drzewo, zwierzę, pojazd, zgłoszenie lub powierzchnię.',mark:'Klik: drzewo (trzebież od '+THIN_AGE+' lat). Przeciągnij: obszar (wycinka od '+CUT_AGE+' lat). Shift: odznacz. Ctrl+Z: cofnij.',plant:'Klik: sadzonka. Przeciągnij: rzędy sadzonek.',plot:'Przeciągnij prostokąt albo klikaj narożniki wielokąta (Enter kończy, Esc anuluje).'}[t];
+ const msg={select:'Kliknij drzewo, zwierzę, pojazd, zgłoszenie lub powierzchnię, aby zobaczyć szczegóły.',mark:'Kliknij drzewo, aby wyznaczyć je do trzebieży (od '+THIN_AGE+' lat). Przeciągnij, aby zaznaczyć obszar do wycinki (od '+CUT_AGE+' lat). Shift odznacza, a Ctrl+Z cofa ostatnią zmianę.',plant:'Kliknij, aby zaplanować sadzonkę. Przeciągnij, aby zaplanować całe rzędy sadzonek.',plot:'Przeciągnij prostokąt albo klikaj kolejne narożniki wielokąta. Enter kończy rysowanie, a Esc je anuluje.'}[t];
  $('#toolhint').textContent=msg;spBar();
 }
 // 1.3.0: wybór gatunku w narzędziu Sadzenie (3) — klik i przeciąganie sadzą wybrany gatunek; przy pniakach zawsze gatunek pniaka
@@ -61,7 +62,7 @@ export function hud(){
  planPanel();
  // zgłoszenia (1.1.2): wiersze z kropką typu, oddziałem i stanem; najwyżej 4, reszta w oknie Ochrony terenu
  const open=openIncidents(),sig=open.map(q=>q.id+q.status+(q.unit?q.unit.name:'')).join('|');
- if(sig!==incSig){incSig=sig;{const nn=open.filter(q=>q.status==='new').length,nw=open.length-nn;$('#incn').textContent=open.length?'('+open.length+')':'';const qb=$('#qbtn');qb.style.display=nn?'':'none';qb.textContent='Q Wyślij · '+nn;qb.title='Q: wysyła patrol do najstarszego z '+nn+' nowych zgłoszeń'+(nw?' ('+nw+' już w toku)':'')}   // 1.1.3: Q tylko, gdy jest kogo wysłać
+ if(sig!==incSig){incSig=sig;{const nn=open.filter(q=>q.status==='new').length,nw=open.length-nn;$('#incn').textContent=open.length?'('+open.length+')':'';const qb=$('#qbtn');qb.style.display=nn?'':'none';qb.textContent='Q Wyślij · '+nn;qb.title='Q wysyła patrol do najstarszego z nowych zgłoszeń (nowe: '+nn+(nw?', w toku: '+nw:'')+')'}   // 1.1.3: Q tylko, gdy jest kogo wysłać
   const ord=open.slice().sort((a,b)=>(b.status==='new')-(a.status==='new')||prio(b)-prio(a)||a.id-b.id),shown=ord.slice(0,4);
   $('#incidents').innerHTML=open.length?shown.map(q=>`<div class="irow" data-go="${q.id}" title="${q.text.replace(/"/g,'&quot;')}"><i class="dot" style="background:${incCol(q)}"></i><div class="ib"><b>${incName(q)}</b><span>oddz. ${oddzial(q.x,q.y)}</span></div>${q.status==='new'?`<button data-inc="${q.id}">${incLabel(q)}</button>`:`<em class="chip2 ${q.status==='assigned'?'go':''}">${incWait(q)}</em>`}</div>`).join('')+(open.length>4?`<div class="imore" data-win="protect">+ jeszcze ${open.length-4} — pokaż wszystkie ›</div>`:''):'<div class="muted">Spokojnie w lesie.</div>';
  }
@@ -104,9 +105,9 @@ function statusPanel(){
 function showUnit(k){
  const go=(o,msg)=>{if(!o||o.dead){toast(msg);return}const [x,y]=o.pos||[o.x,o.y];centerOn(x,y);state.follow=o.pos?o:null;state.selected=o.pos?o:state.selected};
  if(k==='crew0'||k==='crew1'){const role=k==='crew0'?'fell':'plant',cs=J.crews.filter(C=>C.role===role),C=cs.find(C=>C.van&&!C.van.dead)||cs[0];if(!C)return;const w=C.workers.find(q=>!q.dead&&!q.hidden);const nm=crewName(C);go(w||C.van,nm[0].toUpperCase()+nm.slice(1)+' jest w bazie'+(C.tasks.length?' — przyjedzie '+cal.nextStart(7,17)+'.':'.'))}
- else if(k==='skid')go(J.skid.trac,J.skid.owned?'Forwarder jest w drodze.':'Ciągnik przyjedzie, gdy w lesie leżą kłody.');
+ else if(k==='skid')go(J.skid.trac,J.skid.owned?'Forwarder jest w drodze.':'Ciągnik zrywkowy przyjedzie, gdy w lesie będą leżały kłody.');
  else if(k==='plow')go(R.plow.v,'Pług przyjedzie '+cal.nextStart(7,16)+'.');
- else if(k==='stacks'){if(anyTruck()){go(anyTruck().v,'');return}const st=J.stacks.filter(q=>q.vol>.05).sort((a,b)=>b.vol-a.vol)[0];if(st){centerOn(st.x,st.y);state.selected=st;state.follow=null}else toast('Przy drogach nie ma drewna.')}
+ else if(k==='stacks'){if(anyTruck()){go(anyTruck().v,'');return}const st=J.stacks.filter(q=>q.vol>.05).sort((a,b)=>b.vol-a.vol)[0];if(st){centerOn(st.x,st.y);state.selected=st;state.follow=null}else toast('Przy drogach nie leży teraz żadne drewno.')}
  else if(k==='pat0'||k==='pat1'){const u=U[+k.slice(3)];if(!u)return;if(u.phase==='home'){const p=u.person;centerOn(p.x,p.y);state.follow=null}else go(u.car,'')}
  hud();
 }
@@ -120,10 +121,10 @@ function planPanel(){
  goals.push([Pl.doneHandle>=Pl.handle,'Obsłużone zgłoszenia',Math.min(Pl.doneHandle,Pl.handle),Pl.handle,'',0]);
  const eu=etatUsed(),ep=etatPlanned();
  $('#plansum').textContent=goals.filter(g=>g[0]).length+'/'+goals.length;$('#planbtn').classList.toggle('hot',goals.every(g=>g[0]));
- $('#planseason').textContent=SEASONS[Pl.season];
+ $('#planseason').textContent=SEASONS_ACC[Pl.season];
  $('#tasks').innerHTML=goals.map(([ok,txt,a,b,u,d])=>`<div class="pgoal ${ok?'ok':''}"><div class="trow"><span>${ok?'✔':'·'} ${txt}</span><b>${displayNumber(a,d)} / ${b}${u}</b></div><div class="pbar"><i style="width:${Math.round(clamp(a/b,0,1)*100)}%"></i></div></div>`).join('')
   +`<div class="pgoal etat"><div class="trow"><span>Etat cięć (rębnia)</span><b>${displayNumber(eu,1)} / ${ETAT_M3} m³</b></div><div class="pbar"><i style="width:${Math.round(clamp(eu/ETAT_M3,0,1)*100)}%"></i><i class="plan2" style="width:${Math.round(clamp((ep-eu)/ETAT_M3,0,1)*100)}%"></i></div><div class="esub">${ep>eu+.05?'zlecone jeszcze '+displayNumber(ep-eu,1)+' m³ · ':''}trzebież i cięcia sanitarne się nie liczą</div></div>`
-  +`<div class="pfoot"><span>${Pl.rewarded?'Plan wykonany — premia wypłacona.':'Premia za cały plan: <b>'+zl(Pl.reward)+'</b>'}</span><span>Do końca pory roku: <b>${dl?dl+' d ':''}${hl} h</b></span></div>`;
+  +`<div class="pfoot"><span>${Pl.rewarded?'Plan wykonany — premia została wypłacona.':'Premia za wykonanie całego planu: <b>'+zl(Pl.reward)+'</b>'}</span><span>Do końca pory roku: <b>${dl?dl+' d ':''}${hl} h</b></span></div>`;
 }
 function placePlan(){const p=$('#plan'),r=$('#planbtn').getBoundingClientRect(),col=document.querySelector('.right').getBoundingClientRect().left;p.style.top=Math.round(r.bottom+14)+'px';const x=Math.round(clamp(r.left+r.width/2-150,12,col-322));p.style.left=x+'px';p.style.setProperty('--arrow',Math.round(clamp(r.left+r.width/2-x,20,280))+'px')}   // 1.1.3: lista nie wchodzi na kolumnę zegara; strzałka celuje w przycisk
 export function togglePlan(open){const p=$('#plan');open=open??p.style.display==='none';if(open){taskSig='';planPanel();placePlan()}p.style.display=open?'block':'none';$('#planbtn').setAttribute('aria-expanded',open?'true':'false')}
@@ -134,25 +135,25 @@ function treeInfo(t){
  if(t.st===STUMP){
   const ren=treesIn(t.x-30,t.y-30,t.x+30,t.y+30).some(q=>q.st===STAND&&q.age<SAPLING_AGE*3);
   const pl=J.plants.some(p=>Math.hypot(p.x-t.x,p.y-t.y)<32);
-  return{title:t.burnt?'Spalony pniak':'Pniak — '+sp.name,lines:['Oddział '+st.name+' · '+st.desc,ren?'Odnowione: obok rośnie młode drzewko.':pl?'Sadzonka zaplanowana. Posadzi ją ekipa (E).':t.nat?'Czeka na odnowienie naturalne (samosiew z sąsiednich drzew, 1–2 pory roku). Nie obniża Stanu lasu.':'Nieodnowiony. Sadzonka ('+SP[t.sp].name.split(' ')[0]+', jak pniak) na placówce przyjmuje się w ok. 85%.'],btns:ren||pl||t.nat?[]:[['plantnear','Zaplanuj sadzonkę: '+SP[t.sp].name.split(' ')[0]]]};
+  return{title:t.burnt?'Spalony pniak':'Pniak — '+sp.name,lines:['Oddział '+st.name+' · '+st.desc,ren?'Miejsce jest odnowione — obok rośnie młode drzewko.':pl?'Sadzonka jest już zaplanowana. Posadzi ją ekipa sadzenia (E).':t.nat?'Pniak czeka na odnowienie naturalne: w ciągu jednej–dwóch pór roku powinien tu wyrosnąć samosiew z sąsiednich drzew. Do tego czasu nie obniża Stanu lasu.':'Pniak nie jest odnowiony. Sadzonka tego samego gatunku ('+SP[t.sp].name.split(' ')[0]+') posadzona na placówce przyjmuje się w około 85% przypadków.'],btns:ren||pl||t.nat?[]:[['plantnear','Zaplanuj sadzonkę: '+SP[t.sp].name.split(' ')[0]]]};
  }
  if(t.age<SAPLING_AGE)return{title:'Sadzonka — '+sp.name,lines:['Oddział '+st.name+(t.uprawa?' · uprawa w grodzeniu':''),'Wiek: '+lat(t.age)+' · wys. ok. '+displayNumber(Math.max(.2,heightM(t)),1)+' m'],btns:[]};
  const f=sortSplit(t);
  const lines=['Oddział '+st.name+' · '+st.desc,'Wiek: '+lat(t.age)+' · wysokość '+Math.round(heightM(t))+' m','Pierśnica '+Math.round(dbhCm(t))+' cm · miąższość '+displayNumber(volume(t),2)+' m³',
-  t.qk?'Jakość: '+QUAL[t.q].name:'Jakość: nieoceniona',
-  t.qk?'Sortymenty: '+['tart','pap','opal'].filter(k=>f[k]>0).map(k=>SORTS[k].short+' '+Math.round(f[k]*100)+'%').join(', ')+' · wartość ok. '+zl(treeValue(t)):'Wartość zależy od jakości (po ocenie).',
-  sanitary(t)?'Ścinka sanitarna: opłaca nadleśnictwo':'Koszt ścinki '+zl(fellCost(t))+' (30 zł + 55 zł/m³) · zrywka '+zl(Math.round(skidRate()*Math.max(.08,volume(t)))),
-  cutKind(t)==='cut'?'Rębnia — liczy się do etatu cięć (zostało '+displayNumber(Math.max(0,ETAT_M3-etatPlanned()),0)+' z '+ETAT_M3+' m³ w tej porze roku)':cutKind(t)==='thin'?'Trzebież — nie liczy się do etatu':'Cięcie sanitarne — nie liczy się do etatu'];
- if(t.kb===4)lines.push('Wiatrołom. Uprzątnij, zanim zasiedli go kornik.');else if(t.kb>=2)lines.push(t.kb===2?'Zamiera (kornik). Tnij sanitarnie.':'Martwe (kornik), drewno sanitarne.');
- if(t.assigned)lines.push('Zlecone ekipie.');
+  t.qk?'Jakość: '+QUAL[t.q].name:'Jakość: jeszcze nieoceniona',
+  t.qk?'Sortymenty: '+['tart','pap','opal'].filter(k=>f[k]>0).map(k=>SORTS[k].short+' '+Math.round(f[k]*100)+'%').join(', ')+' · wartość ok. '+zl(treeValue(t)):'Wartość będzie znana po ocenie jakości.',
+  sanitary(t)?'Ścinkę sanitarną opłaca nadleśnictwo.':'Koszt ścinki '+zl(fellCost(t))+' (30 zł + 55 zł/m³) · zrywka '+zl(Math.round(skidRate()*Math.max(.08,volume(t)))),
+  cutKind(t)==='cut'?'Rębnia — wlicza się do etatu cięć (w tej porze roku zostało '+displayNumber(Math.max(0,ETAT_M3-etatPlanned()),0)+' z '+ETAT_M3+' m³).':cutKind(t)==='thin'?'Trzebież — nie wlicza się do etatu cięć.':'Cięcie sanitarne — nie wlicza się do etatu cięć.'];
+ if(t.kb===4)lines.push('Drzewo złamane przez wiatr. Trzeba je uprzątnąć, zanim zasiedli je kornik.');else if(t.kb>=2)lines.push(t.kb===2?'Drzewo zamiera, bo zaatakował je kornik. Należy je wyciąć sanitarnie.':'Drzewo obumarło po ataku kornika. Pozyskane drewno jest sanitarne.');
+ if(t.assigned)lines.push('Ścinka jest już zlecona ekipie.');
  const btns=t.assigned||t.age<THIN_AGE?[]:[['mark',t.marked?'Usuń oznaczenie':t.age<CUT_AGE||t.q===2&&t.qk?'Wyznacz do trzebieży':'Wyznacz do wycinki']];
  const last=ASSESS.filter(q=>Math.hypot(q.x-t.x,q.y-t.y)<250).sort((a,b)=>b.day-a.day)[0],ago=last?(state.days-last.day)/SEASON_DAYS*YEARS_PER_SEASON:null;
- if(last)lines.push('Cechowanie w tym miejscu: '+(ago<1?'w tym roku':Math.round(ago)+' lat temu')+(ago<10?', kolejne za ok. '+Math.max(1,Math.round(10-ago))+' lat.':'.'));
+ if(last)lines.push('Ostatnie cechowanie w tym miejscu: '+(ago<1?'w tym roku':Math.round(ago)+' lat temu')+(ago<10?'. Kolejne za około '+Math.max(1,Math.round(10-ago))+' lat.':'.'));
  if((!t.qk||ago==null||ago>=10)&&!assessing(t.x,t.y))btns.push(['assess','Oceń drzewostan wokół']);
- if(assessing(t.x,t.y))lines.push('Ocena drzewostanu zlecona.');
- if(t.nest)lines.push('Na tym drzewie gniazduje '+({stork:'bocian czarny',bielik:'bielik'}[t.nest]||'rzadki ptak')+' (drzewo i strefa wokół chronione).');
- if(t.mon)lines.push('Pomnik przyrody.');
- if(t.dw)lines.push('Martwe drewno zostaje w lesie.');
+ if(assessing(t.x,t.y))lines.push('Ocena drzewostanu jest już zlecona.');
+ if(t.nest)lines.push(away(t.nest)?'Na tym drzewie jest gniazdo bociana czarnego. Ptaki odleciały na zimowiska, więc do ich powrotu chronione jest tylko samo drzewo.':'Na tym drzewie gniazduje '+({stork:'bocian czarny',bielik:'bielik'}[t.nest]||'rzadki ptak')+'. Chronione są zarówno drzewo, jak i strefa wokół gniazda.');
+ if(t.mon)lines.push('Drzewo jest pomnikiem przyrody i podlega stałej ochronie.');
+ if(t.dw)lines.push('Martwe drzewo zostaje w lesie jako schronienie dla owadów i ptaków.');
  if(canMonument(t))btns.push(['monument','Pomnik przyrody · '+zl(MON_COST)]);
  btns.push(['odd','Oddział '+st.name]);
  return{title:sp.name[0].toUpperCase()+sp.name.slice(1),lines,btns};
@@ -161,31 +162,31 @@ function plotInfo(p){
  const st=plotStats(p),spots=p.state==='planting'||p.state==='planted'?0:spotsIn(p.x,p.y,p.w,p.h,(x,y)=>inPlot(p,x,y,-6)).length,stName={new:'nowa',queued:'czeka na pług',prepping:'trwa orka',prepared:'gleba przygotowana',planting:'trwa sadzenie',planted:'obsadzona'}[p.state];
  const lines=['Oddział '+p.odd+' · '+displayNumber(areaHa(p),2)+' ha · '+rowsOf(p).length+' rzędów','Stan: '+stName+' · skład: '+MIXES[p.mix||mixFor(p.sp)].name,
   'Pniaki: '+st.stumps+(st.slash?' (gałęzie: '+st.slash+')':'')+' · drzewa: '+st.stand+' · sadzonki: '+st.young];
- if(st.stand)lines.push('Stojące drzewa zostaną ominięte.');
- if(p.state==='planting')lines.push('Posadzono '+p.planted+' z '+p.toPlant+'.');
+ if(st.stand)lines.push('Stojące drzewa zostaną ominięte podczas sadzenia.');
+ if(p.state==='planting')lines.push('Posadzono '+p.planted+' z '+p.toPlant+' sadzonek.');
  const btns=[];
  if(!p.prepared&&p.state==='new')btns.push(['prep','Przygotuj glebę · '+zl(prepCost(p))]);
- if(!p.prepared&&(p.state==='new'||p.state==='queued'))lines.push('Udatność: po orce ok. 90%, bez orki na placówkach ok. 85% (+'+(displayNumber(COST.plac,2)+' zł')+'/szt.). Orka opłaca się na większych powierzchniach.');
+ if(!p.prepared&&(p.state==='new'||p.state==='queued'))lines.push('Udatność: po orce przyjmuje się około 90% sadzonek, a bez orki, na placówkach, około 85% (dopłata '+(displayNumber(COST.plac,2)+' zł')+' za sztukę). Orka opłaca się na większych powierzchniach.');
  // koszt z uwzględnieniem sadzonek ze szkółki (osobno dla każdego gatunku)
  let fromNur=0;if(spots&&BASE.nursery&&ECO.nursery){nurseryText();fromNur=Math.min(spots,ECO.nursery.stock||0)}   // 1.3.0: wspólny zapas szkółki
  if(p.state==='new'||p.state==='prepared')btns.push(['mix','Zmień skład gatunkowy']);
  if(spots&&(p.state==='new'||p.state==='prepared'||p.state==='planted'))btns.push(['plantplot','Sadź w rzędach: '+spots+' szt. · '+zl(fromNur*COST.plantNursery+(spots-fromNur)*COST.plant)+(fromNur?' ('+fromNur+' ze szkółki)':'')+(p.prepared?'':' (bez orki)')]);
  if(!p.fence||p.fence==='gone')btns.push(['fence','Ogródź siatką · '+zl(fenceCost(p))]);
- if(p.repel===seasonKey()&&p.fence!=='done')lines.push('Repelent do końca pory roku.');
- lines.push(p.fence==='done'?'Ogrodzona.':p.fence==='building'?'Grodzenie: '+Math.round(p.fenceP/perimOf(p)*100)+'%':'Bez grodzenia: zwierzyna zgryza sadzonki (presja '+Math.round(pressure()*100)+'%).');
+ if(p.repel===seasonKey()&&p.fence!=='done')lines.push('Uprawa jest zabezpieczona repelentem do końca pory roku.');
+ lines.push(p.fence==='done'?'Powierzchnia jest ogrodzona.':p.fence==='building'?'Trwa grodzenie: '+Math.round(p.fenceP/perimOf(p)*100)+'%.':'Powierzchnia nie jest ogrodzona, więc zwierzyna zgryza sadzonki (presja '+Math.round(pressure()*100)+'%).');
  if(p.state!=='prepping'&&p.state!=='planting'&&p.state!=='queued'&&p.fence!=='building')btns.push(['delplot','Usuń powierzchnię']);
  btns.push(['odd','Oddział '+p.odd]);
  return{title:'Powierzchnia odnowieniowa P'+p.id,lines,btns};
 }
 // 0.8.3: karta decyzji po złapaniu sprawcy (pouczenie / Policja)
 let decSig='';
-const DECTXT={quad:'Złapany kierujący pojazdem w lesie.',intruder:'Zatrzymany sprawca (nocny intruz).'};
+const DECTXT={quad:'Patrol zatrzymał kierującego, który wjechał pojazdem do lasu.',intruder:'Patrol zatrzymał nocnego intruza.'};
 function renderDecide(){
  const el=$('#decide');if(!el)return;
  if(!DEC.inc){decSig='';el.style.display='none';return}
  const w=Math.round(DEC.t),sig=DEC.inc.id+DEC.warn;
  if(sig!==decSig){decSig=sig;el.style.display='block';
-  el.innerHTML=`<div class="wh"><b>Patrol na miejscu</b></div><div>${DECTXT[DEC.inc.type]||DEC.inc.text}</div><div class="muted small">${DEC.warn?'Wykroczenie: pouczenie albo Policja (mandat 250 zł, więcej ochrony, ale trzeba czekać na radiowóz).':'Sprawę przejmuje Policja.'}</div><div class="dbtn">${DEC.warn?'<button data-dec="warn">Puść z pouczeniem</button>':''}<button data-dec="police">Wezwij Policję</button></div><div class="dbar"><i id="decbar"></i></div>`}
+  el.innerHTML=`<div class="wh"><b>Patrol na miejscu</b></div><div>${DECTXT[DEC.inc.type]||DEC.inc.text}</div><div class="muted small">${DEC.warn?'To wykroczenie. Możesz poprzestać na pouczeniu albo wezwać Policję: sprawca dostanie mandat (250 zł), a ochrona terenu wzrośnie, ale trzeba poczekać na radiowóz.':'Sprawę przejmuje Policja.'}</div><div class="dbtn">${DEC.warn?'<button data-dec="warn">Puść z pouczeniem</button>':''}<button data-dec="police">Wezwij Policję</button></div><div class="dbar"><i id="decbar"></i></div>`}
  const b=$('#decbar');if(b)b.style.width=Math.max(0,Math.min(100,DEC.t/30*100))+'%';
 }
 function info(){
@@ -193,23 +194,23 @@ function info(){
  if(!s||s.dead||(s.status&&(s.status==='done'||s.status==='gone'))){if(state.selected&&(s.dead||s.status))state.selected=null;el.style.display='none';infoSig='';return}
  let I;
  if(s.st!==undefined)I=treeInfo(s);
- else if(s.text)I={title:{quad:'Nielegalny wjazd',fire:'Dym nad lasem',intruder:'Nocny intruz',feed:'Paśnik do uzupełnienia',trash:'Śmieci w lesie',dump:'Dzikie wysypisko',carcass:'Padlina przy szosie'}[s.type]||'Zgłoszenie',lines:[s.text,s.type==='feed'?'Karma: '+zl(ECO.feedCost||120)+' + paliwo.':'',{new:'Czeka na decyzję.',queued:'W kolejce patrolu.',assigned:'Patrol w drodze.'}[s.status]||''].filter(Boolean),btns:[...(s.status==='new'?[['patrol',incLabel(s)]]:[])]};
+ else if(s.text)I={title:{quad:'Nielegalny wjazd',fire:'Dym nad lasem',intruder:'Nocny intruz',feed:'Paśnik do uzupełnienia',trash:'Śmieci w lesie',dump:'Dzikie wysypisko',carcass:'Padlina przy szosie'}[s.type]||'Zgłoszenie',lines:[s.text,s.type==='feed'?'Karma kosztuje '+zl(ECO.feedCost||120)+', do tego dochodzi paliwo.':'',{new:'Zgłoszenie czeka na Twoją decyzję.',queued:'Zgłoszenie czeka w kolejce patrolu.',assigned:'Patrol jest w drodze.'}[s.status]||''].filter(Boolean),btns:[...(s.status==='new'?[['patrol',incLabel(s)]]:[])]};
  else if(s.value!=null&&s.edge&&!s.pos){const sp=spotOf(s),op=sp.find(q=>q.sort==='opal'),so=op?'opal':(s.sort||'tart'),tv=sp.reduce((a,q)=>a+q.value,0);I={title:'Składnica drewna przy drodze, oddz. '+s.odd,lines:['Na składnicy: '+displayNumber(sp.reduce((a,q)=>a+q.vol,0),1)+' m³ · wartość ok. '+zl(Math.round(tv*ECO.market)),sp.map(q=>SORTS[q.sort||'tart'].name+' '+displayNumber(q.vol,1)+' m³').join(' · '),
-  so==='opal'?((op||s).truck===false?'Opał dla ludności (petenci, '+zl(PRICE.opal)+'/m³). Nadwyżkę ponad '+OPAL_KEEP+' m³ zabiera ciężarówka.':'Ciężarówka zabierze ten opał (hurtem, taniej niż petentom).'):'Cena rynkowa ×'+displayNumber(ECO.market,2)+'',
-  'Do wywozu: '+displayNumber(truckTotal(),1)+' m³ (BDF przyjeżdża sama od 5 m³, dłużyca od 20 m³ przy drogach leśnych). Opał: '+displayNumber(stackTotal(q=>q.sort==='opal'),1)+' m³.','Sprzedano łącznie: '+displayNumber(J.sold,1)+' m³.'],
+  so==='opal'?((op||s).truck===false?'Opał dla ludności: petenci kupują go w kancelarii po '+zl(PRICE.opal)+' za m³. Nadwyżkę ponad '+OPAL_KEEP+' m³ zabiera ciężarówka.':'Ten opał zabierze ciężarówka — hurtem, taniej niż przy sprzedaży petentom.'):'Mnożnik ceny rynkowej: ×'+displayNumber(ECO.market,2)+'.',
+  'Drewno do wywozu: '+displayNumber(truckTotal(),1)+' m³, opał: '+displayNumber(stackTotal(q=>q.sort==='opal'),1)+' m³.','Transport drewna: ciężarówka leśna (BDF) przyjeżdża automatycznie po zgromadzeniu co najmniej 5 m³ drewna, natomiast ciężarówka do przewozu dłużycy — od 20 m³. Odbiór drewna odbywa się wyłącznie przy drogach leśnych.','Dotychczas sprzedano łącznie '+displayNumber(J.sold,1)+' m³ drewna.'],
   btns:J.truck.v&&J.bdf.v?[]:[['truck','Zamów wywóz teraz']]}}
- else if(s.shots!==undefined&&s.outings!==undefined)I={title:'Ambona '+(s.id+1),lines:['Wyjść myśliwych: '+s.outings+' · pozyskano: '+s.got+' szt.','Zasięg ok. '+AMB_R+' px. Myśliwy wychodzi wieczorem i o świcie, dopóki trwa plan łowiecki.'],btns:[]};
- else if(s.level!=null&&s.name)I={title:'Paśnik '+s.name,lines:['Karma: '+Math.round(s.level*100)+'%',cal.season()===3?'Zimą karma ubywa. Przy niskim poziomie pojawi się zadanie.':'Poza zimą stoi nieużywany.'],btns:[]};
- else if(s.day!=null&&s.vol!=null&&s.edge)I={title:'Drewno opałowe do odbioru',lines:['Sprzedane w kancelarii: '+displayNumber(s.vol,1)+' m³','Nabywca przyjedzie ciągnikiem z przyczepą.'],btns:[]};
- else if(s.pos)I={title:VSPEC[s.kind].name[0].toUpperCase()+VSPEC[s.kind].name.slice(1),lines:[s.label||'',s.cart?'Ładunek: '+displayNumber(s.load,1)+' / '+s.cap+' m³':'',s.illegal?'Wjazd pojazdów silnikowych do lasu jest zabroniony.':''].filter(Boolean),btns:[...(s.illegal&&s.inc&&s.inc.status==='new'?[['patrol','Wyślij patrol']]:[])]};
- else if(s.kind&&ASPEC[s.kind])I={title:s.name||ASPEC[s.kind].name,lines:[{idle:'Odpoczywa / żeruje',walk:'Wędruje',run:'Ucieka!'}[s.state]||'',s.male&&s.kind==='deer'?'Byk z porożem':s.male&&s.kind==='roe'?'Rogacz':s.sow?'Locha prowadząca warchlaki (pod ochroną)':'',FA.pop[s.kind==='piglet'?'boar':s.kind]!=null?'W obwodzie: '+NAMES[s.kind==='piglet'?'boar':s.kind]+' ok. '+FA.pop[s.kind==='piglet'?'boar':s.kind]+' szt.':'',s.kind==='wolf'?'Gatunek chroniony — reguluje liczebność saren i jeleni.':''].filter(Boolean),btns:[]};
- else if(s.look)I={title:s.label?s.label[0].toUpperCase()+s.label.slice(1):'Osoba',lines:[s.kind==='picker'?(s.berry?'Zbiera jagody w borze. Czasem zostawia śmieci…':'Zbiera grzyby. Czasem zostawia śmieci…'):s.kind==='worker'?'Pracownik ekipy leśnej.':s.kind==='lesniczy'?(s.unit&&s.unit!==U[0]?'Podleśniczy: drugi patrol, dyżur w kancelarii.':'Prowadzi leśnictwo. Wyjeżdża na interwencje.'):s.kind==='hunter'?'Koło łowieckie: plan odstrzału '+['roe','deer','boar'].map(k=>FA.culled[k]+'/'+FA.plan[k]).join(', ')+' (sarny, jelenie, dziki).':s.petent?'Petent czeka przed kancelarią.':'Odpoczywa w lesie.'],btns:[]};
- else if(s.logs&&s.edge&&s.day!=null&&!s.state)I={title:'Opał do odbioru',lines:['Kupka drewna opałowego ('+displayNumber(s.vol,1)+' m³) sprzedanego petentowi; nabywca odbiera ją sam w godzinach pracy.','Jeśli zalega przy drodze, możesz ją usunąć.'],btns:[['rmpile','Usuń kupkę']]};
- else if(s.logs&&s.state)I={title:'Kłody — '+SP[s.sp].name,lines:['Miąższość '+displayNumber(s.vol,2)+' m³: '+Object.entries(pileSorts(s)).filter(([,v])=>v>.01).map(([k,v])=>SORTS[k].short+' '+displayNumber(v,2)).join(', '),s.state==='ground'?'Czeka na zrywkę.':'Ciągnik już po nie jedzie.'],btns:s.state==='ground'?[['rmpile','Usuń kłody (strata drewna)']]:[]};
+ else if(s.shots!==undefined&&s.outings!==undefined)I={title:'Ambona '+(s.id+1),lines:['Wyjścia myśliwych: '+s.outings+', pozyskane sztuki: '+s.got+'.','Zasięg ambony wynosi około '+AMB_R+' px. Myśliwi wychodzą na nią wieczorem i o świcie, dopóki plan łowiecki nie zostanie wykonany.'],btns:[]};
+ else if(s.level!=null&&s.name)I={title:'Paśnik '+s.name,lines:['Karma: '+Math.round(s.level*100)+'%',cal.season()===3?'Zimą karma ubywa. Gdy jej zabraknie, pojawi się zadanie uzupełnienia paśnika.':'Poza zimą paśnik stoi nieużywany.'],btns:[]};
+ else if(s.day!=null&&s.vol!=null&&s.edge)I={title:'Drewno opałowe do odbioru',lines:['Drewno sprzedane w kancelarii: '+displayNumber(s.vol,1)+' m³.','Nabywca przyjedzie po nie ciągnikiem z przyczepą.'],btns:[]};
+ else if(s.pos)I={title:VSPEC[s.kind].name[0].toUpperCase()+VSPEC[s.kind].name.slice(1),lines:[s.label?s.label[0].toUpperCase()+s.label.slice(1)+(/[.!?…:]$/.test(s.label)?'':'.'):'',s.cart?'Ładunek: '+displayNumber(s.load,1)+' / '+s.cap+' m³':'',s.illegal?'Wjazd pojazdów silnikowych do lasu jest zabroniony.':''].filter(Boolean),btns:[...(s.illegal&&s.inc&&s.inc.status==='new'?[['patrol','Wyślij patrol']]:[])]};
+ else if(s.kind&&ASPEC[s.kind])I={title:s.name||ASPEC[s.kind].name,lines:[{idle:'Odpoczywa albo żeruje.',walk:'Wędruje.',run:'Ucieka!'}[s.state]||'',s.male&&s.kind==='deer'?'Byk z porożem.':s.male&&s.kind==='roe'?'Rogacz.':s.sow?'Locha prowadząca warchlaki — podlega ochronie.':'',FA.pop[s.kind==='piglet'?'boar':s.kind]!=null?'Liczebność w obwodzie ('+NAMES[s.kind==='piglet'?'boar':s.kind]+'): około '+FA.pop[s.kind==='piglet'?'boar':s.kind]+' szt.':'',s.kind==='wolf'?'Wilk jest gatunkiem chronionym i naturalnie reguluje liczebność saren i jeleni.':''].filter(Boolean),btns:[]};
+ else if(s.look)I={title:s.label?s.label[0].toUpperCase()+s.label.slice(1):'Osoba',lines:[s.kind==='picker'?(s.berry?'Zbiera jagody w borze. Czasem zostawia po sobie śmieci.':'Zbiera grzyby. Czasem zostawia po sobie śmieci.'):s.kind==='worker'?'Pracownik ekipy leśnej.':s.kind==='lesniczy'?(s.unit&&s.unit!==U[0]?'Podleśniczy: jeździ jako drugi patrol i pełni dyżur w kancelarii.':'Leśniczy prowadzi leśnictwo i wyjeżdża na interwencje.'):s.kind==='hunter'?'Myśliwy z koła łowieckiego. Wykonanie planu odstrzału (sarny, jelenie, dziki): '+['roe','deer','boar'].map(k=>FA.culled[k]+'/'+FA.plan[k]).join(', ')+'.':s.petent?'Petent czeka przed kancelarią.':'Odpoczywa w lesie.'],btns:[]};
+ else if(s.logs&&s.edge&&s.day!=null&&!s.state)I={title:'Opał do odbioru',lines:['Kupka drewna opałowego ('+displayNumber(s.vol,1)+' m³) sprzedanego petentowi; nabywca odbiera ją sam w godzinach pracy.','Jeśli zalega przy drodze zbyt długo, możesz ją usunąć.'],btns:[['rmpile','Usuń kupkę']]};
+ else if(s.logs&&s.state)I={title:'Kłody — '+SP[s.sp].name,lines:['Miąższość '+displayNumber(s.vol,2)+' m³: '+Object.entries(pileSorts(s)).filter(([,v])=>v>.01).map(([k,v])=>SORTS[k].short+' '+displayNumber(v,2)).join(', '),s.state==='ground'?'Kłody czekają na zrywkę.':'Forwarder już po nie jedzie.'],btns:s.state==='ground'?[['rmpile','Usuń kłody (strata drewna)']]:[]};
  else if(s.toPlant!==undefined)I=plotInfo(s);
  else if(s.isSlash){if(!s.t.slash){state.selected=null;el.style.display='none';return}
   const road=roadClearance(s.x,s.y,['forest','dukt'])<120,yrs=Math.max(1,Math.round(10-(s.t.stumpAge||0)));
-  I={title:'Chrust — gałęzie po ścince',lines:['Oddział '+oddzial(s.x,s.y)+' · '+SP[s.t.sp].name.split(' ')[0],road?'Leży przy drodze: zbiorą go ludzie z zezwoleniem na chrust (kancelaria, 40 zł) — przyjeżdżają osobówką z przyczepką.':'Leży w głębi lasu: nikt po niego nie przyjdzie, zbutwieje sam.','Butwieje sam za ok. '+yrs+' '+(yrs===1?'rok':yrs<5?'lata':'lat')+'. Znika też przy orce powierzchni.'],btns:[]}}
+  I={title:'Chrust — gałęzie po ścince',lines:['Oddział '+oddzial(s.x,s.y)+' · '+SP[s.t.sp].name.split(' ')[0],road?'Chrust leży przy drodze, więc zbiorą go osoby, które wykupiły w kancelarii zezwolenie na chrust (40 zł). Przyjeżdżają po niego samochodem osobowym z przyczepką.':'Chrust leży w głębi lasu, więc nikt po niego nie przyjdzie i zbutwieje na miejscu.','Rozłoży się sam za około '+yrs+' '+(yrs===1?'rok':yrs<5?'lata':'lat')+'. Znika również podczas orki powierzchni.'],btns:[]}}
  if(!I){el.style.display='none';return}
  const sig=JSON.stringify(I),fresh=sig!==infoSig;infoSig=sig;
  if(fresh)el.innerHTML=`<div class="wh"><b>${I.title}</b><button class="xbtn sm" data-x="info" aria-label="Zamknij">✕</button></div>`+I.lines.map(l=>`<div class="ln">${l}</div>`).join('')+(I.btns.length?`<div class="ibtns">${I.btns.map(([k,t])=>`<button data-ia="${k}">${t}</button>`).join('')}</div>`:'')+(s.pos||s.look||(s.kind&&ASPEC[s.kind]&&!s.edge)?`<div class="muted small">F: śledź kamerą</div>`:'');
@@ -277,25 +278,25 @@ export function renderBase(){
  const B=BASE.stats,pod=ECO.staff.pod,pr=pressure();
  const meter=v=>`<div class="meter"><i style="width:${Math.round(clamp(v,0,1)*100)}%"></i></div>`;
 const SEC={
-  kanc:`<div class="bsec"><h3>KANCELARIA</h3><p class="hint2">Petenci przychodzą pon.–pt. 8–15: opał (${zl(PRICE.opal)}/m³), zezwolenia, sadzonki. Ktoś musi być w kancelarii.</p>
+  kanc:`<div class="bsec"><h3>KANCELARIA</h3><p class="hint2">Petenci przychodzą od poniedziałku do piątku w godzinach 8–15. Kupują opał (${zl(PRICE.opal)} za m³), zezwolenia i sadzonki. W tym czasie ktoś musi pełnić dyżur w kancelarii.</p>
   ${row('Petenci obsłużeni / nieobsłużeni',B.visits+' / '+B.missed)}${row('Sprzedany opał',displayNumber(B.opalVol,1)+' m³ ('+B.opal+' umów)')}${row('Zezwolenia / sadzonki',B.permits+' / '+B.seedlings)}
   ${BASE.log.length?'<p class="hint2">'+BASE.log.slice(0,3).join(' · ')+'</p>':''}</div>`,
   kadry:`<div class="bsec"><h3>KADRY</h3>
-  ${row('Ekipa cięcia','pomarańczowa · płacisz za m³')}${row('Ekipa sadzenia','zielona · w cenie sadzonki')}
+  ${row('Ekipa cięcia','pomarańczowa · płatność za m³')}${row('Ekipa sadzenia','zielona · w cenie sadzonki')}
   ${row('Wynajęta ekipa cięcia',hiredCrew('fell')?'pracuje do końca pory roku':'—')}${hiredCrew('fell')?'':btn('hireFell','Wynajmij ekipę cięcia do końca pory roku · '+zl(HIRE_COST))}
   ${row('Wynajęta ekipa sadzenia',hiredCrew('plant')?'pracuje do końca pory roku':'—')}${hiredCrew('plant')?'':btn('hirePlant','Wynajmij ekipę sadzenia do końca pory roku · '+zl(HIRE_COST))}
   ${row('Podleśniczy',pod?'pracuje · '+zl(COST.pod)+'/dzień':BASE.garage?'—':'wymaga garażu')}
   ${pod?btn('firePod','Zwolnij podleśniczego',false,true):btn('hirePod','Zatrudnij podleśniczego · '+zl(COST.pod)+'/dzień',!BASE.garage)}
-  ${hint('kadry',`Ekipy biorą najpierw cięcia sanitarne, potem najstarsze zlecenie razem z zadaniami obok. Wynajęta ekipa kosztuje jednorazowo, za pracę płacisz jak za stałe. Podleśniczy to drugi patrol i dyżur w kancelarii.`)}</div>`,
+  ${hint('kadry',`Ekipy w pierwszej kolejności wykonują cięcia sanitarne, a następnie najstarsze zlecenie wraz z zadaniami położonymi w pobliżu. Wynajęcie dodatkowej ekipy to opłata jednorazowa, a za samą pracę płacisz tak samo jak w przypadku stałej ekipy. Podleśniczy jeździ jako drugi patrol i pełni dyżur w kancelarii.`)}</div>`,
   bud:`<div class="bsec"><h3>BUDYNKI</h3>
   ${row('Szkółka leśna',BASE.nursery?nurseryText()+' (wszystkie gatunki)':'—')}${BASE.nursery?meter(ECO.nursery.stock/1200):btn('nursery','Zbuduj szkółkę · '+zl(BUILD.nursery))}
   ${row('Garaż z magazynem',BASE.garage?'gotowy · karma '+zl(ECO.feedCost):'—')}${BASE.garage?'':btn('garage','Zbuduj garaż z magazynem · '+zl(BUILD.garage))}
-  ${hint('bud',`Każda sadzonka ze szkółki kosztuje ${zl(COST.plantNursery)} zamiast ${zl(COST.plant)} i lepiej się przyjmuje. Szkółka daje ok. 400 sadzonek na porę roku (bez zimy). Garaż: druga terenówka i tańsza karma.`)}</div>`,
+  ${hint('bud',`Każda sadzonka ze szkółki kosztuje ${zl(COST.plantNursery)} zamiast ${zl(COST.plant)} i lepiej się przyjmuje. Szkółka dostarcza około 400 sadzonek na porę roku (z wyjątkiem zimy). Garaż mieści drugą terenówkę, a dzięki magazynowi karma dla zwierzyny jest tańsza.`)}</div>`,
   sprz:`<div class="bsec"><h3>SPRZĘT</h3>
-  ${row('Zrywka',J.skid.owned?MACH.forwarder.name+' (własny)':MACH.tractor.name+' (usługa)')}${J.skid.owned?row('Utrzymanie forwardera',zl(COST.fwd)+' za dzień pracy'):`<div class="offer"><b>Forwarder z żurawiem · ${zl(MACH.forwarder.price)}</b><span>Utrzymanie: ${zl(COST.fwd)} za każdy dzień, w którym pracuje (dni bez pracy nic nie kosztują).</span><span>Zrywka własnym forwarderem ${zl(COST.skidOwn)}/m³ zamiast ${zl(COST.skid)}/m³ (usługa). Ładowność ${MACH.forwarder.cap} m³ zamiast ${MACH.tractor.cap} m³, ładuje żurawiem, stoi na placu.</span></div>${btn('fwd','Kup forwarder · '+zl(MACH.forwarder.price))}`}
+  ${row('Zrywka',J.skid.owned?MACH.forwarder.name+' (własny)':MACH.tractor.name+' (usługa)')}${J.skid.owned?row('Utrzymanie forwardera',zl(COST.fwd)+' za dzień pracy'):`<div class="offer"><b>Forwarder z żurawiem · ${zl(MACH.forwarder.price)}</b><span>Utrzymanie kosztuje ${zl(COST.fwd)} za każdy dzień pracy; dni bez pracy nic nie kosztują.</span><span>Zrywka własnym forwarderem kosztuje ${zl(COST.skidOwn)} za m³ zamiast ${zl(COST.skid)} za m³ w usłudze. Forwarder zabiera ${MACH.forwarder.cap} m³ zamiast ${MACH.tractor.cap} m³, sam ładuje drewno żurawiem, a między zleceniami stoi na placu.</span></div>${btn('fwd','Kup forwarder · '+zl(MACH.forwarder.price))}`}
   ${row('Wynajęty forwarder (czerwony)',J.skid2.hired!=null?'pracuje do końca pory roku · '+zl(COST.skidOwn)+'/m³':'—')}${J.skid2.hired!=null?'':btn('hireFwd','Wynajmij drugi forwarder do końca pory roku · '+zl(FWD_HIRE))}
   ${row('Drewno przy drogach',displayNumber(stackTotal(),1)+' m³ · ok. '+zl(Math.round(stackValue()*ECO.market)))}${row('w tym opał dla ludności',displayNumber(stackTotal(q=>q.sort==='opal'),1)+' m³')}${row('Cena rynkowa','×'+displayNumber(ECO.market,2))}
-  <p class="hint2">Ciężarówka przyjeżdża sama od 10 m³ przy drogach. Wcześniej wywóz zamówisz na karcie stosu.</p>
+  <p class="hint2">Transport drewna: ciężarówka leśna (BDF) przyjeżdża automatycznie po zgromadzeniu co najmniej 5 m³ drewna, natomiast ciężarówka do przewozu dłużycy — od 20 m³. Odbiór drewna odbywa się wyłącznie przy drogach leśnych. Wcześniejszy wywóz możesz zamówić na karcie stosu.</p>
   ${(()=>{const c=costParts(),v=[c.varB?'ekipa B '+zl(c.varB):'',c.varF?'forwarder '+zl(c.varF):''].filter(Boolean).join(', ');return row('Koszty dzienne stałe',zl(c.fixed))+(v?row('Tylko za dzień pracy',v):'')})()}</div>`,
   zdr:`<div class="bsec"><h3>ZDROWIE LASU</h3>
   ${row('Pogoda',WX[HL.wx])}${row('Susza ściółki',Math.round(HL.dry*100)+'%')}${meter(HL.dry)}${row('Zagrożenie pożarowe',LVLN[fireLvl()])}
@@ -303,42 +304,42 @@ const SEC={
   ${btn('traps',trapsOn()?'Pułapki feromonowe wyłożone':'Pułapki feromonowe na kornika · '+zl(HC.traps)+'/rok',trapsOn())}
   ${btn('tower',HL.tower?'Wieża przeciwpożarowa działa':'Zbuduj wieżę przeciwpożarową · '+zl(HC.tower),HL.tower)}
   ${row('Zakaz wstępu do lasu',HL.ban?'ogłoszony przez nadleśnictwo':'—')}
-  ${hint('zdr',`Kornik zasiedla świerki po cichu, rude korony widać po kilku dniach. Susza i wiatrołomy mu sprzyjają, pułapki hamują. Przy najwyższym zagrożeniu pożarowym nadleśnictwo samo ogłasza zakaz wstępu.`)}</div>`,
+  ${hint('zdr',`Kornik zasiedla świerki niepostrzeżenie, a rude korony pojawiają się dopiero po kilku dniach. Susza i wiatrołomy sprzyjają jego rozwojowi, natomiast pułapki feromonowe go hamują. Przy najwyższym stopniu zagrożenia pożarowego nadleśnictwo samo ogłasza zakaz wstępu do lasu.`)}</div>`,
   porz:`<div class="bsec"><h3>PORZĄDEK W LESIE</h3>
   ${row('Kontrola wjazdów (fotopułapki i znaki)',ctrlOn()?'działa · '+zl(OC.camsDay)+'/dzień':'—')}${ctrlOn()?'':btn('cams','Kontrola wjazdów: fotopułapki i znaki zakazu · '+zl(ctrlCost()))}
   ${row('Szlabany na wjazdach',barClosed()?'zamknięte':'otwarte')}${btn('bar',barClosed()?'Otwórz szlabany':'Zamknij szlabany',false,barClosed())}
   ${row('Parking leśny z koszem',parkingOn()?'jest · '+zl(OC.parkingDay)+'/dzień':'—')}${parkingOn()?'':btn('parking','Zbuduj parking przy szosie · '+zl(OC.parking))}
   ${row('Znaki i odblaski przy szosie',repelOn()?'stoją · '+zl(VC.repelDay)+'/dzień':'—')}${repelOn()?'':btn('buyrepel','Znaki A-18b i odblaski przy szosie · '+zl(VC.repel))}
-  ${hint('porz',`Kontrola wjazdów: fotopułapki zgłaszają wjazdy i wysypiska od razu, znaki zakazu zmniejszają liczbę quadów i nocnych intruzów. Znaki i odblaski przy szosie ograniczają potrącenia zwierzyny. Zamknięte szlabany: auta odwiedzających zostają na parkingu albo poboczu przed szlabanem (bez parkingu część rezygnuje), rowery, quady i crossy przejeżdżają obok. Ekipy, maszyny i myśliwi otwierają i zamykają szlaban sami, straż i Policja przejeżdżają bez postoju. Wywóz wysypiska: ${zl(OC.waste)}.`)}</div>`,
+  ${hint('porz',`Kontrola wjazdów: fotopułapki od razu zgłaszają nielegalne wjazdy i wysypiska, a znaki zakazu zmniejszają liczbę quadów i nocnych intruzów. Znaki i odblaski przy szosie ograniczają liczbę potrąceń zwierzyny. Gdy szlabany są zamknięte, odwiedzający zostawiają auta na parkingu albo na poboczu przed szlabanem (jeśli nie ma parkingu, część z nich rezygnuje), a rowery, quady i motocykle crossowe przejeżdżają obok. Ekipy, maszyny i myśliwi sami otwierają i zamykają szlaban, a straż pożarna i Policja przejeżdżają bez zatrzymywania się. Wywóz wysypiska kosztuje ${zl(OC.waste)}.`)}</div>`,
   fin:`<div class="bsec"><h3>FINANSE</h3>
   ${row('Faktury do zapłaty',owedCount()?owedCount()+' · '+zl(owedTotal()):'—')}${owedCount()?btn('payall','Zapłać wszystkie · '+zl(owedTotal())):''}
   ${btn('autopay',FIN.auto?'Płacenie automatyczne: włączone':'Płacenie automatyczne: wyłączone',false,true)}
   ${row('Pożyczka',FIN.loan?'zostało '+zl(FIN.loan.left)+' · rata '+zl(FIN.loan.inst):'—')}${FIN.loan?btn('repay','Spłać całość · '+zl(FIN.loan.left),false,true):LOANS.map((l,k)=>btn('loan'+k,'Pożyczka '+zl(l.amount)+' · '+Math.round(l.rate*100)+'%, '+l.parts+' rat')).join('')}
-  ${hint('fin',`Faktura przychodzi co dzień, termin to jedna pora roku. Po terminie: upomnienie (+5%), po porze roku wezwanie (+10%, ekipy czekają na zapłatę), po trzech porach windykacja (+15%). Pożyczka: jedna naraz, raty na początku pory roku.`)}</div>`,
+  ${hint('fin',`Faktury przychodzą codziennie, a termin płatności wynosi jedną porę roku. Po terminie przychodzi upomnienie (+5%), po kolejnej porze roku wezwanie do zapłaty (+10%, a ekipy wstrzymują pracę do czasu zapłaty), a po trzech porach roku sprawa trafia do windykacji (+15%). Naraz można mieć tylko jedną pożyczkę; raty pobierane są na początku każdej pory roku.`)}</div>`,
   pods:costSummary(),
   odn:`<div class="bsec"><h3>ODNOWIENIE I ETAT</h3>
   ${row('Etat cięć w tej porze roku (rębnia)',displayNumber(etatUsed(),1)+' / '+ETAT_M3+' m³'+(etatPlanned()>etatUsed()+.05?' · zlecone '+displayNumber(etatPlanned()-etatUsed(),1)+' m³':''))}${meter(etatUsed()/ETAT_M3)}
   ${row('Pniaki nieodnowione / czekające na samosiew',ECO.unrenewed+' / '+(ECO.natWait||0))}
-  ${hint('odn',`Rębnia (dojrzałe drzewa) liczy się do etatu; ponad etat ekipa czeka do nowej pory roku. Trzebież i cięcia sanitarne bez limitu. Pojedyncze sadzonki i przy pniakach idą na placówki (ok. 85%, +${displayNumber(COST.plac,2)} zł/szt.), orka (pług) tylko na powierzchniach odnowieniowych (ok. 90%). W puszczy (oddz. 104) i w rezerwatach pniaki odnawiają się same, a martwe drzewa zostają w lesie.`)}</div>`,
+  ${hint('odn',`Rębnia, czyli wycinka dojrzałych drzew, wlicza się do etatu cięć. Po jego wyczerpaniu ekipa czeka do nowej pory roku. Trzebież i cięcia sanitarne nie mają limitu. Pojedyncze sadzonki i sadzonki przy pniakach sadzi się na placówkach (przyjmuje się około 85%, dopłata ${displayNumber(COST.plac,2)} zł za sztukę). Orkę pługiem wykonuje się wyłącznie na powierzchniach odnowieniowych (przyjmuje się około 90%). W puszczy (oddz. 104) i w rezerwatach pniaki odnawiają się samoistnie, a martwe drzewa zostają w lesie.`)}</div>`,
   znaki:`<div class="bsec"><h3>ŚCIEŻKA PRZYRODNICZA</h3>
   ${row('Ścieżka przyrodnicza',trailOn()?'otwarta · wycieczek: '+vs().tours+' ('+vs().kids+' uczniów)':'—')}${trailOn()?'':btn('buytrail','Zbuduj ścieżkę przyrodniczą · '+zl(VC.trail))}
-  ${hint('znaki',`Wycieczki szkolne w dni robocze, każda zostawia ${zl(VC.tourFee)}.`)}</div>`,
+  ${hint('znaki',`W dni robocze ścieżkę odwiedzają wycieczki szkolne. Każda z nich wnosi opłatę w wysokości ${zl(VC.tourFee)}.`)}</div>`,
   przyr:`<div class="bsec"><h3>PRZYRODA — DZIENNIK OBSERWACJI</h3>
   ${journalRows().map(([a,b])=>row(a,b)).join('')}
   ${row('Rezerwaty',NAT.reserve.length?NAT.reserve.map(q=>'oddz. '+q).join(', '):'—')}${row('Pomniki przyrody',NAT.monuments.length+' / 3')}${row('Martwe drewno (zostawione)',NAT.dw)}${row('Bogactwo przyrody','×'+displayNumber(richness(),1))}
   ${NAT.log.slice(0,4).map(e=>`<p class="hint2">${e.text}</p>`).join('')}
-  ${hint('przyr',`Rzadkie ptaki przylatują raz, wokół gniazda jest strefa ochronna. Rezerwat, pomniki i martwe drewno zwiększają szansę na przylot.`)}</div>`,
+  ${hint('przyr',`Każdy rzadki gatunek pojawia się w lesie tylko raz. Wokół gniazda obowiązuje strefa ochronna, a bocian czarny na zimę odlatuje do Afryki. Rezerwaty, pomniki przyrody i pozostawione martwe drewno zwiększają szansę na przylot.`)}</div>`,
   kolo:`<div class="bsec"><h3>KOŁO ŁOWIECKIE</h3>
   ${['roe','deer','boar','fox','hare'].map(k=>row(NAMES[k][0].toUpperCase()+NAMES[k].slice(1),FA.pop[k]+(FA.plan[k]!=null?' · plan '+FA.culled[k]+'/'+FA.plan[k]:''))).join('')}
   ${row('Ambony',AMB.list.length+' / '+AMB_MAX+' · '+AMB.list.reduce((a,q)=>a+q.got,0)+' szt. pozyskano')}${nextAmbonaSlot()==null?'':btn('ambona','Wybuduj ambonę '+AMBONY[nextAmbonaSlot()].name+' · '+zl(AMB_COST))}
-  <p class="hint2">Każda ambona ma własnego myśliwego (wieczorem i o świcie, zasięg ok. ${AMB_R} px). Miejsca są stałe.</p>
+  <p class="hint2">Na każdą ambonę wychodzi własny myśliwy — wieczorem i o świcie. Zasięg ambony wynosi około ${AMB_R} px, a miejsca na ambony są z góry wyznaczone.</p>
   ${row('Wilki (wędrowne, chronione)',FA.wolf.present?'wataha: '+FA.wolf.size+' os. · jeszcze ok. '+Math.max(1,Math.ceil(FA.wolf.until-state.days))+' dni':'nie ma w lesie')}
   ${row('Presja na uprawy',Math.round(pr*100)+'%')}${meter(pr/2)}
-  ${FA.reduction?'<p class="hint2">Odstrzał redukcyjny przyjęty — myśliwi co wieczór na ambonie.</p>':btn('reduce','Wniosek o odstrzał redukcyjny',pr<1.05)}</div>`,
+  ${FA.reduction?'<p class="hint2">Wniosek o odstrzał redukcyjny został przyjęty. Myśliwi wychodzą na ambony co wieczór.</p>':btn('reduce','Wniosek o odstrzał redukcyjny',pr<1.05)}</div>`,
   pas:`<div class="bsec"><h3>PAŚNIKI (${FA.feeders.length}/${FEED_MAX})</h3>
   ${FA.feeders.map(f=>row(f.name,Math.round(f.level*100)+'%')+meter(f.level)).join('')}
   ${nextFeederSlot()==null?'':btn('pasnik','Wybuduj paśnik '+FEEDERS[nextFeederSlot()].name+' · '+zl(FEED_COST))}
-  ${hint('pas',`Pusty paśnik zimą to zadanie dla patrolu (${zl(ECO.feedCost||120)} za karmę). Maks. ${FEED_MAX} paśniki.`)}</div>`
+  ${hint('pas',`Zimą pusty paśnik trzeba uzupełnić — to zadanie dla patrolu (karma kosztuje ${zl(ECO.feedCost||120)}). Można postawić najwyżej ${FEED_MAX} paśniki.`)}</div>`
  };
  // 1.3.0: pięć zakładek (było siedem): podsumowanie kosztów w Finansach, ochrona terenu osobno, przyroda razem z łowiectwem
  const TABS=[['kadry','Kadry i sprzęt',['kanc','kadry','bud','sprz']],['fin','Finanse',['fin','pods']],['las','Las',['zdr','odn']],['ochr','Ochrona terenu',['porz']],['przyr','Przyroda i łowy',['przyr','znaki','kolo','pas']]];
@@ -377,7 +378,7 @@ function costSummary(){
    <h4>Wycinka w liczbach</h4>
    ${row2('Ścięte drzewa (płatne)',fell)}${row2('— rębnia',fk('cut'))}${row2('— trzebież',fk('thin'))}${row2('— sanitarne (płaci nadleśnictwo)',fk('san'))}${row2('Ścinka i zrywka na płatne drzewo',fell?zl(Math.round(fellCost/fell)):'—')}${row2('Drewno sprzedane (ciężarówka)',displayNumber(m3,1)+' m³'+(m3?' · '+zl(Math.round(wood/m3))+'/m³':''))}${row2('Opał sprzedany',displayNumber(cnt.opal||0,1)+' m³')}</div>
    <div><h4>Koszty <b>${zl(Math.round(sC))}</b></h4>${cst.length?cst.map(c=>line(c,tot[c],sC,'cst')).join(''):'<p class="hint2">Brak kosztów w tym okresie.</p>'}
-   <p class="hint2">Praca ekip (ścinka, zrywka, sadzenie) liczy się w dniu wykonania, nawet jeśli faktura nie jest jeszcze zapłacona${owed||accr?' — teraz do zapłaty '+zl(owed)+(accr?' i naliczone dziś '+zl(accr):''):''}. Kary za zwłokę liczą się w dniu zapłaty.</p></div></div>
+   <p class="hint2">Koszt pracy ekip (ścinki, zrywki i sadzenia) jest księgowany w dniu jej wykonania, nawet jeśli faktura nie została jeszcze zapłacona${owed||accr?'. Obecnie do zapłaty pozostaje '+zl(owed)+(accr?', a dzisiaj naliczono '+zl(accr):''):''}. Kary za zwłokę są księgowane w dniu zapłaty.</p></div></div>
   ${LED.note?`<p class="hint2">${LED.note}</p>`:''}</div>`;
 }
 const row2=(a,b)=>`<div class="rrow"><span>${a}</span><b>${b}</b></div>`;
@@ -400,10 +401,10 @@ export function showReport(r){
   ${r.fauna&&r.fauna.fed!=null?row('Paśniki z karmą przez zimę',Math.round(r.fauna.fed*100)+'%'):''}
   ${r.fauna?row('Zgryzione sadzonki (zniszczone)',r.fauna.browsed+' ('+r.fauna.browsedKilled+')'):''}
   ${r.nursery?row('Szkółka: nowe sadzonki',r.nursery):''}
-  <p>Las urósł o ${r.years} lata.${r.grown?' '+r.grown+' sadzonek wyrosło na młode drzewka.':''}${r.young?' Udatność nowych upraw: '+Math.round((1-r.died/r.young)*100)+'% (nie przyjęło się: '+r.died+').':''}${r.unrenewed?' Pniaków bez odnowienia: '+r.unrenewed+'.':''}</p>
-  ${r.fauna&&r.fauna.browsed>20?'<p><b>Zgryzanie!</b> Sarny i jelenie niszczą niegrodzone uprawy. Ogródź powierzchnie (karta powierzchni) albo złóż wniosek o odstrzał redukcyjny (L).</p>':''}
-  ${r.next===3?'<p><b>Zima:</b> ekipa nie sadzi, a paśniki trzeba uzupełniać karmą.</p>':r.next===0?'<p><b>Wiosna:</b> okres lęgowy — w oddz. 103 wycinka czeka do lata. Uwaga na wypalanie traw.</p>':r.next===2?'<p><b>Jesień:</b> grzybiarze w lesie i rykowisko o zmierzchu.</p>':''}
-  <p><b>Teraz ${SEASONS[r.next]}.</b> Nowy plan: ${N.cut} m³ drewna, ${N.plant?N.plant+' sadzonek, ':''}${N.handle} zgłoszenia${N.plant?'':' (zimą bez sadzenia)'} — premia ${zl(N.reward)}.</p>
+  <p>Las urósł o ${r.years} lata.${r.grown?' Z sadzonek wyrosło '+r.grown+' młodych drzewek.':''}${r.young?' Udatność nowych upraw wyniosła '+Math.round((1-r.died/r.young)*100)+'% (nie przyjęło się '+r.died+' sadzonek).':''}${r.unrenewed?' Liczba pniaków bez odnowienia: '+r.unrenewed+'.':''}</p>
+  ${r.fauna&&r.fauna.browsed>20?'<p><b>Zgryzanie!</b> Sarny i jelenie niszczą nieogrodzone uprawy. Ogródź powierzchnie (na karcie powierzchni) albo złóż wniosek o odstrzał redukcyjny (L).</p>':''}
+  ${r.next===3?'<p><b>Zima:</b> ekipy nie sadzą, bo ziemia jest zamarznięta, a paśniki trzeba regularnie uzupełniać karmą.</p>':r.next===0?'<p><b>Wiosna:</b> trwa okres lęgowy, dlatego wycinka w oddz. 103 musi poczekać do lata. Uważaj na wypalanie traw.</p>':r.next===2?'<p><b>Jesień:</b> do lasu przychodzą grzybiarze, a o zmierzchu trwa rykowisko. Bocian czarny odlatuje na zimowiska.</p>':''}
+  <p><b>Nadchodzi ${SEASONS[r.next]}.</b> Nowy plan zakłada pozyskanie ${N.cut} m³ drewna, ${N.plant?'posadzenie '+pf(N.plant,'sadzonki','sadzonek','sadzonek')+' ':''}${N.plant?'i ':''}obsłużenie ${pf(N.handle,'zgłoszenia','zgłoszeń','zgłoszeń')}${N.plant?'':' (zimą się nie sadzi)'}. Premia za jego wykonanie wynosi ${zl(N.reward)}.</p>
   <button id="report-close">DALEJ</button>`;
  if(!state.modal)state.wasPaused=state.paused;
  $('#report').classList.remove('hidden');state.paused=true;state.modal=true;
@@ -412,7 +413,7 @@ export function showReport(r){
 export function bindUI(){
  for(const b of document.querySelectorAll('[data-tool]'))b.addEventListener('click',()=>setTool(b.dataset.tool));
  $('#crewbtn').addEventListener('click',dispatchCrew);$('#cancelbtn').addEventListener('click',clearOrders);
- $('#spbar').addEventListener('click',e=>{const b=e.target.closest('[data-sp]');if(!b)return;J.plantSp=b.dataset.sp;spBar();toast('Sadzisz: '+SP[J.plantSp].name+'.')});
+ $('#spbar').addEventListener('click',e=>{const b=e.target.closest('[data-sp]');if(!b)return;J.plantSp=b.dataset.sp;spBar();toast('Wybrany gatunek do sadzenia: '+SP[J.plantSp].name+'.')});
  $('#decide').addEventListener('click',e=>{const b=e.target.closest('[data-dec]');if(b){decide(b.dataset.dec);renderDecide()}});
  $('#incidents').addEventListener('click',e=>{
   const b=e.target.closest('[data-inc]');if(b){const q=E.incidents.find(x=>x.id==b.dataset.inc);dispatch(q);incSig='';hud();return}
@@ -425,12 +426,12 @@ export function bindUI(){
   else if(k==='truck')orderTruck(true);
   else if(k==='fence')orderFence(s);
   else if(k==='mix')cycleMix(s);
-  else if(k==='rmpile'){s.dead=true;state.selected=null;toast('Kupkę usunięto.');hud()}
+  else if(k==='rmpile'){s.dead=true;state.selected=null;toast('Kupkę drewna usunięto.');hud()}
   else if(k==='assess')orderAssess(s.x,s.y);
   else if(k==='monument')makeMonument(s);
   else if(k==='odd')toggleOdd(true,oddzial(s.x+(s.w?s.w/2:0),s.y+(s.h?s.h/2:0)));
   else if(k==='prep')orderPrep(s);else if(k==='plantplot')orderPlant(s);else if(k==='delplot'){removePlot(s);if(!R.plots.includes(s))state.selected=null}
-  else if(k==='plantnear'){const r=plantNear(s);if(r==='ok')sfx('mark');else toast(r==='plan'?'Sadzonka przy tym pniaku jest już zaplanowana.':'Przy tym pniaku nie ma miejsca na sadzonkę.')}
+  else if(k==='plantnear'){const r=plantNear(s);if(r==='ok')sfx('mark');else toast(r==='plan'?'Sadzonka przy tym pniaku jest już zaplanowana.':'Przy tym pniaku nie ma wolnego miejsca na sadzonkę.')}
   infoSig='';hud();
  });
  $('#basebtn').addEventListener('click',()=>toggleBase(true));
@@ -440,7 +441,7 @@ export function bindUI(){
  for(const el of [$('#status'),document.querySelector('.patrols')])el.addEventListener('click',e=>{const r=e.target.closest('[data-unit]');if(r&&state.playing&&!state.modal)showUnit(r.dataset.unit)});
  $('#oddcard').addEventListener('click',e=>{const b=e.target.closest('[data-oa]');if(b)oddAct(b.dataset.oa)});
  $('#moneybtn').addEventListener('click',()=>{if(state.playing)openBaseTab('fin')});
- $('#qbtn').addEventListener('click',()=>{const q=E.incidents.find(x=>x.status==='new');if(q)dispatch(q);else toast('Brak nowych zgłoszeń.')});
+ $('#qbtn').addEventListener('click',()=>{const q=E.incidents.find(x=>x.status==='new');if(q)dispatch(q);else toast('Nie ma nowych zgłoszeń.')});
  $('#basecard').addEventListener('click',e=>{
   const tb=e.target.closest('[data-tab]');if(tb){baseTab=tb.dataset.tab;baseSig='';renderBase();return}
   const pe=e.target.closest('[data-per]');if(pe){sumPer=pe.dataset.per;baseSig='';renderBase();return}

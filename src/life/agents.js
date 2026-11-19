@@ -33,14 +33,14 @@ export const cartFront=c=>{const d=CARTS[c.kind],f=fwd(c.angle);return[c.x+f[0]*
 const DUKT=['main','forest','dukt'];
 export const VSPEC={
  car:{speed:100,forest:.55,acc:38,hw:10,hh:23,wb:30,name:'samochód osobowy'},
- carT:{speed:84,forest:.5,acc:30,hw:10,hh:23,wb:30,hitch:24,cart:'small',name:'samochód z przyczepką (chrust)'},   // 1.4.0
+ carT:{speed:84,forest:.5,acc:30,hw:10,hh:23,wb:30,hitch:24,cart:'small',name:'samochód osobowy z przyczepką (po chrust)'},   // 1.4.0
  patrol:{speed:104,forest:.62,acc:42,hw:11,hh:25,wb:32,name:'terenówka leśniczego',allow:['main','forest','drive','dukt']},
  van:{speed:88,forest:.6,acc:32,hw:11,hh:27,wb:34,name:'bus ekipy leśnej',allow:DUKT},
  tractor:{speed:42,forest:.9,off:20,acc:14,hw:16,hh:30,wb:30,hitch:31,cart:'forest',name:'ciągnik z wyciągarką',allow:DUKT},
- forwarder:{speed:48,forest:.9,off:30,acc:16,hw:15,hh:19,wb:22,hitch:21,cart:'bunk',name:'forwarder (zrywka)',allow:DUKT},
+ forwarder:{speed:48,forest:.9,off:30,acc:16,hw:15,hh:19,wb:22,hitch:21,cart:'bunk',name:'forwarder z żurawiem',allow:DUKT},
  plower:{speed:40,forest:.9,off:16,acc:14,hw:16,hh:30,wb:30,hitch:31,cart:'plow',name:'ciągnik z pługiem LPz',allow:DUKT},
- truck:{speed:82,forest:.55,acc:20,hw:14,hh:37,wb:44,hitch:34,cart:'log',name:'dłużyca z żurawiem HDS (wózek do dłużycy)'},
- bdf:{speed:96,forest:.68,acc:26,hw:13,hh:34,wb:40,name:'ciężarówka BDF z żurawiem HDS'},   // 1.4.0: krótka, szybsza, obsługuje też dukty
+ truck:{speed:82,forest:.55,acc:20,hw:14,hh:37,wb:44,hitch:34,cart:'log',name:'ciężarówka do przewozu dłużycy z żurawiem HDS'},
+ bdf:{speed:96,forest:.68,acc:26,hw:13,hh:34,wb:40,name:'ciężarówka leśna BDF z żurawiem HDS'},   // 1.4.0: krótka, szybsza, obsługuje też dukty
  quad:{speed:70,forest:1,acc:40,hw:7,hh:11,wb:16,wild:true,name:'quad',allow:DUKT},
  cross:{speed:80,forest:1,acc:45,hw:3,hh:11,wb:16,wild:true,name:'motocykl crossowy',allow:DUKT},
  firetruck:{speed:92,forest:.6,acc:34,hw:13,hh:34,wb:40,name:'wóz strażacki',allow:DUKT},
@@ -258,7 +258,7 @@ export class Vehicle{
  }
  draw(){
   const [x,y]=this.pos;if(!near(x,y,120))return;
-  if(this.cart&&!this.folded){const c=this.cart;if(c.kind==='small')S.smallTrailer(ctx,c,this.load||0);else if(c.kind==='forest')S.forestTrailer(ctx,c,this.load,this.cap);else if(c.kind==='log')S.logTrailer(ctx,c,this.load,this.cap);else if(c.kind==='plow')S.plowTop(ctx,c,this.plowing);else S.bunkTop(ctx,c,this.load,this.cap,this.col)}
+  if(this.cart&&!this.folded){const c=this.cart;if(c.kind==='small')S.smallTrailer(ctx,c,this.load||0);else if(c.kind==='forest')S.forestTrailer(ctx,c,this.load,this.cap);else if(c.kind==='log')S.logTrailer(ctx,c,this.load,this.cap);else if(c.kind==='plow')S.plowTop(ctx,c,this.plowing);else S.bunkTop(ctx,c,this.load,this.cap,this.col,this.travel)}
   const k=this.kind,h=this.heading,t=this.travel;
   if(k==='car'||k==='carT')S.carTop(ctx,x,y,h,this.color,t);
   else if(k==='patrol')S.patrolTop(ctx,x,y,h,t,this.beacon);

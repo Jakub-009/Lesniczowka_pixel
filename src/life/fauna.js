@@ -1,6 +1,6 @@
 // Zwierzyna (0.5): liczebność w obwodzie (widać tylko jej część), rozród wiosną, wilki, plan łowiecki koła,
 // paśniki i dokarmianie zimą, zgryzanie niegrodzonych sadzonek, rykowisko jesienią.
-import {state,cal,toast,clamp,zl,SEASONS,displayNumber} from '../core.js';
+import {state,cal,toast,clamp,zl,SEASONS,displayNumber,pf} from '../core.js';
 import {POLANA,FEEDERS,inRect,roadClearance} from '../map.js';
 import {trees,STAND,removeTree,dirtyTree,SAPLING_AGE} from '../forest.js';
 import {E} from '../ents.js';
@@ -31,10 +31,10 @@ export const nextFeederSlot=()=>{for(let i=0;i<FEEDERS.length;i++)if(!FA.feeders
 export const feederSlotAt=(x,y,r=60)=>{let b=null,bd=r;FEEDERS.forEach((f,i)=>{if(FA.feeders.some(q=>q.slot===i))return;const d=Math.hypot(f.x-x,f.y-y);if(d<bd){bd=d;b=i}});return b};
 export function buyFeeder(slot){
  if(slot==null||FA.feeders.some(q=>q.slot===slot))return false;
- if(FA.feeders.length>=FEED_MAX){toast('Są już wszystkie '+FEED_MAX+' paśniki.');return false}
+ if(FA.feeders.length>=FEED_MAX){toast('Stoją już wszystkie '+FEED_MAX+' paśniki.');return false}
  if(!canAfford(FEED_COST))return false;
  pay(FEED_COST,'budowa paśnika');FA.feeders.push(mkFeeder(slot,.5));FA.feeders.sort((a,b)=>a.slot-b.slot);
- toast('Paśnik gotowy: '+FEEDERS[slot].name+'.');return true;
+ toast('Paśnik '+FEEDERS[slot].name+' jest gotowy.');return true;
 }
 // zasięg paśników: jeden obejmuje tylko część lasu (reszta zwierzyny głodna zimą)
 const feedCover=()=>[.4,.7,.85,.95,1][Math.min(4,FA.feeders.length)];
@@ -48,7 +48,7 @@ export const planLeft=()=>['roe','deer','boar'].reduce((a,k)=>a+Math.max(0,FA.pl
 export function cull(kind,visible,quiet=false){
  if(!FA.plan[kind])return false;FA.pop[kind]=Math.max(0,FA.pop[kind]-1);FA.culled[kind]++;FA.seasonCull++;
  if(quiet)return true;
- toast((visible?'Myśliwy z koła łowieckiego pozyskał ':'Koło łowieckie: pozyskano ')+ONE[kind]+' (plan '+FA.culled[kind]+'/'+FA.plan[kind]+').');return true;
+ toast((visible?'Myśliwy z koła łowieckiego pozyskał ':'Koło łowieckie pozyskało ')+ONE[kind]+' (wykonanie planu: '+FA.culled[kind]+'/'+FA.plan[kind]+').');return true;
 }
 // 0.9: partia pozyskania z wyjścia na ambonę (poza widocznymi strzałami): n sztuk rozdzielonych wg tego, co zostało w planie
 export function cullBatch(n,label=''){
@@ -59,16 +59,16 @@ export function cullBatch(n,label=''){
   if(cull(k,false,true))got[k]=(got[k]||0)+1;
  }
  const m=Object.values(got).reduce((a,b)=>a+b,0);
- if(m)toast((label||'Koło łowieckie')+': pozyskano '+m+' szt. ('+Object.entries(got).map(([k,v])=>NAMES[k]+' '+v).join(', ')+'). Plan: '+(GAMEK.reduce((a,k)=>a+FA.culled[k],0))+'/'+(GAMEK.reduce((a,k)=>a+FA.plan[k],0))+'.');
+ if(m)toast((label||'Koło łowieckie')+': pozyskano '+m+' szt. zwierzyny ('+Object.entries(got).map(([k,v])=>NAMES[k]+' '+v).join(', ')+'). Wykonanie planu: '+(GAMEK.reduce((a,k)=>a+FA.culled[k],0))+'/'+(GAMEK.reduce((a,k)=>a+FA.plan[k],0))+'.');
  return m;
 }
 const GAMEK=['roe','deer','boar'];
 // Wniosek o odstrzał redukcyjny: większy plan, myśliwi przychodzą co wieczór.
 export function requestReduction(){
- if(FA.reduction){toast('Wniosek o odstrzał redukcyjny już złożony.');return}
- if(pressure()<1.05){toast('Wniosek odrzucony: zwierzyny nie jest za dużo.');return}
+ if(FA.reduction){toast('Wniosek o odstrzał redukcyjny został już złożony.');return}
+ if(pressure()<1.05){toast('Wniosek odrzucono, ponieważ liczebność zwierzyny nie jest zbyt duża.');return}
  FA.reduction=true;for(const k of ['roe','deer'])FA.plan[k]+=Math.max(1,Math.round(FA.plan[k]*.5));
- toast('Wniosek przyjęty: większy odstrzał saren i jeleni.');
+ toast('Wniosek przyjęto: odstrzał saren i jeleni zostanie zwiększony.');
 }
 // Ile widocznych zwierząt danego gatunku (reprezentacja populacji w obwodzie).
 export function visibleCount(kind){
@@ -92,13 +92,13 @@ export function updateFauna(dt){
  // rykowisko: jesienią o zmierzchu i świcie byki ryczą
  if(cal.season()===2&&((h>17.5&&h<22)||(h>4.5&&h<7.5))&&FA.pop.deer>2){
   FA.roarT-=dt;if(FA.roarT<=0){FA.roarT=25+rand()*70;sfx('roar');
-   if(FA.roarSeason!==cal.year()){FA.roarSeason=cal.year();toast('Rykowisko: o zmierzchu ryczą jelenie.')}}
+   if(FA.roarSeason!==cal.year()){FA.roarSeason=cal.year();toast('Zaczęło się rykowisko — o zmierzchu słychać ryk jeleni.')}}
  }
   fT+=dt;if(fT>1){fT=0;FA.carcasses=FA.carcasses.filter(c=>!c.dead)}
  wolfDaily();
 }
 // ── wilki wędrowne ──
-const OS=n=>n+(n>=5?' osobników':' osobniki');
+const OS=n=>pf(n,'osobnik','osobniki','osobników');
 let wDay=-1;
 function wolfDaily(){
  const d=Math.floor(state.days);if(d===wDay)return;
@@ -107,7 +107,7 @@ function wolfDaily(){
   W.days++;W.total++;
   if(state.days>=W.until){
    W.present=false;W.cool=state.days+12+rand()*12;WX.flee=1;FH.wolves&&FH.wolves();
-   mail('wolf','Wataha wilków poszła dalej.',{quiet:false});
+   mail('wolf','Wataha wilków opuściła las i powędrowała dalej.',{quiet:false});
   }
   return;
  }
@@ -116,8 +116,8 @@ function wolfDaily(){
  if(rand()<.25/12*(FA.pop.roe+FA.pop.deer>30?1.25:.7)){
   const r=rand(),n=r<.25?2:r<.65?3:r<.9?4:5;
   W.present=true;W.size=n;W.until=state.days+3+rand()*5;W.days=0;WX.flee=1.4;FH.wolves&&FH.wolves();
-  mail('wolf','W lesie pojawiła się wataha wilków ('+OS(n)+'). Wilk jest pod ścisłą ochroną. Zwierzyna będzie płochliwa, ale zgryzanie upraw może spaść.');
-  if(ECO.ord&&ECO.ord.cams)mail('wolf','Fotopułapka nagrała wilka.',{quiet:true});
+  mail('wolf','W lesie pojawiła się wataha wilków ('+OS(n)+'). Wilk podlega ścisłej ochronie. Zwierzyna będzie bardziej płochliwa, ale zgryzanie upraw może się zmniejszyć.');
+  if(ECO.ord&&ECO.ord.cams)mail('wolf','Fotopułapka nagrała przechodzącego wilka.',{quiet:true});
  }
 }
 // ── koniec pory roku (wywoływane z raportu) ──

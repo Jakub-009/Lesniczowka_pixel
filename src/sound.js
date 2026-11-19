@@ -19,14 +19,18 @@ function init(){
   const leafH=filt('highpass',700,.5),leafF=filt('lowpass',2200,.5),leafG=gain(0);chain([noise,leafH,leafF,leafG,master]);
   // piła łańcuchowa: piła + szum pasmowy
   const sawO=ac.createOscillator();sawO.type='sawtooth';sawO.frequency.value=150;sawO.start();
-  const sawF=filt('bandpass',1400,1.4),sawG=gain(0);chain([sawO,sawF,sawG,master]);
+  const sawO2=ac.createOscillator();sawO2.type='square';sawO2.frequency.value=300;sawO2.start();   // 1.5.0: druga harmoniczna — ostrzejszy, „dwusuwowy” dźwięk
+  const sawF=filt('bandpass',1400,1.4),sawG=gain(0);chain([sawO,sawF,sawG,master]);const s2G=gain(.35);sawO2.connect(s2G).connect(sawF);
   const sawN=filt('bandpass',2600,2),sawNG=gain(0);chain([noise,sawN,sawNG,master]);
   // silniki: niski pomruk (auta, ciągnik) i brzęczenie quada
+  // 1.5.0: dwa lekko rozstrojone oscylatory (dudnienie jak nierówna praca cylindrów) + podharmoniczna
   const engO=ac.createOscillator();engO.type='sawtooth';engO.frequency.value=48;engO.start();
-  const engF=filt('lowpass',260),engG=gain(0);chain([engO,engF,engG,master]);
+  const engO2=ac.createOscillator();engO2.type='sawtooth';engO2.frequency.value=48*1.013;engO2.start();
+  const engSub=ac.createOscillator();engSub.type='triangle';engSub.frequency.value=24;engSub.start();
+  const engF=filt('lowpass',260,.9),engG=gain(0);chain([engO,engF,engG,master]);engO2.connect(engF);const subG=gain(.6);engSub.connect(subG).connect(engF);
   const quadO=ac.createOscillator();quadO.type='square';quadO.frequency.value=92;quadO.start();
   const quadF=filt('bandpass',700,1.2),quadG=gain(0);chain([quadO,quadF,quadG,master]);
-  A={ac,master,noise,windG,leafG,gust:0,gustT:3,sawO,sawG,sawNG,engO,engG,quadO,quadG,bird:4,wood:12,owl:20};
+  A={ac,master,noise,windF,windG,leafG,gust:0,gustT:3,sawO,sawO2,sawF,sawG,sawNG,engO,engO2,engSub,engG,quadO,quadG,bird:4,wood:12,owl:20};
  }catch(e){A=null}
 }
 export function toggleSound(){
@@ -34,20 +38,32 @@ export function toggleSound(){
  toast(state.mute?'Dźwięk wyłączony (M).':'Dźwięk włączony (M).');
 }
 export function resumeSound(){A?.ac.resume()}
+const LOOPS=['windG','leafG','sawG','sawNG','engG','quadG'];
 const inView=(x,y)=>{const cx=camera.x+VIEW.w/2,cy=camera.y+VIEW.h/2,R=Math.max(VIEW.w,VIEW.h)*.75;return Math.max(0,1-Math.hypot(x-cx,y-cy)/R)};
 export function updateSound(dt){
- if(!A)return;const {ac,master}=A,t=ac.currentTime,on=active()&&!state.mute;
- master.gain.setTargetAtTime(on?.9*SETTINGS.volume:0,t,.1);if(!on)return;
+ if(!A)return;const {ac,master}=A,t=ac.currentTime,audible=!state.mute&&!document.hidden;
+ // 1.5.0: wyciszenie albo ukryta karta — płynne wygaszenie, potem wstrzymanie całego kontekstu audio (nic nie „wisi”)
+ if(!audible){if(ac.state==='running'&&!A.hold){master.gain.cancelScheduledValues(t);master.gain.setTargetAtTime(0,t,.05);A.hold=setTimeout(()=>{A.hold=null;if(state.mute||document.hidden)ac.suspend()},250)}return}
+ if(A.hold){clearTimeout(A.hold);A.hold=null}
+ if(ac.state==='suspended'){master.gain.cancelScheduledValues(t);master.gain.setValueAtTime(0,t);ac.resume()}
+ master.gain.setTargetAtTime(.9*SETTINGS.volume,t,.25);
+ // pauza: tło (wiatr, piły, silniki) cichnie, a krótkie dźwięki interfejsu nadal działają
+ if(!active()){for(const k of LOOPS)A[k].gain.setTargetAtTime(0,t,.08);return}
  const h=cal.hour(),night=cal.night(),se=cal.season();
- A.windG.gain.setTargetAtTime(.22+.2*Math.sin(state.elapsed*.21)**2,t,.4);
+ // wiatr: dwie nieskorelowane fale (okresy ~30 s i ~11 s) zamiast jednej — szum nie „pompuje” regularnie; w porywach jaśnieje (wyższe pasmo)
+ const wv=.5+.3*Math.sin(state.elapsed*.21)+.2*Math.sin(state.elapsed*.57+1.3);
+ A.windG.gain.setTargetAtTime(.16+.28*wv*wv,t,.6);A.windF.frequency.setTargetAtTime(300+260*wv+A.gust*220,t,.8);
  // porywy: co kilka–kilkanaście sekund liście szeleszczą przez 2–4 s, potem cisza (zimą prawie wcale)
  A.gustT-=dt;if(A.gustT<=0){A.gust=A.gust>0?0:(se===3?.15:.4+Math.random()*.6);A.gustT=A.gust>0?2+Math.random()*2:6+Math.random()*10}
  A.leafG.gain.setTargetAtTime(A.gust*.035,t,A.gust>0?.7:1.2);
  let saw=0;for(const p of E.people)if(p.pose==='saw'&&!p.hidden&&p.kind==='worker')saw=Math.max(saw,inView(p.x,p.y));
  A.sawG.gain.setTargetAtTime(saw*.5,t,.05);A.sawNG.gain.setTargetAtTime(saw*.3,t,.05);
- A.sawO.frequency.setTargetAtTime(140+Math.sin(state.elapsed*7)*14+saw*20,t,.05);
+ // piła pod obciążeniem: cykl „wejście w drewno” (obroty spadają ~20%), potem wyjście (obroty rosną) co ~1,6 s
+ const rev=.5+.5*Math.sin(state.elapsed*3.9),sf=128+rev*46+Math.sin(state.elapsed*23)*3;
+ A.sawO.frequency.setTargetAtTime(sf,t,.06);A.sawO2.frequency.setTargetAtTime(sf*2,t,.06);A.sawF.frequency.setTargetAtTime(1100+rev*700,t,.08);
  let eng=0,quad=0;for(const v of E.vehicles){const k=inView(v.pos[0],v.pos[1])*Math.min(1,Math.abs(v.v)/20+.15*(v.parked?0:1));if(v.kind==='quad'||v.kind==='cross')quad=Math.max(quad,k);else if(v.kind!=='bike')eng=Math.max(eng,k)}
- A.engG.gain.setTargetAtTime(eng*.12,t,.15);A.quadG.gain.setTargetAtTime(quad*.3,t,.1);A.quadO.frequency.setTargetAtTime(88+quad*40+Math.sin(state.elapsed*5)*6,t,.08);
+ A.engG.gain.setTargetAtTime(eng*.12,t,.15);
+ const ef=44+eng*18;A.engO.frequency.setTargetAtTime(ef,t,.3);A.engO2.frequency.setTargetAtTime(ef*1.013,t,.3);A.engSub.frequency.setTargetAtTime(ef/2,t,.3);   // obroty rosną z prędkościąA.quadG.gain.setTargetAtTime(quad*.3,t,.1);A.quadO.frequency.setTargetAtTime(88+quad*40+Math.sin(state.elapsed*5)*6,t,.08);
  A.bird-=dt;A.wood-=dt;A.owl-=dt;
  if(!night&&se!==3&&A.bird<=0){A.bird=2+Math.random()*5;chirp()}
  if(!night&&A.wood<=0){A.wood=14+Math.random()*20;drum()}
@@ -65,11 +81,18 @@ function burst(f,q,a,d,at=0){
  noise.connect(b);b.connect(g);g.connect(master);A.live=(A.live||0)+1;
  setTimeout(()=>{try{noise.disconnect(b)}catch(e){}try{b.disconnect()}catch(e){}try{g.disconnect()}catch(e){}A.live--},(d+at)*1000+300);
 }
-function chirp(){const f=1800+Math.random()*1400,n=2+Math.floor(Math.random()*4);for(let i=0;i<n;i++)tone('sine',f,f*(1.2+Math.random()*.3),.08+Math.random()*.05,.09,i*.13)}
+// 1.5.0: trzy typy śpiewu zamiast jednego: krótkie świergoty, trel (szybkie powtórzenia) i opadająca fraza zakończona „zawijasem”
+function chirp(){
+ const r=Math.random(),f=1800+Math.random()*1400;
+ if(r<.4){const n=2+Math.floor(Math.random()*4);for(let i=0;i<n;i++)tone('sine',f,f*(1.2+Math.random()*.3),.06+Math.random()*.04,.09,i*.13)}
+ else if(r<.7){const n=6+Math.floor(Math.random()*6);for(let i=0;i<n;i++)tone('sine',f*1.1,f*.92,.05,.045,i*.06)}
+ else{const n=5+Math.floor(Math.random()*3);for(let i=0;i<n;i++){const fi=f*1.35*Math.pow(.93,i);tone('sine',fi,fi*.9,.055,.08,i*.1)}tone('sine',f*.9,f*1.6,.06,.14,n*.1+.05)}
+}
 function drum(){for(let i=0;i<14;i++)burst(900,4,.07*(1-i/16),.03,i*.055)}
 function owl(){tone('sine',380,340,.09,.35);tone('sine',390,330,.08,.6,.55)}
 export function sfx(k){
- if(!A||state.mute)return;
+ if(!A||state.mute||A.ac.state!=='running')return;
+ if(!active()&&(k==='crash'||k==='creak'||k==='winch'||k==='log'||k==='shot'||k==='roar'))return;   // odgłosy świata nie grają w pauzie
  if(k==='crash'){burst(180,.7,.22,1.1);burst(600,.9,.12,.6,.05);tone('triangle',70,40,.3,.5)}
  else if(k==='creak')tone('sawtooth',220,90,.07,1.1);
  else if(k==='coin'){tone('sine',880,880,.12,.14);tone('sine',1320,1320,.12,.2,.1)}

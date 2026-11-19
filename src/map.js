@@ -130,7 +130,7 @@ export const STANDS={
  '101':{name:'101',desc:'starodrzew sosnowy',mix:{sosna:.84,brzoza:.1,dab:.06},age:[66,88]},
  '102':{name:'102',desc:'świerczyna z brzozą',mix:{swierk:.55,brzoza:.25,sosna:.2},age:[38,62]},
  '103':{name:'103',desc:'dąbrowa z bukiem',mix:{dab:.46,buk:.4,sosna:.14},age:[82,115]},
- '104':{name:'104',desc:'puszcza: stary, ciemny drzewostan, tylko wąski dukt',mix:{swierk:.46,buk:.28,dab:.16,sosna:.1},age:[96,130]},
+ '104':{name:'104',desc:'puszcza — stary, ciemny drzewostan, przez który prowadzi tylko wąski dukt',mix:{swierk:.46,buk:.28,dab:.16,sosna:.1},age:[96,130]},
  '105':{name:'105',desc:'las mieszany przy leśniczówce',mix:{swierk:.38,buk:.36,brzoza:.26},age:[48,76]},
  '106':{name:'106',desc:'młodszy bór mieszany',mix:{sosna:.6,dab:.24,brzoza:.16},age:[32,50]},
  '107':{name:'107',desc:'stara świerczyna',mix:{swierk:.7,sosna:.15,brzoza:.15},age:[70,96]},
@@ -179,3 +179,13 @@ export function pointBlocked(x,y,r=6){
 export const inRect=(x,y,R,m=0)=>x>R.x-m&&x<R.x+R.w+m&&y>R.y-m&&y<R.y+R.h+m;
 export const inPolana=(x,y,m=0)=>POLANY.some(P=>Math.hypot(x-P.x,y-P.y)<polR(Math.atan2(y-P.y,x-P.x),P)+m);
 export const inWorld=(x,y,m=0)=>x>m&&y>m&&x<WORLD.w-m&&y<WORLD.h-m;
+// Zatoki parkingowe przy wjazdach z szosy (przeniesione z order.js w 1.5.0).
+// Współrzędne lokalne (v — w bok od osi drogi, s — wzdłuż drogi od szosy); sg=+1 zatoka po wschodniej stronie drogi, -1 po zachodniej.
+const mkBay=(id,sg)=>({e:EDGES.find(q=>q.id===id),sg,slots:[{v:42,s:126,car:null},{v:42,s:178,car:null}],approach:62,poly:[[20,58],[74,84],[74,196],[20,222]]});
+export const LAYBYS=[mkBay('j2-b1',1),mkBay('j1-a3',-1)];
+// 1.5.0: czy punkt leży na zatoce parkingowej (z zapasem m) — tam nie układa się stosów drewna
+export function inLayby(x,y,m=12){
+ for(const B of LAYBYS){let best=null;for(let s=0;s<=Math.min(B.e.len,260);s+=4){const p=ptAt(B.e,s),d=Math.hypot(p[0]-x,p[1]-y);if(!best||d<best.d)best={d,s,p}}
+  const v=((x-best.p[0])*-best.p[3]+(y-best.p[1])*best.p[2])*B.sg;if(best.s>58-m&&best.s<222+m&&v>10-m&&v<80+m)return true}
+ return false;
+}

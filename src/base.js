@@ -1,6 +1,6 @@
 // Leśniczówka jako baza (0.5): kancelaria z petentami (drewno opałowe, zezwolenia, sadzonki, zgłoszenia),
 // szkółka leśna, garaż z magazynem, kadry (podleśniczy, druga ekipa) i sprzęt. Panel otwiera klawisz L albo klik w dom.
-import {state,cal,toast,zl,displayNumber,clamp,SEASONS} from './core.js';
+import {state,cal,toast,zl,displayNumber,clamp,SEASONS,pf} from './core.js';
 import {DOOR,EDGES,NURSERY,CARPORT,GARAGE,YARD,inRect,oddzial} from './map.js';
 import {drawGarage} from './lodge.js';
 import {goalNode,ENTRY,exitNode} from './roads.js';
@@ -39,18 +39,18 @@ export function buildNursery(){
  if(BASE.nursery)return;if(!canAfford(BUILD.nursery))return;
  pay(BUILD.nursery,'budowa szkółki leśnej');BASE.nursery=true;ECO.nursery={stock:200};
  for(const t of treesIn(NURSERY.x-12,NURSERY.y-12,NURSERY.x+NURSERY.w+12,NURSERY.y+NURSERY.h+12).slice())if(inRect(t.x,t.y,NURSERY,10))removeTree(t);
- toast('Szkółka gotowa: 200 sadzonek, potem ok. 400 na sezon (bez zimy).');
+ toast('Szkółka jest gotowa. Na start daje 200 sadzonek, a potem około 400 na każdą porę roku (z wyjątkiem zimy).');
 }
 export function buildGarage(){
  if(BASE.garage)return;if(!canAfford(BUILD.garage))return;
  pay(BUILD.garage,'budowa garażu z magazynem');BASE.garage=true;ECO.feedCost=70;
- toast('Garaż gotowy. Karma w paśnikach: '+zl(70)+'.');
+ toast('Garaż z magazynem jest gotowy. Karma do paśników kosztuje teraz '+zl(70)+'.');
 }
 export function hireDeputy(){
- if(ECO.staff.pod){toast('Podleśniczy już pracuje.');return}
- if(!BASE.garage){toast('Najpierw zbuduj garaż.');return}
+ if(ECO.staff.pod){toast('Podleśniczy już pracuje w leśnictwie.');return}
+ if(!BASE.garage){toast('Najpierw zbuduj garaż — podleśniczy potrzebuje drugiej terenówki.');return}
  if(!canAfford(COST.pod*5))return;
- ECO.staff.pod=true;hirePod();toast('Zatrudniono podleśniczego ('+zl(COST.pod)+' dziennie).');
+ ECO.staff.pod=true;hirePod();toast('Zatrudniono podleśniczego. Jego pensja wynosi '+zl(COST.pod)+' dziennie.');
 }
 export function fireDeputy(){if(!ECO.staff.pod)return;if(firePod()){ECO.staff.pod=false;toast('Podleśniczy odszedł z leśnictwa.')}}
 
@@ -85,18 +85,18 @@ function deal(u,p){
  if(k==='opal'){
   // chce 2–5 m³; jeśli przy drogach jest mniej, bierze co jest (min. 1 m³)
   const want=2+Math.floor(rand()*4),best=J.stacks.filter(q=>q.sort==='opal'&&!truckBusy(q)).sort((a,b)=>b.vol-a.vol)[0],st=opalStack(want)||(best&&best.vol>=1.2?best:null),vol=st?Math.min(want,st.vol-.2):want;
-  if(!st){note('Brak drewna opałowego przy drogach — petent odszedł z niczym.');toast('Petent chciał '+want+' m³ opału, ale przy drogach nie ma stosów opału.');leave(p);return}
+  if(!st){note('Przy drogach zabrakło opału — petent odszedł z niczym');toast('Petent chciał kupić '+want+' m³ opału, ale przy drogach nie ma stosów drewna opałowego.');leave(p);return}
   const {q,val}=takeFromStack(st,vol),price=Math.round(q*PRICE.opal);earn(price,'sprzedaż drewna opałowego');ledCount('opal',q);
   BASE.stats.opal++;BASE.stats.opalVol+=q;if(ECO.st)ECO.st.opal=(ECO.st.opal||0)+q;   // 1.1.2 (U04): osobno w raporcie sezonu
   BASE.opalPiles.push({x:st.x+st.ax*26,y:st.y+st.ay*26,a:Math.atan2(st.ay,st.ax),vol:q,logs:clamp(Math.round(q*1.5),2,6),bark:'#7a5a3e',sp:'sosna',edge:st.edge,s:clamp(st.s+26,30,st.edge.len-30),day:state.days,odd:st.odd});
-  toast('Kancelaria: sprzedano '+displayNumber(q,1)+' m³ opału za '+zl(price)+'. Odbiór: oddz. '+st.odd+'.');
+  toast('Kancelaria: sprzedano '+displayNumber(q,1)+' m³ opału za '+zl(price)+'. Nabywca odbierze drewno w oddz. '+st.odd+'.');
   note('Sprzedaż opału: '+displayNumber(q,1)+' m³ ('+zl(price)+')');
- }else if(k==='permit'){p.permit=true;earn(40,'zezwolenie (wjazd / zbiór chrustu)');BASE.stats.permits++;note('Wydano zezwolenie (40 zł)');toast('Kancelaria: zezwolenie na zbiór chrustu, 40 zł.'+(chrustNear().length&&!ECO.ord.bar?' Petent pojedzie po chrust przy drodze.':''))}
- else if(k==='seed'){nurseryFix();const n=Math.min(100,ECO.nursery.stock-20);ECO.nursery.stock-=n;earn(Math.round(n*1.8),'sprzedaż sadzonek ze szkółki');BASE.stats.seedlings+=n;note('Sprzedano '+n+' sadzonek');toast('Kancelaria: sprzedano '+n+' sadzonek ze szkółki ('+zl(Math.round(n*1.8))+').')}
+ }else if(k==='permit'){p.permit=true;earn(40,'zezwolenie (wjazd / zbiór chrustu)');BASE.stats.permits++;note('Wydano zezwolenie (40 zł)');toast('Kancelaria: wydano zezwolenie na zbiór chrustu (40 zł).'+(chrustNear().length&&!ECO.ord.bar?' Petent pojedzie po chrust leżący przy drodze.':''))}
+ else if(k==='seed'){nurseryFix();const n=Math.min(100,ECO.nursery.stock-20);ECO.nursery.stock-=n;earn(Math.round(n*1.8),'sprzedaż sadzonek ze szkółki');BASE.stats.seedlings+=n;note('Sprzedano '+pf(n,'sadzonkę','sadzonki','sadzonek'));toast('Kancelaria: sprzedano '+pf(n,'sadzonkę','sadzonki','sadzonek')+' ze szkółki za '+zl(Math.round(n*1.8))+'.')}
  else{
   const t=E.trash.find(q=>!q.dead&&!q.fire&&!q.inc);
   if(t){t.inc=report('trash',t.x,t.y,(t.kind==='snare'?'Petent zgłasza wnyki':'Petent zgłasza śmieci')+' w oddz. '+oddzial(t.x,t.y)+'.',t);note('Zgłoszenie od petenta')}
-  else{bumpProtect(.5,'rozmowa w kancelarii');note('Petent pytał o grzyby i szlaki');toast('Kancelaria: petent pytał o szlaki i grzyby.')}
+  else{bumpProtect(.5,'rozmowa w kancelarii');note('Petent pytał o grzyby i szlaki');toast('Kancelaria: petent pytał o szlaki i miejsca na grzyby.')}
  }
  leave(p);
 }
@@ -120,7 +120,7 @@ export function updateBase(dt){
   if(p.dead||p.done)continue;p.waitT+=dt;
   if(p.serving&&!p.serving.person.busyOffice&&!p.done){p.serving=null}
   if(!p.serving){const u=U.find(atHome);if(u&&!cal.night())serve(u,p)}
-  if(!p.serving&&p.waitT>50){BASE.stats.missed++;toast('Petent odszedł: nikogo nie było w kancelarii.');leave(p,'Petent nie zastał nikogo')}
+  if(!p.serving&&p.waitT>50){BASE.stats.missed++;toast('Petent odszedł, bo nikogo nie było w kancelarii.');leave(p,'Petent nie zastał nikogo w kancelarii')}
  }
  BASE.queue=BASE.queue.filter(p=>!p.dead&&!p.done);
  // odbiory opału w godzinach 9–17 (pon.–sob.)

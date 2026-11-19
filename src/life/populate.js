@@ -1,5 +1,5 @@
 // Kto mieszka w lesie i kto do niego przyjeżdża: zwierzyna w grupach, ruch na drodze, grzybiarze, spacerowicze, rowerzyści, myśliwy.
-import {cal,hash,state,clamp,SEASON_DAYS,toast} from '../core.js';
+import {cal,hash,state,clamp,SEASON_DAYS,toast,pf} from '../core.js';
 import {banned} from '../health.js';
 import {EDGES,NODES,POLANA,roadClearance,oddzial,offLimits} from '../map.js';
 import {AMB,AMB_R} from './ambony.js';
@@ -54,7 +54,7 @@ HK2.chrust=car=>{
  const rp=nearestRoad(t0.slash.x,t0.slash.y,['forest','dukt'],{margin:40});if(!rp)return false;
  car.allow=['main','forest','dukt'];car.label='zbieracz chrustu jedzie do oddz. '+oddzial(t0.x,t0.y);car.cap=4;car.load=0;
  car.goTo({edge:rp.edge,s:rp.s},{park:true,onArrive:v=>{
-  const [cx,cy]=sideSpot(v,16),p=new Ped({kind:'walker',x:cx,y:cy,speed:12,coat:'#6a5a4a',cap:'#c8a24a'});p.label='zbiera chrust (zezwolenie)';v.label='zbieracz chrustu (zaparkowany)';
+  const [cx,cy]=sideSpot(v,16),p=new Ped({kind:'walker',x:cx,y:cy,speed:12,coat:'#6a5a4a',cap:'#c8a24a'});p.label='zbiera chrust na podstawie zezwolenia';v.label='samochód zbieracza chrustu stoi zaparkowany';
   const steps=[];for(const t of grp)steps.push({go:[t.slash.x-8,t.slash.y]},{wait:4,pose:'kneel',face:[t.slash.x,t.slash.y]},{call:q=>{if(t.slash){t.slash=null;forest.dirtyTree(t);v.load=Math.min(4,(v.load||0)+1);q.prop='bag'}}},{go:[cx,cy]},{call:q=>{q.prop=null}});
   p.run([...steps,{call:q=>{q.dead=true;v.label='zbieracz chrustu odjeżdża';leaveMap(v)}}]);
  }});
@@ -83,9 +83,9 @@ export function spawnPickers(berry){
    p.label=berry?'zbieracz jagód':'grzybiarz';
    p.run([{wander:{x:cx,y:cy,r:240,t:110+rand()*110,pickP:.7,until:()=>cal.hour()>15,ok:(x,y)=>roadClearance(x,y)>24}},{go:[cx,cy]},{call:q=>{
     if(rand()<.14*(ECO.ord.parking?.35:1))addTrash(q.x+(rand()-.5)*30,q.y+(rand()-.5)*30);
-    q.hidden=true;q.dead=true;if(++back>=n){v.label=who+' — odjeżdżają';leaveMap(v)}}}]);
+    q.hidden=true;q.dead=true;if(++back>=n){v.label=who+' odjeżdżają';leaveMap(v)}}}]);
   }
-  v.label=who+' (zaparkowani)';
+  v.label=who+' — samochód zaparkowany';
  };
  car.goTo({edge:e,s},{park:bay<0,onArrive:v=>{
   if(bay>=0)HK2.park(v,bay,([cx,cy])=>walk(v,cx,cy));
@@ -159,18 +159,18 @@ const lerp=(A,B,t)=>[A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t];
 function spawnDrive(){
  const D=DRIVES[Math.floor(rand()*DRIVES.length)],e=EDGES.find(q=>q.id===D.road),H=5,B=4;
  const st={odd:D.odd,kills:[],people:[],temp:[],beatersDone:0,end:false};T.drive=st;
- toast('Polowanie zbiorowe w oddz. '+D.odd+'.');
+ toast('W oddz. '+D.odd+' rozpoczyna się polowanie zbiorowe.');
  // zwierzyna w miedzy: kilka sztuk z obwodu wchodzi do pędzonego oddziału
  const mid=lerp(lerp(D.line[0],D.beat[0],.55),lerp(D.line[1],D.beat[1],.55),.5);
  const G=new Group(mid[0],mid[1],Math.floor(rand()*1e4),{range:[60,160],kind:'drive'});
  for(let i=0;i<3+Math.floor(rand()*3);i++){const left=GAME.filter(k=>FA.culled[k]<FA.plan[k]+1),k=left.length?left[Math.floor(rand()*left.length)]:'roe';
   st.temp.push(new Wild({kind:k,x:mid[0]+(rand()-.5)*200,y:mid[1]+(rand()-.5)*200,seed:Math.floor(rand()*1e5),group:G,male:rand()<.4}))}
  for(let c=0;c<2;c++){
-  const car=spawnFrom('car',{color:pick(['#4a5a3a','#5a5f6a','#6a4a3a'])});car.label=c?'naganka':'myśliwi (polowanie zbiorowe)';st.people.push({car});
+  const car=spawnFrom('car',{color:pick(['#4a5a3a','#5a5f6a','#6a4a3a'])});car.label=c?'naganiacze jadą na polowanie':'myśliwi jadą na polowanie zbiorowe';st.people.push({car});
   car.goTo({edge:e,s:clamp(e.len/2+(c?60:-60),40,e.len-40)},{park:true,onArrive:v=>{
    const [cx,cy]=sideSpot(v,18),n=c?B:H;
    for(let i=0;i<n;i++){
-    if(!c){const pos=lerp(D.line[0],D.line[1],(i+.5)/n),p=new Ped({kind:'hunter',x:cx+i*5,y:cy,prop:'rifle',speed:14});p.label='myśliwy (linia)';st.people.push({p});
+    if(!c){const pos=lerp(D.line[0],D.line[1],(i+.5)/n),p=new Ped({kind:'hunter',x:cx+i*5,y:cy,prop:'rifle',speed:14});p.label='myśliwy w linii stanowisk';st.people.push({p});
      p.run([{go:pos},{call:q=>{q.onStand=true;q.label='myśliwy na stanowisku'}},
       {wait:600,pose:'stand',until:()=>st.end,tick:(q,dt)=>{q.aimT=(q.aimT||0)+dt;if(q.aimT<.5)return;q.aimT=0;
         const a=target(q,150);if(!a)return;q.heading=Math.atan2(a.y-q.y,a.x-q.x);if(rand()<.35){if(rand()<.75)st.kills.push(kill(q,a));else shot(q)}}},
@@ -191,7 +191,7 @@ function updateDrive(){
   for(const c of st.kills)c.dead=true;for(const a of st.temp)if(!a.dead)a.dead=true;
   const left=GAME.filter(k=>FA.culled[k]<FA.plan[k]);let extra=0;if(left.length&&rand()<.6*(FA.wolf.present?.7:1)){cull(left[Math.floor(rand()*left.length)],false);extra=1}
   const n=st.kills.length+extra,names={roe:'sarny',deer:'jelenie',boar:'dziki'},by={};for(const c of st.kills)by[c.kind]=(by[c.kind]||0)+1;
-  toast('Pokot w oddz. '+st.odd+': '+(n?n+' szt.'+(st.kills.length?' ('+Object.entries(by).map(([k,v])=>names[k]+' '+v).join(', ')+')':''):'bez pozyskania')+'.');
+  toast('Pokot w oddz. '+st.odd+': '+(n?'pozyskano '+n+' szt. zwierzyny'+(st.kills.length?' ('+Object.entries(by).map(([k,v])=>names[k]+' '+v).join(', ')+')':''):'tym razem bez pozyskania')+'.');
  }
  if(st.end&&st.people.every(z=>z.car?(z.car.leaving||z.car.dead):z.p.dead)){T.drive=null;return}
  if(st.end)for(const z of st.people)if(z.car&&!z.car.leaving&&!z.car.dead&&st.people.every(q=>!q.p||q.p.dead)){z.car.leaving=true;leaveMap(z.car)}
@@ -216,7 +216,7 @@ export function updateVisitors(dt){
  T.clean=(T.clean||0)-dt;if(T.clean<=0){T.clean=20;for(const p of E.people){if(p.dead||p.hidden||!(p.kind==='walker'||p.kind==='picker')||p.petent)continue;
   const t=E.trash.find(q=>!q.dead&&!q.fire&&q.kind!=='snare'&&Math.hypot(q.x-p.x,q.y-p.y)<110);if(!t||rand()>.18)continue;
   t.dead=true;if(t.inc&&t.inc.status!=='done'){t.inc.status='done';for(const u of U)u.queue=u.queue.filter(q=>q!==t.inc)}bumpProtect(.5,'turysta posprzątał');
-  toast((p.kind==='picker'?(p.berry?'Zbieracz jagód':'Grzybiarz'):'Spacerowicz')+' pozbierał śmieci w oddz. '+oddzial(t.x,t.y)+'.')}}
+  toast((p.kind==='picker'?(p.berry?'Zbieracz jagód':'Grzybiarz'):'Spacerowicz')+' zebrał śmieci w oddz. '+oddzial(t.x,t.y)+'.')}}
  const dayN=Math.floor(state.days);
  scheduleHunters(h,se,we,dayN);
  // polowanie zbiorowe: jesień i zima, sobota rano, raz na porę roku

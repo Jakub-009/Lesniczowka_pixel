@@ -40,12 +40,12 @@ function mailHtml(){
   body+=`<div class="mrow2 ${fresh.has(m.id)?'new':''}"><span class="mk" style="color:${k[1]}">${k[0]}</span><div class="mb"><div class="mt"><b>${t}</b><i>${hm(m.day)}</i></div>${r?`<div class="mr">${r}</div>`:''}
    <div class="macts">${m.x!=null?`<button data-wa="go" data-id="${m.id}">Pokaż na mapie</button>`:''}${invState(m)}</div></div></div>`;
  }
- if(!body)body='<p class="hint2">'+(MAIL.length?'W tej zakładce nic nie ma.':'Skrzynka jest pusta. Tu trafiają ważne wiadomości i to, co przy szybkim czasie łatwo przeoczyć.')+'</p>';
+ if(!body)body='<p class="hint2">'+(MAIL.length?'W tej zakładce nic nie ma.':'Skrzynka jest pusta. Trafiają tu ważne wiadomości oraz zdarzenia, które łatwo przeoczyć przy szybkim upływie czasu.')+'</p>';
  const od=FIN.inv.some(i=>!i.paid&&(i.st||0)>=1);
  return head('Leśnictwo Zielony Gaj · skrzynka przy bramie','Poczta')+
  `<div class="tiles t3">${tile('Nowe',fresh.size||'brak')}${tile('W skrzynce',MAIL.length+' / 40')}<div class="tile ${od||dunning()?'bad':owedCount()?'warn':''} click" data-wa="fin"><span>Faktury do zapłaty</span><b>${owedCount()?owedCount()+' · '+zl(owedTotal()):'brak'}</b></div></div>
  <div class="tabs">${MTABS.map(([k,n])=>`<button class="tab ${k===mailTab?'on':''}" data-wa="tab" data-k="${k}">${n} <i class="c">${cnt(k)}</i></button>`).join('')}</div>
- <div class="mlist">${body}</div><p class="hint2">Faktury płacisz w Leśniczówce (L), zakładka Finanse. Tutaj są tylko informacją.</p>`+foot;
+ <div class="mlist">${body}</div><p class="hint2">Faktury opłacasz w Leśniczówce (L), w zakładce Finanse. Tutaj są wyświetlane wyłącznie informacyjnie.</p>`+foot;
 }
 registerWin('mail',{cls:'wide',
  open(){fresh=new Set(MAIL.filter(m=>!m.read).map(m=>m.id));for(const m of MAIL)m.read=true},
@@ -63,26 +63,26 @@ function healthHtml(){
  const P=ECO.parts;if(!P)return head('Leśnictwo Zielony Gaj','Stan lasu')+'<p>Dane pojawią się za chwilę.</p>'+foot;
  const nu=ECO.unrenList.length,dm=Object.entries(ECO.dmgBy).sort((a,b)=>b[1]-a[1]).filter(q=>q[1]>=.05);
  const maxB=HL_BASE+50+YOUNG_MAX,tip=[];
- if(nu)tip.push(`<b>Odnów pniaki.</b> Każdy pniak bez młodego drzewka w pobliżu kosztuje ${displayNumber(UNREN_EACH,2)} pkt (najwyżej −${UNREN_CAP}). Masz ich ${nu}: posadzenie sadzonek przywróci do ${sgn(Math.min(UNREN_CAP,nu*UNREN_EACH))} pkt.`);
- if(P.young<YOUNG_FULL)tip.push(`<b>Sadź też poza pniakami.</b> Posadzone młode drzewka dają premię do +${YOUNG_MAX} pkt (pełna przy ${YOUNG_FULL} drzewkach, teraz ${P.young}).`);
- if(P.trash)tip.push('<b>Uprzątnij śmieci i wysypiska</b> (zgłoszenia po prawej). Wysypisko liczy się jak 4 kupki śmieci.');
- if(P.fires)tip.push('<b>Pożar:</b> każdy trwający kosztuje 3 pkt. Wyślij patrol.');
- if(P.damage>1)tip.push('<b>Szkody</b> (kornik, wichura, zgryzanie, pożary) słabną o 0,4 pkt na dobę. Pułapki na kornika i grodzenie upraw ograniczają nowe.');
- if(!tip.length)tip.push('Nic pilnego. Wskaźnik rośnie wraz z koronami i młodymi uprawami.');
+ if(nu)tip.push(`<b>Odnów pniaki.</b> Każdy pniak, przy którym nie rośnie młode drzewko, obniża wskaźnik o ${displayNumber(UNREN_EACH,2)} pkt (łącznie najwyżej o ${UNREN_CAP} pkt). Masz ich ${nu}; posadzenie sadzonek przywróci nawet ${sgn(Math.min(UNREN_CAP,nu*UNREN_EACH))} pkt.`);
+ if(P.young<YOUNG_FULL)tip.push(`<b>Sadź też poza pniakami.</b> Posadzone młode drzewka dają premię do +${YOUNG_MAX} pkt. Pełną premię uzyskasz przy ${YOUNG_FULL} drzewkach, a obecnie jest ich ${P.young}.`);
+ if(P.trash)tip.push('<b>Uprzątnij śmieci i wysypiska</b> (zgłoszenia po prawej stronie ekranu). Jedno wysypisko liczy się tak jak cztery kupki śmieci.');
+ if(P.fires)tip.push('<b>Pożar:</b> każdy trwający pożar obniża wskaźnik o 3 pkt. Wyślij do niego patrol.');
+ if(P.damage>1)tip.push('<b>Szkody</b> spowodowane przez kornika, wichury, zgryzanie i pożary słabną o 0,4 pkt na dobę. Pułapki na kornika i grodzenie upraw ograniczają powstawanie nowych.');
+ if(!tip.length)tip.push('Nie ma nic pilnego. Wskaźnik rośnie razem z koronami drzew i młodymi uprawami.');
  return head('Leśnictwo Zielony Gaj','Stan lasu')+
  `<div class="tiles">${tile('Teraz',Math.round(state.health)+'%')}${tile('Dąży do',Math.round(P.target)+'%',P.target<state.health-1?'warn':'')}${tile('Pniaki bez odnowienia',nu,nu>5?'warn':'')}${tile('Młode uprawy',P.young+' drzewek')}</div>
  <div class="wsec"><h3>Z czego składa się wskaźnik</h3>
  ${prow('Podstawa','stała część zdrowego lasu',P.base,true)}
- ${prow('Korony drzew','korony pokrywają '+Math.round(P.coverPct*100)+'% pierwotnej powierzchni; wycinka zmniejsza, wzrost i sadzenie przywracają',P.cover,true)}
- ${prow('Młode uprawy','posadzone drzewka młodsze niż 24 lata ('+P.young+' z '+YOUNG_FULL+' do pełnej premii)',P.bonus)}
- ${prow('Pniaki bez odnowienia',nu+' szt. po '+displayNumber(UNREN_EACH,2)+' pkt; pniak jest odnowiony, gdy w promieniu ok. 30 px rośnie młode drzewko',P.unrenPts)}
- ${prow('Śmieci i wysypiska',P.trash?'ciężar '+P.trash+' (kupka 1, wysypisko 4), po 1,2 pkt':'brak',P.trashPts)}
- ${prow('Pożary',P.fires?P.fires+' trwających, po 3 pkt':'brak',P.firePts)}
- ${prow('Szkody',dm.length?dm.map(([k,v])=>k+' '+displayNumber(v,1)).join(', ')+' · słabną o 0,4 na dobę':'brak',-P.damage)}
+ ${prow('Korony drzew','korony pokrywają '+Math.round(P.coverPct*100)+'% pierwotnej powierzchni; wycinka ją zmniejsza, a wzrost drzew i sadzenie przywracają',P.cover,true)}
+ ${prow('Młode uprawy','posadzone drzewka młodsze niż 24 lata ('+P.young+' z '+YOUNG_FULL+' potrzebnych do pełnej premii)',P.bonus)}
+ ${prow('Pniaki bez odnowienia',nu+' szt., każdy po '+displayNumber(UNREN_EACH,2)+' pkt; pniak uznaje się za odnowiony, gdy w promieniu około 30 px rośnie młode drzewko',P.unrenPts)}
+ ${prow('Śmieci i wysypiska',P.trash?'ciężar '+P.trash+' (kupka śmieci to 1, wysypisko to 4), po 1,2 pkt za jednostkę':'brak',P.trashPts)}
+ ${prow('Pożary',P.fires?P.fires+' trwających, każdy po 3 pkt':'brak',P.firePts)}
+ ${prow('Szkody',dm.length?dm.map(([k,v])=>k+' '+displayNumber(v,1)).join(', ')+'; słabną o 0,4 pkt na dobę':'brak',-P.damage)}
  <div class="prow sum"><div><b>Wynik, do którego dąży wskaźnik</b><span>zbliża się do niego stopniowo; maksimum to ${maxB}%</span></div><em>${displayNumber(P.target,1)}%</em></div></div>
  <div class="wsec"><h3>Co poprawi wskaźnik</h3>${tip.map(t=>`<p class="hint2">${t}</p>`).join('')}
  ${nu?`<div class="wact"><button data-wa="show">Pokaż nieodnowione pniaki (${nu})</button><button data-wa="plant">Posadź przy nieodnowionych pniakach (${nu})</button></div>`:''}</div>
- <div class="wsec"><h3>Jak to widzi nadleśniczy</h3><p class="hint2">W raporcie z sezonu liczy się liczba nieodnowionych pniaków (poniżej 6 daje punkt), a nie sam wskaźnik. Ścinanie lasu nie psuje oceny, dopóki odnawiasz.</p></div>`+foot;
+ <div class="wsec"><h3>Jak to widzi nadleśniczy</h3><p class="hint2">W raporcie sezonowym liczy się liczba nieodnowionych pniaków, a nie sam wskaźnik — jeśli jest ich mniej niż 6, otrzymujesz punkt. Wycinka nie obniża oceny, dopóki na bieżąco odnawiasz las.</p></div>`+foot;
 }
 registerWin('health',{cls:'wide',render:healthHtml,
  act(a){
@@ -101,13 +101,13 @@ function protectHtml(){
  const log=ECO.plog.map(e=>`<div class="prow ${e.d<0?'neg':'pos'}"><div><b>${e.why}</b><span>${ago(e.t)} · ${hm(e.t)}</span></div><em>${sgn(e.d)}</em></div>`).join('');
  return head('Leśnictwo Zielony Gaj','Ochrona terenu')+
  `<div class="tiles">${tile('Teraz',Math.round(state.protect)+'%')}${tile('Otwarte zgłoszenia',open.length||'brak')}${tile('Kara na dobę',pen?'−'+pen+' pkt':'brak',pen>=6?'bad':pen?'warn':'')}${tile('Pilne',urgent||'brak',urgent?'bad':'')}</div>
- <div class="wsec"><h3>Otwarte zgłoszenia i ich koszt</h3>${rows||'<p class="hint2">Brak otwartych zgłoszeń. Spokój w lesie.</p>'}${open.length?'<p class="hint2">Kara nalicza się raz na dobę o północy. Łącznie najwyżej −9 pkt.</p>':''}</div>
+ <div class="wsec"><h3>Otwarte zgłoszenia i ich koszt</h3>${rows||'<p class="hint2">Nie ma otwartych zgłoszeń — w lesie panuje spokój.</p>'}${open.length?'<p class="hint2">Kara jest naliczana raz na dobę, o północy, i łącznie wynosi najwyżej 9 pkt.</p>':''}</div>
  <div class="wsec"><h3>Ostatnie zmiany</h3>${log||'<p class="hint2">Od początku gry nic się nie zmieniło.</p>'}</div>
  <div class="wsec"><h3>Zasady</h3>
- <p class="hint2"><b>Kara za brak reakcji (na dobę):</b> nowe pilne (pożar, wjazd, intruz) i zwykłe zgłoszenie −3, drobne (śmieci, padlina) −1. Gdy patrol już działa lub zgłoszenie czeka w kolejce: −1 (tylko pilne i zwykłe). Propozycje (ogrodzenia, ocena, karma) nie karzą.</p>
- <p class="hint2"><b>Odpoczynek:</b> gdy nic nie czeka, a ochrona jest poniżej 74%, wraca +1,5 pkt na dobę.</p>
- <p class="hint2"><b>Plusy:</b> obsłużone zgłoszenia, mandaty z fotopułapki, uprzątnięte wysypiska, wycieczki szkolne, rezerwaty i rzadkie ptaki. <b>Minusy:</b> pożary, kornik, wichury, uciekający sprawcy, zgryzanie upraw.</p>
- <p class="hint2">Fotopułapki (${zl(OC.cams)}), szlabany i znaki zmniejszają liczbę zgłoszeń; zamontujesz je w Leśniczówce (L), zakładka Las i porządek.</p></div>`+foot;
+ <p class="hint2"><b>Kara za brak reakcji (na dobę):</b> nowe zgłoszenie pilne (pożar, nielegalny wjazd, intruz) albo zwykłe obniża ochronę o 3 pkt, a drobne (śmieci, padlina) — o 1 pkt. Gdy patrol już działa albo zgłoszenie czeka w kolejce, kara wynosi 1 pkt i dotyczy tylko zgłoszeń pilnych i zwykłych. Propozycje (ogrodzenia, ocena drzewostanu, karma) nie są karane.</p>
+ <p class="hint2"><b>Spokój:</b> gdy nie czeka żadne zgłoszenie, a ochrona terenu jest niższa niż 74%, odbudowuje się o 1,5 pkt na dobę.</p>
+ <p class="hint2"><b>Wskaźnik podnoszą:</b> obsłużone zgłoszenia, mandaty z fotopułapek, uprzątnięte wysypiska, wycieczki szkolne, rezerwaty i rzadkie ptaki. <b>Obniżają go:</b> pożary, kornik, wichury, sprawcy, którym udało się uciec, oraz zgryzanie upraw.</p>
+ <p class="hint2">Kontrola wjazdów (fotopułapki i znaki zakazu), szlabany oraz znaki przy szosie zmniejszają liczbę zgłoszeń. Wszystko to kupisz w Leśniczówce (L), w zakładce Ochrona terenu.</p></div>`+foot;
 }
 registerWin('protect',{cls:'wide',render:protectHtml,
  act(a,d){

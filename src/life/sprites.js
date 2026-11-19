@@ -225,11 +225,11 @@ export function forwarderTop(g,x,y,h,travel=0,steer=0,col='green'){
   rect(s,-10,-21,3,2,'#ffd06a');rect(s,7,-21,3,2,'#ffd06a');
  });
 }
-export function bunkTop(g,c,load,cap,col='green'){
+export function bunkTop(g,c,load,cap,col='green',travel=0){
  const C=FWD_COL[col]||FWD_COL.green;
  orientedShadow(g,c.x,c.y,c.angle,[[15,26,0]],12);
  drawRotated(g,c.x,c.y,c.angle,s=>{
-  wheels(s,[-13,13],[2,16],7,12,0);   // tylny wózek: dwie osie
+  wheels(s,[-13,13],[2,16],7,12,travel);   // tylny wózek: dwie osie (1.5.0: koła kręcą się razem z maszyną)
   rect(s,-4,-29,8,5,'#2a2a26');rect(s,-2,-28,4,3,'#6a6a62');   // przegub (druga połowa)
   rect(s,-11,-26,22,52,'#2c3324');rect(s,-10,-25,20,50,C[2]);
   rect(s,-5,-27,10,8,'#3a3a36');rect(s,-3,-26,6,6,'#d8b23a');rect(s,-1,-24,2,2,'#2a2a26');      // podstawa żurawia

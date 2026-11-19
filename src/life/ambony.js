@@ -1,6 +1,6 @@
 // 0.9: ambony — stałe miejsca (map.js, AMBONY); pierwsza stoi od początku, kolejne pojawiają się po zakupie w Leśniczówce (L).
 // Każda ambona ma własnego myśliwego (wyjścia wieczorem i o świcie), zasięg ok. 420 px i własną porcję pozyskania.
-import {toast} from '../core.js';
+import {toast,pf} from '../core.js';
 import {AMBONY,colliders} from '../map.js';
 import {treesIn,removeTree} from '../forest.js';
 import {canAfford,pay} from '../economy.js';
@@ -13,14 +13,14 @@ const mkAmb=slot=>({id:slot,slot,x:AMBONY[slot].x,y:AMBONY[slot].y,off:rand(),hD
 export function initAmbony(){AMB.list=[mkAmb(0)]}
 export const nextAmbonaSlot=()=>{for(let i=0;i<AMBONY.length;i++)if(!AMB.list.some(a=>a.slot===i))return i;return null};
 export function buyAmbona(slot){
- if(slot==null){toast('Wszystkie '+AMB_MAX+' ambon już stoi.');return false}
+ if(slot==null){toast('Stoją już wszystkie ambony ('+AMB_MAX+').');return false}
  if(AMB.list.some(a=>a.slot===slot))return false;
  if(!canAfford(AMB_COST))return false;
  pay(AMB_COST,'budowa ambony');
  const a=mkAmb(slot);
  for(const t of treesIn(a.x-18,a.y-18,a.x+18,a.y+18).slice())if(Math.hypot(t.x-a.x,t.y-a.y)<16)removeTree(t);
  AMB.list.push(a);AMB.list.sort((p,q)=>p.slot-q.slot);colliders.push({shape:'circle',x:a.x,y:a.y,r:9,id:'ambona',br:9,amb:a.slot});
- toast('Ambona '+AMBONY[slot].name+' gotowa.');
+ toast('Ambona '+AMBONY[slot].name+' jest gotowa.');
  return true;
 }
 export const ambonaAt=(x,y)=>AMB.list.find(a=>Math.hypot(a.x-x,a.y-y)<20)||null;

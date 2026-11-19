@@ -1,5 +1,5 @@
 // Trzy wskaźniki: budżet leśnictwa, stan lasu, ochrona terenu — plan na porę roku i raport z sezonu (0.2).
-import {state,clamp,cal,toast,zl,displayNumber,SEASONS,SEASON_DAYS,YEARS_PER_SEASON} from './core.js';
+import {state,clamp,cal,toast,zl,displayNumber,SEASONS,SEASONS_ACC,SEASON_DAYS,YEARS_PER_SEASON,pf} from './core.js';
 import {trees,STUMP,STAND,SAPLING_AGE,coverSum,treesIn,seasonGrow,dirtyTree} from './forest.js';
 import {NAT,wildZone} from './nest.js';
 import {E} from './ents.js';
@@ -26,15 +26,15 @@ function issueInvoice(){
  if(sum<1)return;
  const inv={id:FIN.nid++,day:state.days,due:state.days+SEASON_DAYS,amount:sum,base:sum,items:items.map(([k,v])=>[k,Math.round(v)]),paid:false,rem:false,st:0};
  FIN.inv.push(inv);if(FIN.inv.length>40)FIN.inv.splice(0,FIN.inv.length-40);
- const m=mail('invoice','Faktura nr '+inv.id+': '+zl(sum)+' ('+inv.items.map(([k,v])=>k+' '+zl(v)).join(', ')+'). Termin: '+SEASON_DAYS+' dni.',{quiet:true});m.inv=inv.id;
+ const m=mail('invoice','Faktura nr '+inv.id+' na kwotę '+zl(sum)+' ('+inv.items.map(([k,v])=>k+' '+zl(v)).join(', ')+'). Termin płatności: '+pf(SEASON_DAYS,'dzień','dni','dni')+'.',{quiet:true});m.inv=inv.id;
  if(FIN.auto)payInvoice(inv.id,true);
 }
 export function payInvoice(id,silent){
  const i=FIN.inv.find(q=>q.id===id);if(!i||i.paid)return false;
- if(state.money-i.amount<-DEBT_LIM){if(!silent)toast('Brak środków na fakturę nr '+i.id+' ('+zl(i.amount)+'). Sprzedaj drewno (wywóz na karcie stosu).');return false}
+ if(state.money-i.amount<-DEBT_LIM){if(!silent)toast('Brakuje środków na zapłatę faktury nr '+i.id+' ('+zl(i.amount)+'). Sprzedaj drewno — wywóz zamówisz na karcie stosu.');return false}
  pay(i.amount,'faktura nr '+i.id+' (ekipa pozyskowa)',penParts(i));i.paid=true;sfx('coin');if(!silent)toast('Zapłacono fakturę nr '+i.id+': '+zl(i.amount)+'.');return true}
-export function payAllInvoices(){let n=0,sum=0;for(const i of invoices().slice()){const a=i.amount;if(payInvoice(i.id,true)){n++;sum+=a}}toast(n?'Zapłacono '+n+' faktur na '+zl(sum)+'.':owedCount()?'Brak środków na zapłatę faktur.':'Nie ma faktur do zapłaty.');return n}
-export const toggleAutoPay=()=>{FIN.auto=!FIN.auto;toast(FIN.auto?'Płacenie automatyczne: włączone.':'Płacenie automatyczne: wyłączone.');if(FIN.auto)for(const i of invoices().slice())payInvoice(i.id,true)};
+export function payAllInvoices(){let n=0,sum=0;for(const i of invoices().slice()){const a=i.amount;if(payInvoice(i.id,true)){n++;sum+=a}}toast(n?'Zapłacono '+pf(n,'fakturę','faktury','faktur')+' na łączną kwotę '+zl(sum)+'.':owedCount()?'Brakuje środków na zapłatę faktur.':'Nie ma faktur do zapłaty.');return n}
+export const toggleAutoPay=()=>{FIN.auto=!FIN.auto;toast(FIN.auto?'Włączono płacenie automatyczne.':'Wyłączono płacenie automatyczne.');if(FIN.auto)for(const i of invoices().slice())payInvoice(i.id,true)};
 // 1.0: kary za zwlekanie z płatnością (bez końca gry): 1) upomnienie po terminie (+5%, min. 40 zł), 2) wezwanie do zapłaty po kolejnej porze roku
 // (+10%, min. 80 zł; do zapłaty ekipy nie przyjmują nowych zleceń), 3) windykacja po trzech porach roku (+15%, min. 150 zł; bank ściąga należność z konta).
 export const dunning=()=>invoices().some(i=>(i.st||0)>=2);
@@ -43,26 +43,26 @@ function remind(){
  for(const i of invoices().slice()){i.st=i.st||(i.rem?1:0);const late=dd-Math.floor(i.due);if(late<0)continue;
   const note=t=>{const m=mail('invoice',t,{quiet:true});m.inv=i.id};
   if(i.st<1){const fee=Math.max(40,Math.round(i.base*.05));i.amount+=fee;i.rem=true;i.st=1;
-   note('Upomnienie: faktura nr '+i.id+' po terminie. Opłata '+zl(fee)+', do zapłaty '+zl(i.amount)+'.')}
+   note('Upomnienie: minął termin płatności faktury nr '+i.id+'. Naliczono opłatę '+zl(fee)+', więc do zapłaty jest teraz '+zl(i.amount)+'.')}
   else if(i.st<2&&late>=SEASON_DAYS){const fee=Math.max(80,Math.round(i.base*.1));i.amount+=fee;i.st=2;
-   note('Wezwanie do zapłaty: faktura nr '+i.id+'. Opłata '+zl(fee)+', do zapłaty '+zl(i.amount)+'. Ekipy nie przyjmą nowych zleceń do czasu zapłaty.');toast('Wezwanie do zapłaty: faktura nr '+i.id+'. Ekipy nie przyjmą nowych zleceń.')}
+   note('Wezwanie do zapłaty faktury nr '+i.id+'. Naliczono opłatę '+zl(fee)+', więc do zapłaty jest teraz '+zl(i.amount)+'. Do czasu zapłaty ekipy nie przyjmą nowych zleceń.');toast('Przyszło wezwanie do zapłaty faktury nr '+i.id+'. Do czasu zapłaty ekipy nie przyjmą nowych zleceń.')}
   else if(i.st<3&&late>=SEASON_DAYS*3){const fee=Math.max(150,Math.round(i.base*.15));i.amount+=fee;i.st=3;
    pay(i.amount,'windykacja faktury nr '+i.id,penParts(i));i.paid=true;i.forced=true;
-   note('Windykacja: z konta zeszło '+zl(i.amount)+' za fakturę nr '+i.id+' (w tym koszty '+zl(fee)+').')}}}
+   note('Windykacja: z konta pobrano '+zl(i.amount)+' za fakturę nr '+i.id+' (w tym koszty windykacji: '+zl(fee)+').')}}}
 // Pożyczka: jedna naraz, 6 równych rat potrącanych na początku każdej pory roku (nie wstrzymuje gry, gdy saldo jest za niskie — rata idzie na debet).
 export function takeLoan(k=1){
- if(FIN.loan){toast('Masz już pożyczkę.');return}
+ if(FIN.loan){toast('Masz już jedną pożyczkę. Kolejną możesz wziąć po jej spłacie.');return}
  const LN=LOANS[k]||LOANS[1],total=Math.round(LN.amount*(1+LN.rate));FIN.loan={total,left:total,inst:Math.round(total/LN.parts),parts:LN.parts,partsLeft:LN.parts,day:state.days};
  state.money+=LN.amount;ECO.log.unshift({t:state.days,n:LN.amount,why:'pożyczka z banku'});led('Pożyczka — wpływ',LN.amount);sfx('coin');
- mail('money','Pożyczka '+zl(LN.amount)+': do oddania '+zl(total)+' w '+LN.parts+' ratach po '+zl(FIN.loan.inst)+' (raty na początku pory roku).',{quiet:true});toast('Pożyczka '+zl(LN.amount)+' wpłynęła na konto.')}
+ mail('money','Pożyczka w wysokości '+zl(LN.amount)+': do oddania jest '+zl(total)+' w '+LN.parts+' ratach po '+zl(FIN.loan.inst)+'. Raty są pobierane na początku każdej pory roku.',{quiet:true});toast('Pożyczka w wysokości '+zl(LN.amount)+' wpłynęła na konto.')}
 export function repayLoan(){
  const L=FIN.loan;if(!L)return;if(!canAfford(L.left,true))return;
- pay(L.left,'spłata pożyczki (całość)');FIN.loan=null;mail('money','Pożyczka spłacona.',{quiet:true});toast('Pożyczka spłacona.')}
+ pay(L.left,'spłata pożyczki (całość)');FIN.loan=null;mail('money','Pożyczka została spłacona w całości.',{quiet:true});toast('Pożyczka została spłacona w całości.')}
 function installment(){
  const L=FIN.loan;if(!L)return;const a=Math.min(L.left,L.partsLeft<=1?L.left:L.inst);
  pay(a,'rata pożyczki');L.left-=a;L.partsLeft--;
- if(L.left<=0||L.partsLeft<=0){FIN.loan=null;mail('money','Pożyczka spłacona.',{quiet:true})}
- else mail('money','Rata pożyczki '+zl(a)+'. Zostało '+zl(L.left)+' ('+L.partsLeft+' rat).',{quiet:true})}
+ if(L.left<=0||L.partsLeft<=0){FIN.loan=null;mail('money','Ostatnia rata zapłacona — pożyczka została spłacona.',{quiet:true})}
+ else mail('money','Pobrano ratę pożyczki: '+zl(a)+'. Do spłaty pozostało '+zl(L.left)+' ('+pf(L.partsLeft,'rata','raty','rat')+').',{quiet:true})}
 export const saveFin=()=>({inv:FIN.inv,accr:FIN.accr,auto:FIN.auto,loan:FIN.loan,nid:FIN.nid});
 export function loadFin(o){FIN.inv=(o&&o.inv)||[];FIN.accr=(o&&o.accr)||{};FIN.auto=!!(o&&o.auto);FIN.loan=(o&&o.loan)||null;FIN.nid=(o&&o.nid)||(FIN.inv.reduce((a,i)=>Math.max(a,i.id),0)+1)}
 export function initEconomy(){ECO.cover0=coverSum();ECO.lastDay=Math.floor(state.days);ECO.lastSeason=cal.season();ECO.st=blank();newPlan();setMarket()}
@@ -74,10 +74,10 @@ function setMarket(){const se=cal.season();ECO.market=+((se===3?1.1:se===1?.9:1)
 export function dailyCost(real=false){return ECO.dailyBase+(ECO.ord.cams?25:0)+(ECO.ord.parking?15:0)+(ECO.ord.repel?10:0)+(ECO.staff.pod?COST.pod:0)+(J.skid.owned&&(!real||ECO.act.f)?COST.fwd:0)}
 // 1.1.2 (U06): rozbicie kosztów — stałe schodzą codziennie, ekipa B i forwarder tylko za dni, w których pracowały
 export function costParts(){const varB=0,varF=J.skid.owned?COST.fwd:0;return{fixed:dailyCost()-varB-varF,varB,varF}}
-export function costText(){const c=costParts(),v=[c.varB?'ekipa B +'+zl(c.varB):'',c.varF?'forwarder +'+zl(c.varF):''].filter(Boolean);return (c.fixed?zl(c.fixed)+' stałe':'utrzymanie leśniczówki pokrywa nadleśnictwo')+(v.length?' · za dzień pracy: '+v.join(', '):'')}
+export function costText(){const c=costParts(),v=[c.varB?'ekipa B +'+zl(c.varB):'',c.varF?'forwarder +'+zl(c.varF):''].filter(Boolean);return (c.fixed?'Koszty stałe: '+zl(c.fixed)+' dziennie':'Utrzymanie leśniczówki pokrywa nadleśnictwo')+(v.length?'. Dopłata za każdy dzień pracy: '+v.join(', '):'')+'.'}
 // Zlecenia wymagają pieniędzy w kasie — bez nich trzeba najpierw sprzedać drewno.
 // 0.8.3: debet=true — zlecenia, które zarabiają (wycinka), wolno zlecać na debecie do −DEBT_LIM, inaczej z minusu nie da się wyjść.
-export function canAfford(n,debet=false){if(debet?state.money-n>=-DEBT_LIM:state.money>=n)return true;toast(debet?'Limit debetu ('+zl(DEBT_LIM)+') wyczerpany. Sprzedaj drewno (wywóz na karcie stosu).':'Brak środków: potrzeba '+zl(n)+', w kasie '+zl(state.money)+'.');sfx('unmark');return false}
+export function canAfford(n,debet=false){if(debet?state.money-n>=-DEBT_LIM:state.money>=n)return true;toast(debet?'Limit debetu ('+zl(DEBT_LIM)+') został wyczerpany. Sprzedaj drewno — wywóz zamówisz na karcie stosu.':'Brakuje środków: potrzeba '+zl(n)+', a w kasie jest '+zl(state.money)+'.');sfx('unmark');return false}
 // ── 1.1.4: księga kosztów i przychodów (zakładka „Podsumowanie kosztów”) ──
 // LED.d[dzień] = {kategoria: kwota}; przychód dodatni, koszt ujemny. LED.n[dzień] = liczniki (drzewa ścięte, m³ sprzedane).
 export const LED={d:{},n:{},since:null,note:''};
@@ -85,7 +85,7 @@ export const FIN_CATS=['Pożyczka — wpływ','Spłata pożyczki'];   // finanso
 const CATS=[[/^koszty dzienne/,'Koszty stałe (utrzymanie, paliwo, pensje)'],[/paliwo — wyjazd patrolu/,'Patrol — paliwo'],[/przygotowanie gleby/,'Orka (pług)'],
  [/grodzenie|repelent na sadzonki/,'Ochrona upraw (siatki, repelenty)'],[/karma|paśnika/,'Paśniki i karma'],[/firma wywozowa/,'Wywóz śmieci'],
  [/feromonowe|zakaz wstępu|dyżury na wieży/,'Kornik i pożary'],[/zakup forwardera/,'Zakup forwardera'],[/pożyczk/,'Spłata pożyczki'],
- [/budowa|fotopułapki przy|parking leśny|pomnik|rezerwat|odstraszacze|znaki zakazu|ścieżka przyrodnicza/,'Inwestycje i budowy'],
+ [/budowa|fotopułapki przy|parking leśny|pomnik|rezerwat|odstraszacze|odblaski|znaki zakazu|ścieżka przyrodnicza/,'Inwestycje i budowy'],
  [/sprzedaż drewna opałowego/,'Opał (kancelaria)'],[/sprzedaż drewna/,'Drewno (ciężarówka)'],[/premia/,'Premie za plan'],[/mandat/,'Mandaty'],[/sadzonek/,'Sprzedaż sadzonek'],
  [/zezwolenie|wycieczka/,'Opłaty (zezwolenia, wycieczki)']];
 const ITEM={'ścinka i wyrzynka':'Ścinka i wyrzynka (ekipy)','zrywka':'Zrywka','sadzenie':'Sadzenie (ekipy)'};
@@ -118,11 +118,11 @@ export function stat(k,n=1){if(ECO.st)ECO.st[k]+=n}
 function newPlan(){
  const se=cal.season();
  ECO.plan={season:se,year:cal.year(),cut:se===3?12:se===1?6:8,plant:se===0?24:se===2?16:se===3?0:8,handle:2,doneCut:0,donePlant:0,doneHandle:0,rewarded:false,reward:2000};
- const P=ECO.plan;if(state.playing)mail('plan','Plan na '+SEASONS[se]+': '+P.cut+' m³ drewna'+(P.plant?', '+P.plant+' sadzonek':'')+', '+P.handle+' zgłoszenia. Premia '+zl(P.reward)+'.',{quiet:true});
+ const P=ECO.plan;if(state.playing)mail('plan','Plan na '+SEASONS_ACC[se]+': pozyskanie '+P.cut+' m³ drewna'+(P.plant?', posadzenie '+pf(P.plant,'sadzonki','sadzonek','sadzonek'):'')+' i obsłużenie '+pf(P.handle,'zgłoszenia','zgłoszeń','zgłoszeń')+'. Premia za wykonanie planu: '+zl(P.reward)+'.',{quiet:true});
 }
 export function planProgress(kind,n){const P=ECO.plan;if(!P)return;
  if(kind==='cut'){P.doneCut+=n;stat('delivered',n)}else if(kind==='plant'){P.donePlant+=n;stat('planted',n)}else{P.doneHandle+=n;stat('handled',n)}
- if(!P.rewarded&&P.doneCut>=P.cut&&P.donePlant>=(P.season===3?0:P.plant)&&P.doneHandle>=P.handle){P.rewarded=true;earn(P.reward,'premia za plan');mail('plan','Plan na '+SEASONS[P.season]+' wykonany. Premia '+zl(P.reward)+'.')}}
+ if(!P.rewarded&&P.doneCut>=P.cut&&P.donePlant>=(P.season===3?0:P.plant)&&P.doneHandle>=P.handle){P.rewarded=true;earn(P.reward,'premia za plan');mail('plan','Plan na '+SEASONS_ACC[P.season]+' został wykonany. Na konto wpłynęła premia w wysokości '+zl(P.reward)+'.')}}
 // Koniec pory roku: podsumowanie, skok wzrostu lasu, nowy plan.
 function endSeason(){
  const P=ECO.plan,S=ECO.st,G=seasonGrow(YEARS_PER_SEASON),grown=G.grown;ECO.goneRen=(ECO.goneRen||0)*.92+(G.rotted||0);
@@ -130,10 +130,10 @@ function endSeason(){
  for(const h of ECO.seasonHooks)Object.assign(rep,h()||{});
  // ocena nadleśniczego
  const score=(P.rewarded?2:0)+(state.protect>=S.protect0?1:-1)+(S.ignored===0?1:-1)+(ECO.unrenewed<6?1:-1);
- rep.verdict=score>=5?'Wzorowo prowadzone leśnictwo. Nadleśniczy jest zadowolony.':score>=3?'Dobra robota, choć jest jeszcze co poprawiać.':score>=1?'Poprawnie, ale nadleśnictwo oczekuje więcej.':'Nadleśniczy ma zastrzeżenia: las i teren wymagają więcej uwagi.';
+ rep.verdict=score>=5?'Wzorowo prowadzone leśnictwo. Nadleśniczy jest zadowolony.':score>=3?'Dobra robota, choć jest jeszcze coś do poprawy.':score>=1?'Wynik jest poprawny, ale nadleśnictwo oczekuje więcej.':'Nadleśniczy ma zastrzeżenia: las i teren wymagają więcej uwagi.';
  if(state.money<0)rep.verdict+=' Leśnictwo jest na minusie — nadleśniczy oczekuje poprawy finansów.';
  newPlan();ECO.st=blank();setMarket();rep.nextMarket=ECO.market;
- if(ECO.onSeason)ECO.onSeason(rep);else toast('Nowa pora roku: '+SEASONS[rep.next]+'.');
+ if(ECO.onSeason)ECO.onSeason(rep);else toast('Zaczyna się nowa pora roku: '+SEASONS[rep.next]+'.');
 }
 let accT=0;
 // kara dobowa za jedno otwarte zgłoszenie (pokazuje ją też okno Ochrony terenu); łączny sufit: 9 pkt na dobę
@@ -144,10 +144,10 @@ export function updateEconomy(dt){
  if(day!==ECO.lastDay){
   const n=day-ECO.lastDay;ECO.lastDay=day;
   for(let i=0;i<n;i++){
-   {const parts=[['Koszty stałe (utrzymanie, paliwo, pensje)',ECO.dailyBase],['Opłaty dzienne (fotopułapki, parking, odstraszacze)',(ECO.ord.cams?25:0)+(ECO.ord.parking?15:0)+(ECO.ord.repel?10:0)],['Podleśniczy (pensja)',ECO.staff.pod?COST.pod:0],['Forwarder — utrzymanie',J.skid.owned&&ECO.act.f?COST.fwd:0]].filter(q=>q[1]>0);
+   {const parts=[['Koszty stałe (utrzymanie, paliwo, pensje)',ECO.dailyBase],['Opłaty dzienne (kontrola wjazdów, parking, znaki przy szosie)',(ECO.ord.cams?25:0)+(ECO.ord.parking?15:0)+(ECO.ord.repel?10:0)],['Podleśniczy (pensja)',ECO.staff.pod?COST.pod:0],['Forwarder — utrzymanie',J.skid.owned&&ECO.act.f?COST.fwd:0]].filter(q=>q[1]>0);
     const dc=dailyCost(true);if(dc>0)pay(dc,'koszty dzienne (utrzymanie, paliwo, pensje)',parts)}ECO.act.b=false;ECO.act.f=false;issueInvoice();remind();
-   if(state.money<-DEBT_LIM){if(!ECO.debtWarn){ECO.debtWarn=true;mail('money','Debet ponad '+zl(DEBT_LIM)+'. Nadleśnictwo wstrzymuje nowe zakupy i zlecenia wycinki, dopóki nie sprzedasz drewna (wywóz zamawiasz na karcie stosu przy drodze) albo nie poprawi się saldo.')}}else if(state.money>=0)ECO.debtWarn=false;
-   if(state.money<0&&day-ECO.hintDay>=3){const tt=truckTotal();if(tt>=1){ECO.hintDay=day;mail('money','Saldo jest ujemne, a przy drogach leży '+displayNumber(tt,1)+' m³ drewna. Ciężarówka zabierze je sama od 10 m³ — albo zamów wywóz od razu na karcie stosu.')}}
+   if(state.money<-DEBT_LIM){if(!ECO.debtWarn){ECO.debtWarn=true;mail('money','Debet przekroczył '+zl(DEBT_LIM)+'. Nadleśnictwo wstrzymuje nowe zakupy i zlecenia wycinki, dopóki nie sprzedasz drewna (wywóz zamówisz na karcie stosu przy drodze) albo saldo się nie poprawi.')}}else if(state.money>=0)ECO.debtWarn=false;
+   if(state.money<0&&day-ECO.hintDay>=3){const tt=truckTotal();if(tt>=1){ECO.hintDay=day;mail('money','Saldo jest ujemne, a przy drogach leży '+displayNumber(tt,1)+' m³ drewna. Ciężarówka leśna (BDF) przyjeżdża po drewno automatycznie od 5 m³, a ciężarówka do przewozu dłużycy — od 20 m³. Możesz też od razu zamówić wywóz na karcie stosu.')}}
    // 0.6.2: najmocniej obniża ochronę zgłoszenie bez reakcji; to w kolejce patrolu — słabiej (patrol już jedzie)
    // 0.8.1: kara zależy od wagi zgłoszenia (drobiazgi ważą mało, propozycje wcale) i ma dzienny sufit, żeby zaległości nie dobijały na wysokim tempie
    const live=E.incidents.filter(q=>q.status!=='done'&&q.status!=='gone'&&q.type!=='feed'&&q.type!=='assess'&&prio(q)>0);

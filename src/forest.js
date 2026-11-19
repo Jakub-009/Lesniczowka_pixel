@@ -6,11 +6,11 @@ import {distToSegment} from './geometry.js';
 import {roadClearance,oddzial,STANDS,YARD,PLAC,TURNS,POLANA,inRect,inPolana,inWorld,inWater,EDGES,NODES,ptAt,offLimits} from './map.js';
 
 export const SP={
- sosna:{name:'sosna zwyczajna',maxR:30,mature:70,h:28,d:42,vol:1.15,price:250,conifer:true,bark:['#9a5b33','#c47c48']},
- swierk:{name:'świerk pospolity',maxR:25,mature:60,h:30,d:40,vol:1.2,price:240,conifer:true,bark:['#6b5241','#8d7059']},
- dab:{name:'dąb szypułkowy',maxR:42,mature:110,h:30,d:70,vol:2.2,price:420,bark:['#4f4840','#6d6559']},
- buk:{name:'buk zwyczajny',maxR:38,mature:95,h:32,d:60,vol:1.9,price:320,bark:['#7f7c72','#a29e92']},
- brzoza:{name:'brzoza brodawkowata',maxR:22,mature:45,h:24,d:32,vol:.6,price:200,bark:['#e6e2d6','#2e2c28']}
+ sosna:{name:'sosna zwyczajna',acc:'sosnę',maxR:30,mature:70,h:28,d:42,vol:1.15,price:250,conifer:true,bark:['#9a5b33','#c47c48']},
+ swierk:{name:'świerk pospolity',acc:'świerk',maxR:25,mature:60,h:30,d:40,vol:1.2,price:240,conifer:true,bark:['#6b5241','#8d7059']},
+ dab:{name:'dąb szypułkowy',acc:'dąb',maxR:42,mature:110,h:30,d:70,vol:2.2,price:420,bark:['#4f4840','#6d6559']},
+ buk:{name:'buk zwyczajny',acc:'buk',maxR:38,mature:95,h:32,d:60,vol:1.9,price:320,bark:['#7f7c72','#a29e92']},
+ brzoza:{name:'brzoza brodawkowata',acc:'brzozę',maxR:22,mature:45,h:24,d:32,vol:.6,price:200,bark:['#e6e2d6','#2e2c28']}
 };
 export const STAND=0,STUMP=1;
 export const SAPLING_AGE=8;      // młodsze drzewka malujemy jako sadzonki (warstwa dolna)

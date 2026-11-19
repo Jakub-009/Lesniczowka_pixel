@@ -35,7 +35,7 @@ const ERR=new Map();let errToast=false;
 function fail(where,e){
  const k=where+':'+(e&&e.message),n=(ERR.get(k)||0)+1;ERR.set(k,n);
  if(n===1){console.error('[Leśniczówka] błąd w '+where,e);DEBUG.errors=(DEBUG.errors||0)+1}
- if(!errToast){errToast=true;toast('Błąd w grze ('+where+'). Jeśli coś przestanie działać, odśwież stronę (zapis jest automatyczny).')}
+ if(!errToast){errToast=true;toast('Wystąpił błąd w grze ('+where+'). Jeśli coś przestanie działać, odśwież stronę — gra zapisuje się automatycznie.')}
 }
 // Diagnostyka zacięć: czas każdego podsystemu; wolne wywołania (>40 ms) trafiają do __lasDiag().
 const DIAG={slow:[],stalls:[]};
@@ -55,9 +55,9 @@ const SKIP_SEEN=new Set();   // zgłoszenia już otwarte w chwili startu przewij
 const skipLabel=()=>cal.night()?'Do rana':'Do jutra';
 function stopSkip(why){state.skipTo=null;state.ff=1;const b=$('#skipbtn');if(b)b.textContent=skipLabel();if(why)toast(why)}
 // 1.1.1 (U05): przewijanie mówi, dlaczego się zatrzymało
-const busyWhy=()=>{const u=U.find(u=>u.phase!=='home');if(u)return 'Przewijanie wstrzymane: '+u.name+' jest w terenie (interwencja). Czas płynie normalnie, tempo zmienisz przyciskami ×1–×3.';const q=E.incidents.find(q=>q.status==='new'&&(q.type==='fire'||q.type==='intruder'));if(q)return 'Przewijanie wstrzymane: '+(q.type==='fire'?'pożar w lesie':'nocny intruz')+' czeka na reakcję (Q: wyślij patrol).';return 'Przewijanie wstrzymane: trwa obsługa zgłoszenia.'};
+const busyWhy=()=>{const u=U.find(u=>u.phase!=='home');if(u)return 'Przewijanie wstrzymane: '+u.name+' jest na interwencji w terenie. Czas płynie normalnie, a tempo zmienisz przyciskami ×1–×3.';const q=E.incidents.find(q=>q.status==='new'&&(q.type==='fire'||q.type==='intruder'));if(q)return 'Przewijanie wstrzymane: '+(q.type==='fire'?'pożar w lesie':'nocny intruz')+' czeka na reakcję. Naciśnij Q, aby wysłać patrol.';return 'Przewijanie wstrzymane: trwa obsługa zgłoszenia.'};
 function step(dt){
- if(!active())return;
+ if(!active()){updateSound(dt);return}   // 1.5.0: dźwięk musi się dowiedzieć o pauzie, inaczej silniki i piły grały dalej
  // noc przewija się sama (×8), chyba że trwa interwencja albo w lesie pali się / kręci kłusownik
  const busy=U.some(u=>u.phase!=='home')||E.incidents.some(q=>q.status==='assigned'||(q.status==='new'&&(q.type==='fire'||q.type==='intruder')));
  // 0.9: „Do rana / Do jutra” przewija czas do 6:00; przerywa je każde nowe zgłoszenie, interwencja, okno albo pauza
@@ -127,11 +127,11 @@ let lastEl=-1,stillN=0;
 setInterval(()=>{
  if(!state.playing||document.hidden)return;
  const now=performance.now();
- if(now-RT.beat>2500){DIAG.stalls.push({t:Math.round(now/1000),what:'pętla klatek stała',where:RT.where});startLoop();toast('Wykryto zacięcie, gra wznowiona.')}
+ if(now-RT.beat>2500){DIAG.stalls.push({t:Math.round(now/1000),what:'pętla klatek stała',where:RT.where});startLoop();toast('Wykryto zacięcie gry. Gra została wznowiona.')}
  // pauza z okna, którego nie ma na ekranie: zdejmujemy blokadę
  const winOpen=['#report','#base','#win'].some(q=>!$(q).classList.contains('hidden'));
- if(state.modal&&!winOpen){DIAG.stalls.push({t:Math.round(now/1000),what:'blokada okna bez okna'});state.modal=false;state.panel=false;state.paused=false;toast('Odblokowano grę.')}
- if(state.skipTo!=null&&(state.modal||state.paused))stopSkip(state.paused&&!state.modal?'Przewijanie przerwane: pauza.':null);
+ if(state.modal&&!winOpen){DIAG.stalls.push({t:Math.round(now/1000),what:'blokada okna bez okna'});state.modal=false;state.panel=false;state.paused=false;toast('Gra została odblokowana.')}
+ if(state.skipTo!=null&&(state.modal||state.paused))stopSkip(state.paused&&!state.modal?'Przewijanie przerwano, bo gra została wstrzymana.':null);
  {const sb=$('#skipbtn');if(sb&&state.skipTo==null&&sb.textContent!==skipLabel())sb.textContent=skipLabel()}
  const pb=$('#pausebtn'),want=state.paused?'▶':'❚❚';if(pb.textContent!==want)pb.textContent=want;
  // czas stoi mimo braku pauzy
@@ -147,13 +147,13 @@ VIEW.zoom=1;size();centerOn(720,520);clampCamera();
 for(const b of document.querySelectorAll('[data-rate]'))b.addEventListener('click',e=>{if(state.playing&&!state.modal)setRate(+b.dataset.rate,e.shiftKey)});
 $('#skipbtn').addEventListener('click',()=>{
  if(!state.playing||state.modal)return;
- if(state.skipTo!=null){stopSkip('Przewijanie przerwane.');return}
+ if(state.skipTo!=null){stopSkip('Przerwano przewijanie czasu.');return}
  {const busy=U.some(u=>u.phase!=='home')||E.incidents.some(q=>q.status==='assigned'||(q.status==='new'&&(q.type==='fire'||q.type==='intruder')));if(busy){toast(busyWhy().replace('Przewijanie wstrzymane','Nie da się teraz przewinąć'));return}}
  if(state.paused)$('#pausebtn').click();
  const d=Math.floor(state.days),h=(state.days%1)*24;   // cel: najbliższe 6:00
  SKIP_SEEN.clear();for(const q of E.incidents)SKIP_SEEN.add(q);state.skipTo=h<6?d+6/24:d+1+6/24;state.rate=1;
- $('#skipbtn').textContent='Przerwij';toast('Przewijanie do 6:00. Przerwie je zgłoszenie.')});
-$('#pausebtn').addEventListener('click',()=>{if(!state.playing||state.modal)return;state.paused=!state.paused;$('#pausebtn').textContent=state.paused?'▶':'❚❚';toast(state.paused?'Pauza (P).':'Gra wznowiona.')});
+ $('#skipbtn').textContent='Przerwij';toast('Przewijanie czasu do 6:00. Nowe zgłoszenie przerwie przewijanie.')});
+$('#pausebtn').addEventListener('click',()=>{if(!state.playing||state.modal)return;state.paused=!state.paused;$('#pausebtn').textContent=state.paused?'▶':'❚❚';toast(state.paused?'Gra wstrzymana (P).':'Gra wznowiona.')});
 $('#help-close').addEventListener('click',()=>$('#help').classList.add('hidden'));
 initGuide();
 const begin=msg=>{state.playing=true;$('#overlay').classList.add('hidden');C.focus();if(state.mute)toggleSound();resumeSound();toast(msg)};
@@ -165,8 +165,8 @@ function confirmNew(b,go){
 }
 if(hasSave()){$('#continue').style.display='block';$('#start').textContent='NOWA GRA'}
 setTimeout(()=>{if(!state.playing)(hasSave()?$('#continue'):$('#start')).focus()},0);
-$('#start').addEventListener('click',()=>confirmNew($('#start'),()=>{clearSave();begin('Witaj w leśnictwie. H: pomoc.');startTempo();if(SET.tut)openTutor()}));
-$('#continue').addEventListener('click',()=>{if(loadGame()){hud();begin('Zapis wczytany.')}else{toast('Nie udało się wczytać zapisu.');$('#continue').style.display='none'}});
+$('#start').addEventListener('click',()=>confirmNew($('#start'),()=>{clearSave();begin('Witaj w leśnictwie! Pomoc otworzysz klawiszem H.');startTempo();if(SET.tut)openTutor()}));
+$('#continue').addEventListener('click',()=>{if(loadGame()){hud();begin('Wczytano zapis gry.')}else{toast('Nie udało się wczytać zapisu.');$('#continue').style.display='none'}});
 $('#newgame').addEventListener('click',()=>confirmNew($('#newgame'),()=>{clearSave();state.playing=false;removeEventListener('beforeunload',saveGame);location.reload()}));
 addEventListener('beforeunload',saveGame);
 document.addEventListener('visibilitychange',()=>{if(document.hidden){saveGame();if(state.playing&&!state.paused)$('#pausebtn').click()}});

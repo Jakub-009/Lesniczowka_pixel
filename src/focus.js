@@ -8,7 +8,7 @@ import {plantAtStumps,J} from './jobs.js';
 
 // state.showStumps: false | true (cały las) | numer oddziału
 export const stumpList=()=>{const f=state.showStumps;if(!f)return [];return f===true?ECO.unrenList:ECO.unrenList.filter(t=>+oddzial(t.x,t.y)===+f)};
-export function showStumps(v){state.showStumps=v;updateFocusBar();if(v)toast('Podświetlono nieodnowione pniaki. Esc lub „Wyłącz” kończy.')}
+export function showStumps(v){state.showStumps=v;updateFocusBar();if(v)toast('Podświetlono nieodnowione pniaki. Podświetlenie wyłączysz klawiszem Esc albo przyciskiem „Wyłącz”.')}
 export function drawFocus(ctx){
  const L=stumpList();
  if(L.length){
@@ -39,7 +39,7 @@ export function updateFocusBar(){
  const el=$('#focusbar');if(!el)return;
  if(!state.showStumps){el.style.display='none';el.dataset.sig='';return}
  const n=stumpList().length,f=state.showStumps;
- if(!n&&state.playing&&ECO.parts){state.showStumps=false;toast('Wszystkie pniaki odnowione.');el.style.display='none';return}
+ if(!n&&state.playing&&ECO.parts){state.showStumps=false;toast('Wszystkie pniaki zostały odnowione.');el.style.display='none';return}
  const sig=n+'|'+f;if(el.dataset.sig===sig){el.style.display='block';return}el.dataset.sig=sig;
  el.innerHTML=`<div>Podświetlone: nieodnowione pniaki${f===true?'':' w oddz. '+f} <b>(${n})</b><br><span class="muted">żółte: do posadzenia, zielone: sadzonka zaplanowana</span></div><div class="fbb"><button data-fb="plant">Posadź przy wszystkich</button><button class="sec" data-fb="off">Wyłącz</button></div>`;
  el.style.display='block';
